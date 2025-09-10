@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import ProjectsNew from "./pages/ProjectsNew";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Projects />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects-tap" 
+        element={
+          <ProtectedRoute>
+            <ProjectsNew />
           </ProtectedRoute>
         } 
       />

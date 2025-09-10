@@ -26,6 +26,11 @@ const navigation = [
     icon: FolderKanban,
   },
   {
+    title: "Projetos TAP",
+    url: "/projects-tap", 
+    icon: FolderKanban,
+  },
+  {
     title: "Equipe",
     url: "/team",
     icon: Users,
