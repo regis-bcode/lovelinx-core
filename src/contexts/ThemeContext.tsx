@@ -12,17 +12,39 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme') as Theme;
-      return saved || 'light';
+      try {
+        const saved = localStorage.getItem('theme') as Theme;
+        return saved && ['light', 'dark'].includes(saved) ? saved : 'light';
+      } catch {
+        return 'light';
+      }
     }
     return 'light';
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
     const root = window.document.documentElement;
-    root.classList.remove('light', 'dark');
+    if (!root) return;
+    
+    // Safely remove classes only if they exist
+    if (root.classList.contains('light')) {
+      root.classList.remove('light');
+    }
+    if (root.classList.contains('dark')) {
+      root.classList.remove('dark');
+    }
+    
+    // Add the new theme class
     root.classList.add(theme);
-    localStorage.setItem('theme', theme);
+    
+    // Save to localStorage
+    try {
+      localStorage.setItem('theme', theme);
+    } catch (error) {
+      console.warn('Failed to save theme to localStorage:', error);
+    }
   }, [theme]);
 
   const toggleTheme = () => {
