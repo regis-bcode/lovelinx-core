@@ -11,6 +11,39 @@ export interface Task {
   custom_fields: Record<string, any>;
   created_at: string;
   updated_at: string;
+  
+  // Novos campos conforme lista
+  cliente?: string;
+  modulo?: string;
+  area?: string;
+  categoria?: string;
+  etapa_projeto?: string;
+  descricao_detalhada?: string;
+  retorno_acao?: string;
+  acao_realizada?: string;
+  gp_consultoria?: string;
+  responsavel_consultoria?: string;
+  responsavel_cliente?: string;
+  escopo?: string;
+  criticidade?: string;
+  numero_ticket?: string;
+  descricao_ticket?: string;
+  data_identificacao_ticket?: string;
+  responsavel_ticket?: string;
+  status_ticket?: string;
+  link?: string;
+  validado_por?: string;
+  data_prevista_entrega?: string;
+  data_entrega?: string;
+  data_prevista_validacao?: string;
+  dias_para_concluir?: number;
+  percentual_conclusao?: number;
+  link_drive?: string;
+  
+  // Campos para subtarefas
+  parent_task_id?: string;
+  nivel: number;
+  ordem: number;
 }
 
 export interface CustomField {

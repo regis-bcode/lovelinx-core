@@ -527,44 +527,181 @@ export type Database = {
       }
       tasks: {
         Row: {
+          acao_realizada: string | null
+          area: string | null
+          categoria: string | null
+          cliente: string | null
           created_at: string
+          criticidade: string | null
           custom_fields: Json | null
+          data_entrega: string | null
+          data_identificacao_ticket: string | null
+          data_prevista_entrega: string | null
+          data_prevista_validacao: string | null
           data_vencimento: string | null
+          descricao_detalhada: string | null
+          descricao_ticket: string | null
+          dias_para_concluir: number | null
+          escopo: string | null
+          etapa_projeto: string | null
+          gp_consultoria: string | null
           id: string
+          link: string | null
+          link_drive: string | null
+          modulo: string | null
+          nivel: number | null
           nome: string
+          numero_ticket: string | null
+          ordem: number | null
+          parent_task_id: string | null
+          percentual_conclusao: number | null
           prioridade: string
           project_id: string
           responsavel: string | null
+          responsavel_cliente: string | null
+          responsavel_consultoria: string | null
+          responsavel_ticket: string | null
+          retorno_acao: string | null
           status: string
+          status_ticket: string | null
           task_id: string
+          updated_at: string
+          user_id: string
+          validado_por: string | null
+        }
+        Insert: {
+          acao_realizada?: string | null
+          area?: string | null
+          categoria?: string | null
+          cliente?: string | null
+          created_at?: string
+          criticidade?: string | null
+          custom_fields?: Json | null
+          data_entrega?: string | null
+          data_identificacao_ticket?: string | null
+          data_prevista_entrega?: string | null
+          data_prevista_validacao?: string | null
+          data_vencimento?: string | null
+          descricao_detalhada?: string | null
+          descricao_ticket?: string | null
+          dias_para_concluir?: number | null
+          escopo?: string | null
+          etapa_projeto?: string | null
+          gp_consultoria?: string | null
+          id?: string
+          link?: string | null
+          link_drive?: string | null
+          modulo?: string | null
+          nivel?: number | null
+          nome: string
+          numero_ticket?: string | null
+          ordem?: number | null
+          parent_task_id?: string | null
+          percentual_conclusao?: number | null
+          prioridade?: string
+          project_id: string
+          responsavel?: string | null
+          responsavel_cliente?: string | null
+          responsavel_consultoria?: string | null
+          responsavel_ticket?: string | null
+          retorno_acao?: string | null
+          status?: string
+          status_ticket?: string | null
+          task_id: string
+          updated_at?: string
+          user_id: string
+          validado_por?: string | null
+        }
+        Update: {
+          acao_realizada?: string | null
+          area?: string | null
+          categoria?: string | null
+          cliente?: string | null
+          created_at?: string
+          criticidade?: string | null
+          custom_fields?: Json | null
+          data_entrega?: string | null
+          data_identificacao_ticket?: string | null
+          data_prevista_entrega?: string | null
+          data_prevista_validacao?: string | null
+          data_vencimento?: string | null
+          descricao_detalhada?: string | null
+          descricao_ticket?: string | null
+          dias_para_concluir?: number | null
+          escopo?: string | null
+          etapa_projeto?: string | null
+          gp_consultoria?: string | null
+          id?: string
+          link?: string | null
+          link_drive?: string | null
+          modulo?: string | null
+          nivel?: number | null
+          nome?: string
+          numero_ticket?: string | null
+          ordem?: number | null
+          parent_task_id?: string | null
+          percentual_conclusao?: number | null
+          prioridade?: string
+          project_id?: string
+          responsavel?: string | null
+          responsavel_cliente?: string | null
+          responsavel_consultoria?: string | null
+          responsavel_ticket?: string | null
+          retorno_acao?: string | null
+          status?: string
+          status_ticket?: string | null
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+          validado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_parent_task"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          ativo: boolean
+          cargo: string | null
+          created_at: string
+          departamento: string | null
+          email: string | null
+          id: string
+          nome: string
+          project_id: string
+          telefone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ativo?: boolean
+          cargo?: string | null
           created_at?: string
-          custom_fields?: Json | null
-          data_vencimento?: string | null
+          departamento?: string | null
+          email?: string | null
           id?: string
           nome: string
-          prioridade?: string
           project_id: string
-          responsavel?: string | null
-          status?: string
-          task_id: string
+          telefone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ativo?: boolean
+          cargo?: string | null
           created_at?: string
-          custom_fields?: Json | null
-          data_vencimento?: string | null
+          departamento?: string | null
+          email?: string | null
           id?: string
           nome?: string
-          prioridade?: string
           project_id?: string
-          responsavel?: string | null
-          status?: string
-          task_id?: string
+          telefone?: string | null
           updated_at?: string
           user_id?: string
         }
