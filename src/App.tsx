@@ -7,6 +7,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Workspaces from "./pages/Workspaces";
 import Folders from "./pages/Folders";
+import FolderProjects from "./pages/FolderProjects";
 import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -66,7 +67,7 @@ function AppRoutes() {
         path="/workspaces/:workspaceId/folders/:folderId/projects" 
         element={
           <ProtectedRoute>
-            <Projects />
+            <FolderProjects />
           </ProtectedRoute>
         } 
       />
