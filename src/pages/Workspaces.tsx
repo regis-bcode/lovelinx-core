@@ -34,6 +34,7 @@ import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { WorkspaceFormData } from "@/types/workspace";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { WorkspaceWithProjectDialog } from "@/components/workspaces/WorkspaceWithProjectDialog";
 
 const colors = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', 
@@ -154,13 +155,21 @@ export default function Workspaces() {
             </p>
           </div>
           
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-primary hover:opacity-90" onClick={() => resetForm()}>
+          <div className="flex gap-2">
+            <WorkspaceWithProjectDialog>
+              <Button className="bg-gradient-primary hover:opacity-90">
                 <Plus className="mr-2 h-4 w-4" />
-                Novo Workspace
+                Novo Workspace + TAP
               </Button>
-            </DialogTrigger>
+            </WorkspaceWithProjectDialog>
+            
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" onClick={() => resetForm()}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Workspace Simples
+                </Button>
+              </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
                 <DialogTitle>
@@ -217,6 +226,7 @@ export default function Workspaces() {
               </form>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Search and Filters */}
@@ -304,10 +314,18 @@ export default function Workspaces() {
               {searchTerm ? "Tente buscar com outros termos." : "Crie seu primeiro workspace para começar."}
             </p>
             {!searchTerm && (
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Criar Workspace
-              </Button>
+              <div className="flex gap-2 justify-center">
+                <WorkspaceWithProjectDialog>
+                  <Button>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Criar Workspace + TAP
+                  </Button>
+                </WorkspaceWithProjectDialog>
+                <Button variant="outline" onClick={() => setDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Workspace Simples
+                </Button>
+              </div>
             )}
           </div>
         )}

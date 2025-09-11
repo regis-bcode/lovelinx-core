@@ -58,9 +58,9 @@ export default function ProjectDetails() {
               Voltar
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">{project.nomeProjeto}</h1>
+              <h1 className="text-3xl font-bold">{project.nome_projeto}</h1>
               <p className="text-muted-foreground">
-                Cliente: {project.cliente} | Código: {project.codCliente}
+                Cliente: {project.cliente} | Código: {project.cod_cliente}
               </p>
             </div>
           </div>
@@ -84,10 +84,10 @@ export default function ProjectDetails() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                R$ {project.valorProjeto?.toLocaleString() || '0'}
+                R$ {project.valor_projeto?.toLocaleString() || '0'}
               </div>
               <p className="text-xs text-muted-foreground">
-                Receita Atual: R$ {project.receitaAtual?.toLocaleString() || '0'}
+                Receita Atual: R$ {project.receita_atual?.toLocaleString() || '0'}
               </p>
             </CardContent>
           </Card>
@@ -98,10 +98,10 @@ export default function ProjectDetails() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {project.margemAtualPercent?.toFixed(1) || '0'}%
+                {project.margem_atual_percent?.toFixed(1) || '0'}%
               </div>
               <p className="text-xs text-muted-foreground">
-                R$ {project.margemAtualReais?.toLocaleString() || '0'}
+                R$ {project.margem_atual_reais?.toLocaleString() || '0'}
               </p>
             </CardContent>
           </Card>
@@ -112,10 +112,10 @@ export default function ProjectDetails() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {project.goLivePrevisto ? new Date(project.goLivePrevisto).toLocaleDateString('pt-BR') : 'N/A'}
+                {project.go_live_previsto ? new Date(project.go_live_previsto).toLocaleDateString('pt-BR') : 'N/A'}
               </div>
               <p className="text-xs text-muted-foreground">
-                Início: {project.dataInicio ? new Date(project.dataInicio).toLocaleDateString('pt-BR') : 'N/A'}
+                Início: {project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'N/A'}
               </p>
             </CardContent>
           </Card>
@@ -169,11 +169,11 @@ export default function ProjectDetails() {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
                     <span>Valor do Projeto:</span>
-                    <span>R$ {project.valorProjeto?.toLocaleString() || '0'}</span>
+                    <span>R$ {project.valor_projeto?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Receita Atual:</span>
-                    <span>R$ {project.receitaAtual?.toLocaleString() || '0'}</span>
+                    <span>R$ {project.receita_atual?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>MRR:</span>
@@ -181,7 +181,7 @@ export default function ProjectDetails() {
                   </div>
                   <div className="flex justify-between">
                     <span>MRR Total:</span>
-                    <span>R$ {project.mrrTotal?.toLocaleString() || '0'}</span>
+                    <span>R$ {project.mrr_total?.toLocaleString() || '0'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -192,19 +192,19 @@ export default function ProjectDetails() {
                 <CardContent className="space-y-2">
                   <div className="flex justify-between">
                     <span>Margem Venda (%):</span>
-                    <span>{project.margemVendaPercent?.toFixed(1) || '0'}%</span>
+                    <span>{project.margem_venda_percent?.toFixed(1) || '0'}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Margem Atual (%):</span>
-                    <span>{project.margemAtualPercent?.toFixed(1) || '0'}%</span>
+                    <span>{project.margem_atual_percent?.toFixed(1) || '0'}%</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Margem Venda (R$):</span>
-                    <span>R$ {project.margemVendaReais?.toLocaleString() || '0'}</span>
+                    <span>R$ {project.margem_venda_reais?.toLocaleString() || '0'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Margem Atual (R$):</span>
-                    <span>R$ {project.margemAtualReais?.toLocaleString() || '0'}</span>
+                    <span>R$ {project.margem_atual_reais?.toLocaleString() || '0'}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -220,15 +220,15 @@ export default function ProjectDetails() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <strong>Data de Início:</strong>
-                    <p>{project.dataInicio ? new Date(project.dataInicio).toLocaleDateString('pt-BR') : 'Não definida'}</p>
+                    <p>{project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'Não definida'}</p>
                   </div>
                   <div>
                     <strong>Go Live Previsto:</strong>
-                    <p>{project.goLivePrevisto ? new Date(project.goLivePrevisto).toLocaleDateString('pt-BR') : 'Não definido'}</p>
+                    <p>{project.go_live_previsto ? new Date(project.go_live_previsto).toLocaleDateString('pt-BR') : 'Não definido'}</p>
                   </div>
                   <div>
                     <strong>Duração Pós-Produção:</strong>
-                    <p>{project.duracaoPosProducao || 0} dias</p>
+                    <p>{project.duracao_pos_producao || 0} dias</p>
                   </div>
                   <div>
                     <strong>Encerramento:</strong>
