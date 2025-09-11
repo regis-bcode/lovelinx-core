@@ -2,7 +2,7 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Workspaces from "./pages/Workspaces";
@@ -159,7 +159,9 @@ function AppRoutes() {
 
 const App = () => (
   <TooltipProvider>
-    <AppRoutes />
+    <AuthProvider>
+      <AppRoutes />
+    </AuthProvider>
   </TooltipProvider>
 );
 
