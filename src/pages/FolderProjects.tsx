@@ -18,15 +18,6 @@ import {
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -36,7 +27,6 @@ import { useProjects } from "@/hooks/useProjects";
 import { useFolders } from "@/hooks/useFolders";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { useToast } from "@/hooks/use-toast";
-import { WorkspaceWithProjectDialog } from "@/components/workspaces/WorkspaceWithProjectDialog";
 
 export default function FolderProjects() {
   const { workspaceId, folderId } = useParams<{ workspaceId: string; folderId: string }>();
@@ -123,15 +113,13 @@ export default function FolderProjects() {
             </p>
           </div>
           
-          <WorkspaceWithProjectDialog 
-            folderId={folderId}
-            onProjectCreated={() => window.location.reload()}
+          <Button 
+            className="bg-gradient-primary hover:opacity-90"
+            onClick={() => navigate(`/projects-tap/new?folderId=${folderId}`)}
           >
-            <Button className="bg-gradient-primary hover:opacity-90">
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Projeto TAP
-            </Button>
-          </WorkspaceWithProjectDialog>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo Projeto TAP
+          </Button>
         </div>
 
         {/* Search and Filters */}
@@ -240,15 +228,10 @@ export default function FolderProjects() {
               {searchTerm ? "Tente buscar com outros termos." : "Crie seu primeiro projeto TAP para começar."}
             </p>
             {!searchTerm && (
-              <WorkspaceWithProjectDialog
-                folderId={folderId}
-                onProjectCreated={() => window.location.reload()}
-              >
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar Projeto TAP
-                </Button>
-              </WorkspaceWithProjectDialog>
+              <Button onClick={() => navigate(`/projects-tap/new?folderId=${folderId}`)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Criar Projeto TAP
+              </Button>
             )}
           </div>
         )}

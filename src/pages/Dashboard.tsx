@@ -108,10 +108,6 @@ export default function Dashboard() {
               <Calendar className="mr-2 h-4 w-4" />
               Calendário
             </Button>
-            <Button size="sm" className="bg-gradient-primary" onClick={() => navigate("/projects-tap")}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Projeto (TAP)
-            </Button>
           </div>
         </div>
 
@@ -191,10 +187,6 @@ export default function Dashboard() {
                 <CardTitle className="text-xl">Ações Rápidas</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/projects-tap")}>
-                  <Plus className="h-6 w-6" />
-                  <span>Novo Projeto TAP</span>
-                </Button>
                 <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/workspaces")}>
                   <FolderKanban className="h-6 w-6" />
                   <span>Workspaces</span>

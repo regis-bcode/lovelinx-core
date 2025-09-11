@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -13,9 +13,14 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function ProjectsNew() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const { projects, createProject, updateProject, getProject } = useProjects();
+  
+  // Extrair folderId da query string
+  const searchParams = new URLSearchParams(location.search);
+  const folderId = searchParams.get('folderId');
   
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,7 +52,19 @@ export default function ProjectsNew() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={() => navigate("/projects")}
+            onClick={() => {
+              if (folderId) {
+                // Se está criando TAP dentro de uma pasta, volta para a pasta
+                const workspaceId = location.pathname.split('/')[2]; // Extrai workspaceId da URL atual se disponível
+                if (workspaceId && workspaceId !== 'projects-tap') {
+                  navigate(`/workspaces/${workspaceId}/folders/${folderId}/projects`);
+                } else {
+                  navigate("/projects");
+                }
+              } else {
+                navigate("/projects");
+              }
+            }}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Voltar
@@ -69,6 +86,7 @@ export default function ProjectsNew() {
         <ProjectTabs 
           project={project || undefined}
           isLoading={isLoading}
+          folderId={folderId}
         />
       </div>
     </DashboardLayout>

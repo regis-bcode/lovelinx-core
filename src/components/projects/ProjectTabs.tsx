@@ -10,7 +10,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Project } from "@/types/project";
 import { TAP, TAPFormData } from "@/types/tap";
 import { useTAP } from "@/hooks/useTAP";
+import { useProjects } from "@/hooks/useProjects";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import { 
   FileText, 
   DollarSign, 
@@ -24,10 +27,14 @@ import {
 interface ProjectTabsProps {
   project?: Project;
   isLoading?: boolean;
+  folderId?: string | null;
 }
 
-export function ProjectTabs({ project, isLoading = false }: ProjectTabsProps) {
+export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTabsProps) {
   const { tap, createTAP, updateTAP } = useTAP(project?.id);
+  const { createProject } = useProjects();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<TAPFormData>>({
     project_id: project?.id || '',
     
@@ -131,10 +138,10 @@ export function ProjectTabs({ project, isLoading = false }: ProjectTabsProps) {
   }, [tap, project]);
 
   const handleSave = async (tab: string) => {
-    if (!project?.id) {
+    if (!user) {
       toast({
         title: "Erro",
-        description: "Projeto não encontrado.",
+        description: "Usuário não autenticado.",
         variant: "destructive",
       });
       return;
@@ -160,8 +167,10 @@ export function ProjectTabs({ project, isLoading = false }: ProjectTabsProps) {
 
     try {
       if (tap) {
+        // Se já existe TAP, apenas atualiza
         await updateTAP(tap.id, formData);
       } else {
+        // Se não existe TAP, precisa criar projeto primeiro (se não existir) e depois TAP
         if (missingFields.length > 0) {
           toast({
             title: "Campos obrigatórios",
@@ -170,7 +179,72 @@ export function ProjectTabs({ project, isLoading = false }: ProjectTabsProps) {
           });
           return;
         }
-        await createTAP(formData as TAPFormData);
+
+        let targetProjectId = project?.id;
+
+        // Se não há projeto, cria um projeto base
+        if (!project) {
+          const projectFormData = {
+            data: formData.data!,
+            cod_cliente: formData.cod_cliente!,
+            nome_projeto: formData.nome_projeto!,
+            cliente: formData.cod_cliente!, // Usar código como cliente por agora
+            gpp: formData.gpp!,
+            coordenador: formData.coordenador!,
+            produto: formData.produto!,
+            esn: formData.esn!,
+            arquiteto: formData.arquiteto!,
+            criticidade: formData.criticidade_totvs!,
+            folder_id: folderId || undefined,
+            valor_projeto: 0,
+            receita_atual: 0,
+            margem_venda_percent: 0,
+            margem_atual_percent: 0,
+            margem_venda_reais: 0,
+            margem_atual_reais: 0,
+            mrr: 0,
+            investimento_perdas: 0,
+            mrr_total: 0,
+            investimento_comercial: 0,
+            psa_planejado: 0,
+            investimento_erro_produto: 0,
+            diferenca_psa_projeto: 0,
+            projeto_em_perda: false,
+            duracao_pos_producao: 0,
+          };
+
+          const newProject = await createProject(projectFormData);
+          if (!newProject) {
+            throw new Error("Falha ao criar projeto base");
+          }
+          targetProjectId = newProject.id;
+        }
+
+        // Agora cria a TAP com o project_id
+        const tapFormData = {
+          ...formData,
+          project_id: targetProjectId!,
+        } as TAPFormData;
+
+        await createTAP(tapFormData);
+        
+        // Se foi criado via pasta, navega de volta para a pasta
+        if (folderId && tab === 'Identificação') {
+          toast({
+            title: "TAP criado com sucesso!",
+            description: "Você será redirecionado para a pasta.",
+          });
+          // Aguarda um pouco para mostrar o toast antes de navegar
+          setTimeout(() => {
+            const currentUrl = window.location.pathname;
+            const workspaceMatch = currentUrl.match(/\/workspaces\/([^\/]+)/);
+            if (workspaceMatch) {
+              navigate(`/workspaces/${workspaceMatch[1]}/folders/${folderId}/projects`);
+            } else {
+              navigate('/projects');
+            }
+          }, 1500);
+        }
       }
       
       toast({
