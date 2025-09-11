@@ -33,12 +33,19 @@ import { ProjectForm } from "@/components/projects/ProjectForm";
 import { useProjects } from "@/hooks/useProjects";
 import { Project, ProjectFormData } from "@/types/project";
 import { toast } from "sonner";
+import { useParams, useNavigate } from "react-router-dom";
 
 export default function ProjectsNew() {
-  const { projects, loading, createProject, updateProject, deleteProject } = useProjects();
+  const { projects, loading, createProject, updateProject, deleteProject, getProject } = useProjects();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  
+  const isEditing = !!id;
   const [searchTerm, setSearchTerm] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [showForm, setShowForm] = useState(isEditing);
+  const [editingProject, setEditingProject] = useState<Project | null>(
+    isEditing && id ? getProject(id) : null
+  );
   
   const filteredProjects = projects.filter(project =>
     project.nomeProjeto.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -61,6 +68,9 @@ export default function ProjectsNew() {
       if (editingProject) {
         updateProject(editingProject.id, data);
         toast.success("Projeto atualizado com sucesso!");
+        if (isEditing) {
+          navigate('/projects-tap');
+        }
       } else {
         createProject(data);
         toast.success("Projeto criado com sucesso!");
@@ -231,6 +241,10 @@ export default function ProjectsNew() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}`)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver Detalhes
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleEditProject(project)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Editar

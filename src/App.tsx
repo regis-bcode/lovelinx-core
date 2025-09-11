@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
+import ProjectDetails from "./pages/ProjectDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -54,6 +55,22 @@ function AppRoutes() {
       />
       <Route 
         path="/projects-tap" 
+        element={
+          <ProtectedRoute>
+            <ProjectsNew />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects-tap/:id" 
+        element={
+          <ProtectedRoute>
+            <ProjectDetails />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/projects-tap/:id/edit" 
         element={
           <ProtectedRoute>
             <ProjectsNew />
