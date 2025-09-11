@@ -1,22 +1,25 @@
 import { useState, useEffect } from 'react';
 import { Stakeholder, StakeholderFormData } from '@/types/stakeholder';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useStakeholders(projectId: string) {
   const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const STORAGE_KEY = `stakeholders-${projectId}`;
-
   useEffect(() => {
     loadStakeholders();
   }, [projectId]);
 
-  const loadStakeholders = () => {
+  const loadStakeholders = async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setStakeholders(JSON.parse(stored));
-      }
+      const { data, error } = await supabase
+        .from('stakeholders')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setStakeholders(data || []);
     } catch (error) {
       console.error('Erro ao carregar stakeholders:', error);
     } finally {
@@ -24,48 +27,60 @@ export function useStakeholders(projectId: string) {
     }
   };
 
-  const saveStakeholders = (newStakeholders: Stakeholder[]) => {
+  const createStakeholder = async (data: StakeholderFormData): Promise<Stakeholder | null> => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newStakeholders));
-      setStakeholders(newStakeholders);
+      const { data: newStakeholder, error } = await supabase
+        .from('stakeholders')
+        .insert([data])
+        .select()
+        .single();
+
+      if (error) throw error;
+      
+      setStakeholders(prev => [newStakeholder, ...prev]);
+      return newStakeholder;
     } catch (error) {
-      console.error('Erro ao salvar stakeholders:', error);
+      console.error('Erro ao criar stakeholder:', error);
+      return null;
     }
   };
 
-  const createStakeholder = (data: StakeholderFormData): Stakeholder => {
-    const newStakeholder: Stakeholder = {
-      ...data,
-      id: generateId(),
-      projectId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    
-    const updated = [...stakeholders, newStakeholder];
-    saveStakeholders(updated);
-    return newStakeholder;
+  const updateStakeholder = async (id: string, data: Partial<StakeholderFormData>): Promise<Stakeholder | null> => {
+    try {
+      const { data: updatedStakeholder, error } = await supabase
+        .from('stakeholders')
+        .update(data)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setStakeholders(prev => 
+        prev.map(s => s.id === id ? updatedStakeholder : s)
+      );
+      return updatedStakeholder;
+    } catch (error) {
+      console.error('Erro ao atualizar stakeholder:', error);
+      return null;
+    }
   };
 
-  const updateStakeholder = (id: string, data: Partial<StakeholderFormData>): Stakeholder | null => {
-    const index = stakeholders.findIndex(s => s.id === id);
-    if (index === -1) return null;
+  const deleteStakeholder = async (id: string): Promise<boolean> => {
+    try {
+      const { error } = await supabase
+        .from('stakeholders')
+        .delete()
+        .eq('id', id);
 
-    const updated = [...stakeholders];
-    updated[index] = {
-      ...updated[index],
-      ...data,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    saveStakeholders(updated);
-    return updated[index];
-  };
+      if (error) throw error;
 
-  const deleteStakeholder = (id: string): boolean => {
-    const filtered = stakeholders.filter(s => s.id !== id);
-    saveStakeholders(filtered);
-    return true;
+      setStakeholders(prev => prev.filter(s => s.id !== id));
+      return true;
+    } catch (error) {
+      console.error('Erro ao excluir stakeholder:', error);
+      return false;
+    }
   };
 
   return {
@@ -75,8 +90,4 @@ export function useStakeholders(projectId: string) {
     updateStakeholder,
     deleteStakeholder,
   };
-}
-
-function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }

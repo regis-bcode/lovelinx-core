@@ -22,27 +22,35 @@ export function StakeholdersList({ projectId }: StakeholdersListProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<StakeholderFormData>({
-    projectId,
+    project_id: projectId,
     nome: '',
     cargo: '',
     departamento: '',
     nivel: 'Operacional',
     email: '',
     telefone: '',
-    tipoInfluencia: 'Médio',
+    tipo_influencia: 'Médio',
     interesses: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       if (editingId) {
-        updateStakeholder(editingId, formData);
-        toast({ title: "Stakeholder atualizado com sucesso!" });
+        const result = await updateStakeholder(editingId, formData);
+        if (result) {
+          toast({ title: "Stakeholder atualizado com sucesso!" });
+        } else {
+          throw new Error("Falha ao atualizar");
+        }
       } else {
-        createStakeholder(formData);
-        toast({ title: "Stakeholder criado com sucesso!" });
+        const result = await createStakeholder(formData);
+        if (result) {
+          toast({ title: "Stakeholder criado com sucesso!" });
+        } else {
+          throw new Error("Falha ao criar");
+        }
       }
       
       resetForm();
@@ -57,14 +65,14 @@ export function StakeholdersList({ projectId }: StakeholdersListProps) {
 
   const resetForm = () => {
     setFormData({
-      projectId,
+      project_id: projectId,
       nome: '',
       cargo: '',
       departamento: '',
       nivel: 'Operacional',
       email: '',
       telefone: '',
-      tipoInfluencia: 'Médio',
+      tipo_influencia: 'Médio',
       interesses: '',
     });
     setEditingId(null);
@@ -76,10 +84,17 @@ export function StakeholdersList({ projectId }: StakeholdersListProps) {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este stakeholder?')) {
-      deleteStakeholder(id);
-      toast({ title: "Stakeholder excluído com sucesso!" });
+      const result = await deleteStakeholder(id);
+      if (result) {
+        toast({ title: "Stakeholder excluído com sucesso!" });
+      } else {
+        toast({ 
+          title: "Erro ao excluir stakeholder", 
+          variant: "destructive" 
+        });
+      }
     }
   };
 
@@ -166,7 +181,7 @@ export function StakeholdersList({ projectId }: StakeholdersListProps) {
                 </div>
                 <div>
                   <Label htmlFor="tipoInfluencia">Tipo de Influência</Label>
-                  <Select value={formData.tipoInfluencia} onValueChange={(value: any) => setFormData({...formData, tipoInfluencia: value})}>
+                  <Select value={formData.tipo_influencia} onValueChange={(value: any) => setFormData({...formData, tipo_influencia: value})}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -218,7 +233,7 @@ export function StakeholdersList({ projectId }: StakeholdersListProps) {
                 <TableCell>{stakeholder.cargo}</TableCell>
                 <TableCell>{stakeholder.departamento}</TableCell>
                 <TableCell>{stakeholder.nivel}</TableCell>
-                <TableCell>{stakeholder.tipoInfluencia}</TableCell>
+                <TableCell>{stakeholder.tipo_influencia}</TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button

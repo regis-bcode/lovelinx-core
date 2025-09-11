@@ -14,7 +14,111 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      communication_plan: {
+        Row: {
+          aprovadores: string | null
+          canal_envio: string | null
+          codigo: string
+          comunicacao: string | null
+          conteudo: string | null
+          created_at: string
+          envolvidos: string | null
+          formato_arquivo: string | null
+          frequencia: string | null
+          id: string
+          idioma: string | null
+          link_documento: string | null
+          midia: string | null
+          objetivo: string | null
+          project_id: string
+          responsavel: string | null
+          updated_at: string
+        }
+        Insert: {
+          aprovadores?: string | null
+          canal_envio?: string | null
+          codigo: string
+          comunicacao?: string | null
+          conteudo?: string | null
+          created_at?: string
+          envolvidos?: string | null
+          formato_arquivo?: string | null
+          frequencia?: string | null
+          id?: string
+          idioma?: string | null
+          link_documento?: string | null
+          midia?: string | null
+          objetivo?: string | null
+          project_id: string
+          responsavel?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aprovadores?: string | null
+          canal_envio?: string | null
+          codigo?: string
+          comunicacao?: string | null
+          conteudo?: string | null
+          created_at?: string
+          envolvidos?: string | null
+          formato_arquivo?: string | null
+          frequencia?: string | null
+          id?: string
+          idioma?: string | null
+          link_documento?: string | null
+          midia?: string | null
+          objetivo?: string | null
+          project_id?: string
+          responsavel?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      stakeholders: {
+        Row: {
+          cargo: string
+          created_at: string
+          departamento: string
+          email: string
+          id: string
+          interesses: string | null
+          nivel: string
+          nome: string
+          project_id: string
+          telefone: string | null
+          tipo_influencia: string
+          updated_at: string
+        }
+        Insert: {
+          cargo: string
+          created_at?: string
+          departamento: string
+          email: string
+          id?: string
+          interesses?: string | null
+          nivel: string
+          nome: string
+          project_id: string
+          telefone?: string | null
+          tipo_influencia: string
+          updated_at?: string
+        }
+        Update: {
+          cargo?: string
+          created_at?: string
+          departamento?: string
+          email?: string
+          id?: string
+          interesses?: string | null
+          nivel?: string
+          nome?: string
+          project_id?: string
+          telefone?: string | null
+          tipo_influencia?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

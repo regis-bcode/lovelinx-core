@@ -1,16 +1,16 @@
 export interface Stakeholder {
   id: string;
-  projectId: string;
+  project_id: string;
   nome: string;
   cargo: string;
   departamento: string;
-  nivel: 'Executivo' | 'Gerencial' | 'Operacional';
+  nivel: string;
   email: string;
   telefone: string;
-  tipoInfluencia: 'Alto' | 'Médio' | 'Baixo';
+  tipo_influencia: string;
   interesses: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export type StakeholderFormData = Omit<Stakeholder, 'id' | 'createdAt' | 'updatedAt'>;
+export type StakeholderFormData = Omit<Stakeholder, 'id' | 'created_at' | 'updated_at'>;

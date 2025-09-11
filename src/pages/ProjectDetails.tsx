@@ -8,6 +8,7 @@ import { ArrowLeft, Edit, Calendar, DollarSign, Users, AlertTriangle } from "luc
 import { useProjects } from "@/hooks/useProjects";
 import { StakeholdersList } from "@/components/projects/StakeholdersList";
 import { RisksList } from "@/components/projects/RisksList";
+import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -247,16 +248,7 @@ export default function ProjectDetails() {
           </TabsContent>
 
           <TabsContent value="communication" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Plano de Comunicação</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  Em desenvolvimento - Plano de Comunicação será implementado na próxima fase
-                </div>
-              </CardContent>
-            </Card>
+            <CommunicationPlanList projectId={project.id} />
           </TabsContent>
         </Tabs>
       </div>
