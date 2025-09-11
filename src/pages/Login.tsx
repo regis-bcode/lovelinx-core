@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,32 @@ import { Eye, EyeOff, FolderKanban } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function Login() {
-  const [email, setEmail] = useState("admin@projectos.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
+
+  // SEO: title, meta description, canonical
+  useEffect(() => {
+    document.title = isSignup ? "Criar conta | Sistema de Projetos" : "Login | Sistema de Projetos";
+    const desc = "Acesse ou crie sua conta no Sistema de Projetos para gerenciar Workspaces, Pastas e Projetos.";
+    let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "description";
+      document.head.appendChild(meta);
+    }
+    meta.content = desc;
+
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = window.location.href;
+  }, [isSignup]);
   
   const { login, signUp, isAuthenticated } = useAuth();
 
@@ -25,16 +46,20 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      await login(email, password);
+      if (isSignup) {
+        await signUp(email, password);
+      } else {
+        await login(email, password);
+      }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error(isSignup ? "Signup error:" : "Login error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-glow">
@@ -48,9 +73,9 @@ export default function Login() {
         
         <Card className="shadow-large border-0 bg-gradient-card">
           <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl text-center">Login</CardTitle>
+            <CardTitle className="text-2xl text-center">{isSignup ? "Criar conta" : "Login"}</CardTitle>
             <CardDescription className="text-center">
-              Entre com email e senha para continuar
+              {isSignup ? "Cadastre-se com email e senha para começar" : "Entre com email e senha para continuar"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -101,19 +126,25 @@ export default function Login() {
                 className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
                 disabled={isLoading}
               >
-                {isLoading ? "Entrando..." : "Entrar"}
+                {isLoading ? (isSignup ? "Enviando..." : "Entrando...") : (isSignup ? "Criar conta" : "Entrar")}
               </Button>
             </form>
             
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Credenciais de teste: <br />
-                <strong>admin@projectos.com</strong> / <strong>123456</strong>
-              </p>
-            </div>
+              <div className="mt-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {isSignup ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
+                  <button
+                    type="button"
+                    className="underline underline-offset-4 text-foreground hover:opacity-80"
+                    onClick={() => setIsSignup((v) => !v)}
+                  >
+                    {isSignup ? "Entrar" : "Criar conta"}
+                  </button>
+                </p>
+              </div>
           </CardContent>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }
