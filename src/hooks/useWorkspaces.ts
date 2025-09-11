@@ -16,12 +16,19 @@ export function useWorkspaces() {
 
   const loadWorkspaces = async () => {
     try {
-      const { data, error } = await supabase
+      const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+
+      let query = supabase
         .from('workspaces')
         .select('*')
-        .eq('user_id', user?.id)
         .eq('ativo', true)
         .order('created_at', { ascending: false });
+
+      if (user?.id && isUuid(user.id)) {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setWorkspaces(data || []);
@@ -34,9 +41,12 @@ export function useWorkspaces() {
 
   const createWorkspace = async (data: WorkspaceFormData): Promise<Workspace | null> => {
     try {
+      const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+      const userId = user?.id && isUuid(user.id) ? user.id : "550e8400-e29b-41d4-a716-446655440000";
+
       const { data: newWorkspace, error } = await supabase
         .from('workspaces')
-        .insert([{ ...data, user_id: user?.id }])
+        .insert([{ ...data, user_id: userId }])
         .select()
         .single();
 

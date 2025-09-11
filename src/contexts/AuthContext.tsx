@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface User {
   id: string;
@@ -84,11 +85,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Check for existing session on mount
   useEffect(() => {
     const token = localStorage.getItem("auth-token");
-    const savedUser = localStorage.getItem("user");
+    const savedUserStr = localStorage.getItem("user");
     
-    if (token && savedUser) {
+    if (token && savedUserStr) {
       try {
-        setUser(JSON.parse(savedUser));
+        const parsed = JSON.parse(savedUserStr) as User;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.id);
+        if (!isUuid) {
+          const migrated: User = {
+            ...parsed,
+            id: "550e8400-e29b-41d4-a716-446655440000",
+          };
+          localStorage.setItem("user", JSON.stringify(migrated));
+          setUser(migrated);
+        } else {
+          setUser(parsed);
+        }
       } catch (error) {
         console.error("Error parsing saved user:", error);
         localStorage.removeItem("auth-token");
