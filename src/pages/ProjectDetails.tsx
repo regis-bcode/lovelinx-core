@@ -160,17 +160,7 @@ export default function ProjectDetails() {
           </TabsList>
 
           <TabsContent value="tap" className="space-y-4">
-            <ProjectTabs 
-              project={project} 
-              onSave={async (data) => {
-                try {
-                  await updateProject(project.id, data);
-                  console.log('TAP atualizada com sucesso');
-                } catch (error) {
-                  console.error('Erro ao salvar TAP:', error);
-                }
-              }} 
-            />
+            <ProjectTabs project={project} />
           </TabsContent>
 
           <TabsContent value="risks" className="space-y-4">

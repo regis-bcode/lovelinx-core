@@ -161,15 +161,20 @@ export type Database = {
           coordenador: string
           created_at: string
           criticidade: string
+          criticidade_cliente: string | null
           data: string
           data_inicio: string | null
           diferenca_psa_projeto: number | null
           drive: string | null
+          duracao_meses: number | null
           duracao_pos_producao: number | null
           encerramento: string | null
           escopo: string | null
           esn: string
           folder_id: string | null
+          gerente_escritorio: string | null
+          gerente_portfolio: string | null
+          gerente_projeto: string | null
           go_live_previsto: string | null
           gpp: string
           id: string
@@ -200,15 +205,20 @@ export type Database = {
           coordenador: string
           created_at?: string
           criticidade: string
+          criticidade_cliente?: string | null
           data: string
           data_inicio?: string | null
           diferenca_psa_projeto?: number | null
           drive?: string | null
+          duracao_meses?: number | null
           duracao_pos_producao?: number | null
           encerramento?: string | null
           escopo?: string | null
           esn: string
           folder_id?: string | null
+          gerente_escritorio?: string | null
+          gerente_portfolio?: string | null
+          gerente_projeto?: string | null
           go_live_previsto?: string | null
           gpp: string
           id?: string
@@ -239,15 +249,20 @@ export type Database = {
           coordenador?: string
           created_at?: string
           criticidade?: string
+          criticidade_cliente?: string | null
           data?: string
           data_inicio?: string | null
           diferenca_psa_projeto?: number | null
           drive?: string | null
+          duracao_meses?: number | null
           duracao_pos_producao?: number | null
           encerramento?: string | null
           escopo?: string | null
           esn?: string
           folder_id?: string | null
+          gerente_escritorio?: string | null
+          gerente_portfolio?: string | null
+          gerente_projeto?: string | null
           go_live_previsto?: string | null
           gpp?: string
           id?: string
@@ -331,6 +346,143 @@ export type Database = {
           {
             foreignKeyName: "stakeholders_project_id_new_fkey"
             columns: ["project_id_new"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tap: {
+        Row: {
+          arquiteto: string
+          cod_cliente: string
+          coordenador: string
+          created_at: string
+          criticidade_cliente: string
+          criticidade_totvs: string
+          data: string
+          data_inicio: string | null
+          diferenca_psa_projeto: number | null
+          drive: string | null
+          duracao_pos_producao: number | null
+          encerramento: string | null
+          escopo: string | null
+          esn: string
+          gerente_escritorio: string
+          gerente_portfolio: string
+          gerente_projeto: string
+          go_live_previsto: string | null
+          gpp: string
+          id: string
+          investimento_comercial: number | null
+          investimento_erro_produto: number | null
+          investimento_perdas: number | null
+          margem_atual_percent: number | null
+          margem_atual_valor: number | null
+          margem_venda_percent: number | null
+          margem_venda_valor: number | null
+          mrr: number | null
+          mrr_total: number | null
+          nome_projeto: string
+          objetivo: string | null
+          observacoes: string | null
+          produto: string
+          project_id: string
+          projeto_em_perda: boolean | null
+          psa_planejado: number | null
+          receita_atual: number | null
+          updated_at: string
+          user_id: string
+          valor_projeto: number | null
+        }
+        Insert: {
+          arquiteto: string
+          cod_cliente: string
+          coordenador: string
+          created_at?: string
+          criticidade_cliente: string
+          criticidade_totvs: string
+          data: string
+          data_inicio?: string | null
+          diferenca_psa_projeto?: number | null
+          drive?: string | null
+          duracao_pos_producao?: number | null
+          encerramento?: string | null
+          escopo?: string | null
+          esn: string
+          gerente_escritorio: string
+          gerente_portfolio: string
+          gerente_projeto: string
+          go_live_previsto?: string | null
+          gpp: string
+          id?: string
+          investimento_comercial?: number | null
+          investimento_erro_produto?: number | null
+          investimento_perdas?: number | null
+          margem_atual_percent?: number | null
+          margem_atual_valor?: number | null
+          margem_venda_percent?: number | null
+          margem_venda_valor?: number | null
+          mrr?: number | null
+          mrr_total?: number | null
+          nome_projeto: string
+          objetivo?: string | null
+          observacoes?: string | null
+          produto: string
+          project_id: string
+          projeto_em_perda?: boolean | null
+          psa_planejado?: number | null
+          receita_atual?: number | null
+          updated_at?: string
+          user_id: string
+          valor_projeto?: number | null
+        }
+        Update: {
+          arquiteto?: string
+          cod_cliente?: string
+          coordenador?: string
+          created_at?: string
+          criticidade_cliente?: string
+          criticidade_totvs?: string
+          data?: string
+          data_inicio?: string | null
+          diferenca_psa_projeto?: number | null
+          drive?: string | null
+          duracao_pos_producao?: number | null
+          encerramento?: string | null
+          escopo?: string | null
+          esn?: string
+          gerente_escritorio?: string
+          gerente_portfolio?: string
+          gerente_projeto?: string
+          go_live_previsto?: string | null
+          gpp?: string
+          id?: string
+          investimento_comercial?: number | null
+          investimento_erro_produto?: number | null
+          investimento_perdas?: number | null
+          margem_atual_percent?: number | null
+          margem_atual_valor?: number | null
+          margem_venda_percent?: number | null
+          margem_venda_valor?: number | null
+          mrr?: number | null
+          mrr_total?: number | null
+          nome_projeto?: string
+          objetivo?: string | null
+          observacoes?: string | null
+          produto?: string
+          project_id?: string
+          projeto_em_perda?: boolean | null
+          psa_planejado?: number | null
+          receita_atual?: number | null
+          updated_at?: string
+          user_id?: string
+          valor_projeto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tap_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
             referencedColumns: ["id"]

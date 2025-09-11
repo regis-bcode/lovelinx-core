@@ -6,7 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ProjectTabs } from "@/components/projects/ProjectTabs";
 import { useProjects } from "@/hooks/useProjects";
-import { Project, ProjectFormData } from "@/types/project";
+import { Project } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -38,57 +38,6 @@ export default function ProjectsNew() {
     }
   }, [id, isEditing, getProject]);
 
-  const handleSave = async (data: Partial<ProjectFormData>) => {
-    if (!user) {
-      toast({
-        title: "Erro",
-        description: "Usuário não autenticado.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      if (isEditing && id) {
-        const updatedProject = await updateProject(id, data);
-        if (updatedProject) {
-          setProject(updatedProject);
-        }
-      } else {
-        // Para novos projetos, precisamos de dados mínimos obrigatórios
-        const requiredFields: (keyof ProjectFormData)[] = [
-          'data', 'cod_cliente', 'nome_projeto', 'cliente', 'gpp', 
-          'coordenador', 'produto', 'esn', 'arquiteto', 'criticidade'
-        ];
-
-        const missingFields = requiredFields.filter(field => !data[field]);
-        
-        if (missingFields.length > 0) {
-          toast({
-            title: "Campos obrigatórios",
-            description: `Preencha todos os campos obrigatórios da aba Identificação antes de salvar.`,
-            variant: "destructive",
-          });
-          return;
-        }
-
-        const newProject = await createProject(data as ProjectFormData);
-        if (newProject) {
-          setProject(newProject);
-          navigate(`/projects-tap/${newProject.id}`, { replace: true });
-          toast({
-            title: "TAP criado",
-            description: "Termo de Abertura do Projeto criado com sucesso!",
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Erro ao salvar projeto:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   return (
     <DashboardLayout>
@@ -119,7 +68,6 @@ export default function ProjectsNew() {
         {/* Project Form Tabs */}
         <ProjectTabs 
           project={project || undefined}
-          onSave={handleSave}
           isLoading={isLoading}
         />
       </div>
