@@ -4,15 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface User {
   id: string;
-  name: string;
-  email: string;
-  avatar?: string;
+  name?: string | null;
+  email?: string | null;
+  avatar?: string | null;
 }
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -36,84 +37,86 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Mock authentication - Replace with Supabase integration
+  // Supabase authentication
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (email === "admin@projectos.com" && password === "123456") {
-        const mockUser: User = {
-          id: "550e8400-e29b-41d4-a716-446655440000",
-          name: "Admin User",
-          email: "admin@projectos.com",
-          avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
-        };
-        setUser(mockUser);
-        localStorage.setItem("auth-token", "mock-jwt-token");
-        localStorage.setItem("user", JSON.stringify(mockUser));
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo ao sistema de gestão de projetos.",
-        });
-      } else {
-        throw new Error("Credenciais inválidas");
-      }
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const u = data.user;
+      if (!u) throw new Error("Usuário não encontrado");
+      const mapped: User = {
+        id: u.id,
+        name: (u.user_metadata as any)?.full_name ?? u.email,
+        email: u.email,
+        avatar: (u.user_metadata as any)?.avatar_url ?? null,
+      };
+      setUser(mapped);
+      localStorage.setItem("user", JSON.stringify(mapped));
+      toast({ title: "Login realizado com sucesso!" });
     } catch (error) {
-      toast({
-        title: "Erro no login",
-        description: "Email ou senha incorretos.",
-        variant: "destructive",
-      });
-      throw error;
+      toast({ title: "Erro no login", description: "Verifique suas credenciais.", variant: "destructive" });
+      throw error as Error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("auth-token");
-    localStorage.removeItem("user");
-    toast({
-      title: "Logout realizado",
-      description: "Você foi desconectado com sucesso.",
-    });
+  const signUp = async (email: string, password: string) => {
+    setIsLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: redirectUrl }
+      });
+      if (error) throw error;
+      toast({ title: "Cadastro enviado", description: "Verifique seu email para confirmar." });
+    } catch (error) {
+      toast({ title: "Erro no cadastro", description: "Não foi possível criar a conta.", variant: "destructive" });
+      throw error as Error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Check for existing session on mount
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    localStorage.removeItem("user");
+    toast({ title: "Logout realizado" });
+  };
+
+  // Initialize auth state and listen for changes
   useEffect(() => {
-    const token = localStorage.getItem("auth-token");
-    const savedUserStr = localStorage.getItem("user");
-    
-    if (token && savedUserStr) {
-      try {
-        const parsed = JSON.parse(savedUserStr) as User;
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(parsed.id);
-        if (!isUuid) {
-          const migrated: User = {
-            ...parsed,
-            id: "550e8400-e29b-41d4-a716-446655440000",
-          };
-          localStorage.setItem("user", JSON.stringify(migrated));
-          setUser(migrated);
-        } else {
-          setUser(parsed);
-        }
-      } catch (error) {
-        console.error("Error parsing saved user:", error);
-        localStorage.removeItem("auth-token");
-        localStorage.removeItem("user");
-      }
-    }
-    setIsLoading(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user;
+      const mapped = u
+        ? { id: u.id, name: (u.user_metadata as any)?.full_name ?? u.email, email: u.email, avatar: (u.user_metadata as any)?.avatar_url ?? null }
+        : null;
+      setUser(mapped);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user;
+      const mapped = u
+        ? { id: u.id, name: (u?.user_metadata as any)?.full_name ?? u?.email, email: u?.email, avatar: (u?.user_metadata as any)?.avatar_url ?? null }
+        : null;
+      setUser(mapped);
+      setIsLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const value: AuthContextType = {
     user,
     isLoading,
     login,
+    signUp,
     logout,
     isAuthenticated: !!user,
   };
