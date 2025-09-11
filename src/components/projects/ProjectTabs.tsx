@@ -120,6 +120,16 @@ export function ProjectTabs({ project, onSave, isLoading = false }: ProjectTabsP
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <Label htmlFor="nome_projeto">Nome do Projeto *</Label>
+                <Input
+                  id="nome_projeto"
+                  value={formData.nome_projeto}
+                  onChange={(e) => updateField('nome_projeto', e.target.value)}
+                  placeholder="Nome completo do projeto"
+                  required
+                />
+              </div>
               <div>
                 <Label htmlFor="data">Data *</Label>
                 <Input
@@ -137,16 +147,6 @@ export function ProjectTabs({ project, onSave, isLoading = false }: ProjectTabsP
                   value={formData.cod_cliente}
                   onChange={(e) => updateField('cod_cliente', e.target.value)}
                   placeholder="Ex: CLI001"
-                  required
-                />
-              </div>
-              <div className="md:col-span-2">
-                <Label htmlFor="nome_projeto">Nome do Projeto *</Label>
-                <Input
-                  id="nome_projeto"
-                  value={formData.nome_projeto}
-                  onChange={(e) => updateField('nome_projeto', e.target.value)}
-                  placeholder="Nome completo do projeto"
                   required
                 />
               </div>
