@@ -35,7 +35,7 @@ export default function Login() {
     canonical.href = window.location.href;
   }, [isSignup]);
   
-  const { login, signUp, isAuthenticated } = useAuth();
+  const { login, signUp, isAuthenticated, resendConfirmationEmail } = useAuth();
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
@@ -60,6 +60,11 @@ export default function Login() {
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+      <header>
+        <h1 className="sr-only">Login e Criar conta | Sistema de Projetos</h1>
+        <link rel="canonical" href={window.location.href} />
+        <meta name="description" content="Acesse ou crie sua conta no Sistema de Projetos para gerenciar Workspaces, Pastas e Projetos." />
+      </header>
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-glow">
@@ -128,8 +133,29 @@ export default function Login() {
               >
                 {isLoading ? (isSignup ? "Enviando..." : "Entrando...") : (isSignup ? "Criar conta" : "Entrar")}
               </Button>
-            </form>
-            
+              </form>
+              
+              {isSignup && (
+                <div className="mt-4 text-center">
+                  <button
+                    type="button"
+                    className="text-sm underline underline-offset-4 text-foreground hover:opacity-80"
+                    onClick={async () => {
+                      if (!email) return;
+                      setIsLoading(true);
+                      try {
+                        await resendConfirmationEmail(email);
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    disabled={!email || isLoading}
+                  >
+                    Reenviar e-mail de confirmação
+                  </button>
+                </div>
+              )}
+              
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   {isSignup ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}

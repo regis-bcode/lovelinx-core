@@ -14,6 +14,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -81,6 +82,25 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   };
 
+  const resendConfirmationEmail = async (email: string) => {
+    setIsLoading(true);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: redirectUrl }
+      });
+      if (error) throw error;
+      toast({ title: "E-mail de confirmação reenviado", description: "Verifique sua caixa de entrada e o SPAM." });
+    } catch (error) {
+      toast({ title: "Falha ao reenviar", description: "Não foi possível reenviar o e-mail agora.", variant: "destructive" });
+      throw error as Error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -117,6 +137,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading,
     login,
     signUp,
+    resendConfirmationEmail,
     logout,
     isAuthenticated: !!user,
   };
