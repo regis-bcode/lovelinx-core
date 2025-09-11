@@ -9,6 +9,12 @@ import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { useFolders } from "@/hooks/useFolders";
+import { useWorkspaces } from "@/hooks/useWorkspaces";
+import { Folder } from "@/types/folder";
+import { Workspace } from "@/types/workspace";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ProjectsNew() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +23,7 @@ export default function ProjectsNew() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { projects, createProject, updateProject, getProject } = useProjects();
+  const { workspaces } = useWorkspaces();
   
   // Extrair folderId da query string
   const searchParams = new URLSearchParams(location.search);
@@ -24,8 +31,39 @@ export default function ProjectsNew() {
   
   const [project, setProject] = useState<Project | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [folder, setFolder] = useState<Folder | null>(null);
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
 
   const isEditing = Boolean(id);
+
+  // Fetch folder and workspace information
+  useEffect(() => {
+    const fetchFolderAndWorkspace = async () => {
+      if (folderId) {
+        try {
+          // Get folder information
+          const { data: folderData, error: folderError } = await supabase
+            .from('folders')
+            .select('*')
+            .eq('id', folderId)
+            .single();
+
+          if (folderError) throw folderError;
+          setFolder(folderData);
+
+          // Get workspace information
+          if (folderData?.workspace_id) {
+            const workspaceData = workspaces.find(w => w.id === folderData.workspace_id);
+            setWorkspace(workspaceData || null);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar informações da pasta/workspace:', error);
+        }
+      }
+    };
+
+    fetchFolderAndWorkspace();
+  }, [folderId, workspaces]);
 
   useEffect(() => {
     if (isEditing && id) {
@@ -81,6 +119,26 @@ export default function ProjectsNew() {
             </p>
           </div>
         </div>
+
+        {/* Breadcrumb Navigation */}
+        {workspace && folder && (
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink 
+                  onClick={() => navigate(`/workspaces/${workspace.id}`)}
+                  className="cursor-pointer"
+                >
+                  {workspace.nome}
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{folder.nome}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        )}
 
         {/* Project Form Tabs */}
         <ProjectTabs 
