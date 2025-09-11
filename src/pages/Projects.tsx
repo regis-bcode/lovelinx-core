@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
+import { useProjects } from "@/hooks/useProjects";
 import { 
   Plus, 
   Search, 
@@ -126,11 +128,31 @@ const getPriorityColor = (priority: string) => {
 
 export default function Projects() {
   const [searchTerm, setSearchTerm] = useState("");
+  const { projects: realProjects } = useProjects();
+  const navigate = useNavigate();
   
-  const filteredProjects = projects.filter(project =>
+  // Usar projetos reais se existirem, caso contrário usar dados mock
+  const projectsToShow = realProjects.length > 0 ? realProjects.map(p => ({
+    id: parseInt(p.id),
+    name: p.nomeProjeto,
+    description: p.objetivo || p.escopo,
+    progress: 0, // Calcular baseado em dados reais
+    status: "Planejamento",
+    priority: p.criticidade === "Alta" ? "Alta" : p.criticidade === "Crítica" ? "Alta" : "Média",
+    dueDate: p.goLivePrevisto,
+    members: 1,
+    tasks: { completed: 0, total: 10 },
+    color: "bg-blue-500",
+  })) : projects;
+  
+  const filteredProjects = projectsToShow.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchTerm.toLowerCase())
+    project.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleCreateProject = () => {
+    navigate("/projects-tap");
+  };
 
   return (
     <DashboardLayout>
@@ -143,9 +165,9 @@ export default function Projects() {
               Gerencie todos os seus projetos em um só lugar
             </p>
           </div>
-          <Button className="bg-gradient-primary hover:opacity-90">
+          <Button className="bg-gradient-primary hover:opacity-90" onClick={handleCreateProject}>
             <Plus className="mr-2 h-4 w-4" />
-            Novo Projeto
+            Novo Projeto (TAP)
           </Button>
         </div>
 
@@ -181,7 +203,7 @@ export default function Projects() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="text-2xl font-bold">{projects.length}</p>
+                  <p className="text-2xl font-bold">{projectsToShow.length}</p>
                 </div>
                 <FolderKanban className="h-8 w-8 text-primary" />
               </div>
@@ -193,7 +215,7 @@ export default function Projects() {
                 <div>
                   <p className="text-sm text-muted-foreground">Em Progresso</p>
                   <p className="text-2xl font-bold">
-                    {projects.filter(p => p.status === "Em progresso").length}
+                    {projectsToShow.filter(p => p.status === "Em progresso").length}
                   </p>
                 </div>
                 <div className="h-8 w-8 bg-status-progress rounded-full"></div>
@@ -206,7 +228,7 @@ export default function Projects() {
                 <div>
                   <p className="text-sm text-muted-foreground">Em Revisão</p>
                   <p className="text-2xl font-bold">
-                    {projects.filter(p => p.status === "Revisão").length}
+                    {projectsToShow.filter(p => p.status === "Revisão").length}
                   </p>
                 </div>
                 <div className="h-8 w-8 bg-status-review rounded-full"></div>
@@ -243,8 +265,12 @@ export default function Projects() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Ver detalhes</DropdownMenuItem>
-                      <DropdownMenuItem>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}`)}>
+                        Ver detalhes
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}/edit`)}>
+                        Editar TAP
+                      </DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
                         Excluir
                       </DropdownMenuItem>

@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
 import { 
   FolderKanban, 
   Users, 
@@ -90,6 +91,7 @@ const getStatusColor = (status: string) => {
 };
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -106,9 +108,9 @@ export default function Dashboard() {
               <Calendar className="mr-2 h-4 w-4" />
               Calendário
             </Button>
-            <Button size="sm" className="bg-gradient-primary">
+            <Button size="sm" className="bg-gradient-primary" onClick={() => navigate("/projects-tap")}>
               <Plus className="mr-2 h-4 w-4" />
-              Novo Projeto
+              Novo Projeto (TAP)
             </Button>
           </div>
         </div>
@@ -189,13 +191,13 @@ export default function Dashboard() {
                 <CardTitle className="text-xl">Ações Rápidas</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-20 flex-col gap-2">
+                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/projects-tap")}>
                   <Plus className="h-6 w-6" />
-                  <span>Novo Projeto</span>
+                  <span>Novo Projeto TAP</span>
                 </Button>
-                <Button variant="outline" className="h-20 flex-col gap-2">
-                  <Users className="h-6 w-6" />
-                  <span>Convidar Membro</span>
+                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/workspaces")}>
+                  <FolderKanban className="h-6 w-6" />
+                  <span>Workspaces</span>
                 </Button>
                 <Button variant="outline" className="h-20 flex-col gap-2">
                   <Calendar className="h-6 w-6" />
