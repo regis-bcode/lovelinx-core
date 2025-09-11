@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CreatableSelect } from "@/components/ui/creatable-select";
 import { Project } from "@/types/project";
 import { TAP, TAPFormData } from "@/types/tap";
 import { useTAP } from "@/hooks/useTAP";
@@ -23,6 +24,63 @@ import {
   Target,
   MessageSquare
 } from "lucide-react";
+
+// Opções padrão para os campos criativos
+const DEFAULT_GPP_OPTIONS = [
+  "João Silva",
+  "Maria Santos", 
+  "Pedro Oliveira",
+  "Ana Costa"
+];
+
+const DEFAULT_ARQUITETO_OPTIONS = [
+  "Carlos Mendes",
+  "Fernanda Lima",
+  "Ricardo Souza", 
+  "Juliana Rocha"
+];
+
+const DEFAULT_VENDEDOR_OPTIONS = [
+  "VEND001",
+  "VEND002",
+  "VEND003",
+  "VEND004"
+];
+
+const DEFAULT_COORDENADOR_OPTIONS = [
+  "Lucas Pereira",
+  "Patrícia Alves",
+  "Roberto Silva",
+  "Camila Torres"
+];
+
+const DEFAULT_GERENTE_PROJETO_OPTIONS = [
+  "Amanda Ferreira",
+  "Gustavo Ribeiro",
+  "Mariana Dias",
+  "Thiago Moreira"
+];
+
+const DEFAULT_GERENTE_PORTFOLIO_OPTIONS = [
+  "Bruno Carvalho",
+  "Larissa Gonçalves",
+  "Diego Santos",
+  "Vanessa Martins"
+];
+
+const DEFAULT_GERENTE_ESCRITORIO_OPTIONS = [
+  "Renato Barbosa",
+  "Beatriz Nunes",
+  "Felipe Araújo",
+  "Gabriela Castro"
+];
+
+const DEFAULT_CRITICIDADE_OPTIONS = [
+  "Baixa",
+  "Média", 
+  "Alta",
+  "Crítica"
+];
 
 interface ProjectTabsProps {
   project?: Project;
@@ -332,20 +390,12 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
               </div>
               <div>
                 <Label htmlFor="gpp">GPP (Gerente de Projetos Principal) *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.gpp}
                   onValueChange={(value) => updateField('gpp', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o GPP" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="João Silva">João Silva</SelectItem>
-                    <SelectItem value="Maria Santos">Maria Santos</SelectItem>
-                    <SelectItem value="Pedro Oliveira">Pedro Oliveira</SelectItem>
-                    <SelectItem value="Ana Costa">Ana Costa</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_GPP_OPTIONS}
+                  placeholder="Selecione ou crie um GPP"
+                />
               </div>
               <div>
                 <Label htmlFor="produto">Produto (Tags) *</Label>
@@ -359,139 +409,75 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
               </div>
               <div>
                 <Label htmlFor="arquiteto">Arquiteto *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.arquiteto}
                   onValueChange={(value) => updateField('arquiteto', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o arquiteto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Carlos Mendes">Carlos Mendes</SelectItem>
-                    <SelectItem value="Fernanda Lima">Fernanda Lima</SelectItem>
-                    <SelectItem value="Ricardo Souza">Ricardo Souza</SelectItem>
-                    <SelectItem value="Juliana Rocha">Juliana Rocha</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_ARQUITETO_OPTIONS}
+                  placeholder="Selecione ou crie um arquiteto"
+                />
               </div>
               <div>
-                <Label htmlFor="criticidade_totvs">Criticidade TOTVS *</Label>
-                <Select
+                <Label htmlFor="criticidade_totvs">Criticidade *</Label>
+                <CreatableSelect
                   value={formData.criticidade_totvs}
                   onValueChange={(value) => updateField('criticidade_totvs', value as 'Baixa' | 'Média' | 'Alta' | 'Crítica')}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baixa">Baixa</SelectItem>
-                    <SelectItem value="Média">Média</SelectItem>
-                    <SelectItem value="Alta">Alta</SelectItem>
-                    <SelectItem value="Crítica">Crítica</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_CRITICIDADE_OPTIONS}
+                  placeholder="Selecione ou crie uma criticidade"
+                />
               </div>
               <div>
                 <Label htmlFor="coordenador">Coordenador do Projeto (CP) *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.coordenador}
                   onValueChange={(value) => updateField('coordenador', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o coordenador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Lucas Pereira">Lucas Pereira</SelectItem>
-                    <SelectItem value="Patrícia Alves">Patrícia Alves</SelectItem>
-                    <SelectItem value="Roberto Silva">Roberto Silva</SelectItem>
-                    <SelectItem value="Camila Torres">Camila Torres</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_COORDENADOR_OPTIONS}
+                  placeholder="Selecione ou crie um coordenador"
+                />
               </div>
               <div>
                 <Label htmlFor="gerente_projeto">Gerente do Projeto (GP) *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.gerente_projeto}
                   onValueChange={(value) => updateField('gerente_projeto', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o gerente do projeto" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Amanda Ferreira">Amanda Ferreira</SelectItem>
-                    <SelectItem value="Gustavo Ribeiro">Gustavo Ribeiro</SelectItem>
-                    <SelectItem value="Mariana Dias">Mariana Dias</SelectItem>
-                    <SelectItem value="Thiago Moreira">Thiago Moreira</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_GERENTE_PROJETO_OPTIONS}
+                  placeholder="Selecione ou crie um gerente do projeto"
+                />
               </div>
               <div>
                 <Label htmlFor="gerente_portfolio">Gerente de Portfólio (GPP) *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.gerente_portfolio}
                   onValueChange={(value) => updateField('gerente_portfolio', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o gerente de portfólio" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Bruno Carvalho">Bruno Carvalho</SelectItem>
-                    <SelectItem value="Larissa Gonçalves">Larissa Gonçalves</SelectItem>
-                    <SelectItem value="Diego Santos">Diego Santos</SelectItem>
-                    <SelectItem value="Vanessa Martins">Vanessa Martins</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_GERENTE_PORTFOLIO_OPTIONS}
+                  placeholder="Selecione ou crie um gerente de portfólio"
+                />
               </div>
               <div>
                 <Label htmlFor="gerente_escritorio">Gerente Escritório de Projetos *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.gerente_escritorio}
                   onValueChange={(value) => updateField('gerente_escritorio', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o gerente do escritório" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Renato Barbosa">Renato Barbosa</SelectItem>
-                    <SelectItem value="Beatriz Nunes">Beatriz Nunes</SelectItem>
-                    <SelectItem value="Felipe Araújo">Felipe Araújo</SelectItem>
-                    <SelectItem value="Gabriela Castro">Gabriela Castro</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_GERENTE_ESCRITORIO_OPTIONS}
+                  placeholder="Selecione ou crie um gerente do escritório"
+                />
               </div>
               <div>
-                <Label htmlFor="esn">ESN *</Label>
-                <Select
+                <Label htmlFor="esn">Vendedor *</Label>
+                <CreatableSelect
                   value={formData.esn}
                   onValueChange={(value) => updateField('esn', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o ESN" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ESN001">ESN001</SelectItem>
-                    <SelectItem value="ESN002">ESN002</SelectItem>
-                    <SelectItem value="ESN003">ESN003</SelectItem>
-                    <SelectItem value="ESN004">ESN004</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_VENDEDOR_OPTIONS}
+                  placeholder="Selecione ou crie um vendedor"
+                />
               </div>
               <div>
                 <Label htmlFor="criticidade_cliente">Criticidade Cliente *</Label>
-                <Select
+                <CreatableSelect
                   value={formData.criticidade_cliente}
                   onValueChange={(value) => updateField('criticidade_cliente', value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione a criticidade do cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Baixa">Baixa</SelectItem>
-                    <SelectItem value="Média">Média</SelectItem>
-                    <SelectItem value="Alta">Alta</SelectItem>
-                    <SelectItem value="Crítica">Crítica</SelectItem>
-                  </SelectContent>
-                </Select>
+                  options={DEFAULT_CRITICIDADE_OPTIONS}
+                  placeholder="Selecione ou crie uma criticidade do cliente"
+                />
               </div>
               <div>
                 <Label htmlFor="drive">Drive - Link</Label>
