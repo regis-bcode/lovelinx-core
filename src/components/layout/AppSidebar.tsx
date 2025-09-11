@@ -21,8 +21,13 @@ const navigation = [
     icon: Home,
   },
   {
+    title: "Workspaces",
+    url: "/workspaces",
+    icon: FolderKanban,
+  },
+  {
     title: "Projetos",
-    url: "/projects", 
+    url: "/projects",
     icon: FolderKanban,
   },
   {

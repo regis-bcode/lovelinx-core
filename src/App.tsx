@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import Workspaces from "./pages/Workspaces";
+import Folders from "./pages/Folders";
 import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
@@ -42,6 +44,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/workspaces" 
+        element={
+          <ProtectedRoute>
+            <Workspaces />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/workspaces/:workspaceId/folders" 
+        element={
+          <ProtectedRoute>
+            <Folders />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/workspaces/:workspaceId/folders/:folderId/projects" 
+        element={
+          <ProtectedRoute>
+            <Projects />
           </ProtectedRoute>
         } 
       />
