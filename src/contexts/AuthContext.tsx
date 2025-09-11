@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       
       if (email === "admin@projectos.com" && password === "123456") {
         const mockUser: User = {
-          id: "1",
+          id: "550e8400-e29b-41d4-a716-446655440000",
           name: "Admin User",
           email: "admin@projectos.com",
           avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
