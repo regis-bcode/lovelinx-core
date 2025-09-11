@@ -10,6 +10,9 @@ import { ProjectTabs } from "@/components/projects/ProjectTabs";
 import { StakeholdersList } from "@/components/projects/StakeholdersList";
 import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
+import { TaskList } from "@/components/projects/TaskList";
+import { CustomFieldManager } from "@/components/projects/CustomFieldManager";
+import { useTasks } from "@/hooks/useTasks";
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +20,17 @@ export default function ProjectDetails() {
   const { getProject, updateProject } = useProjects();
   
   const project = id ? getProject(id) : null;
+  
+  const {
+    tasks,
+    customFields,
+    createTask,
+    updateTask,
+    deleteTask,
+    createCustomField,
+    deleteCustomField,
+  } = useTasks(id);
+
 
   if (!project) {
     return (
@@ -176,8 +190,21 @@ export default function ProjectDetails() {
               <CardHeader>
                 <CardTitle>Tarefas do Projeto</CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Funcionalidade de tarefas será implementada em breve.</p>
+              <CardContent className="space-y-6">
+                <CustomFieldManager 
+                  customFields={customFields}
+                  onFieldCreate={createCustomField}
+                  onFieldUpdate={() => {}}
+                  onFieldDelete={deleteCustomField}
+                />
+                <div className="border-t pt-6">
+                  <TaskList 
+                    tasks={tasks}
+                    onTaskCreate={createTask}
+                    onTaskUpdate={updateTask}
+                    onTaskDelete={deleteTask}
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
