@@ -22,8 +22,12 @@ import {
   FileEdit,
   Save,
   Target,
-  MessageSquare
+  MessageSquare,
+  CheckSquare
 } from "lucide-react";
+import { TaskList } from "./TaskList";
+import { CustomFieldManager } from "./CustomFieldManager";
+import { useTasks } from "@/hooks/useTasks";
 
 // Opções padrão para os campos criativos
 const DEFAULT_GPP_OPTIONS = [
@@ -91,6 +95,15 @@ interface ProjectTabsProps {
 export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTabsProps) {
   const { tap, createTAP, updateTAP } = useTAP(project?.id);
   const { createProject } = useProjects();
+  const { 
+    tasks, 
+    customFields, 
+    createTask, 
+    updateTask, 
+    deleteTask, 
+    createCustomField, 
+    deleteCustomField 
+  } = useTasks(project?.id);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [formData, setFormData] = useState<Partial<TAPFormData>>({
@@ -324,7 +337,7 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
 
   return (
     <Tabs defaultValue="identificacao" className="w-full">
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className="grid w-full grid-cols-6">
         <TabsTrigger value="identificacao" className="flex items-center gap-2">
           <FileText className="h-4 w-4" />
           Identificação
@@ -344,6 +357,10 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
         <TabsTrigger value="financeiro" className="flex items-center gap-2">
           <DollarSign className="h-4 w-4" />
           Financeiro
+        </TabsTrigger>
+        <TabsTrigger value="tarefas" className="flex items-center gap-2">
+          <CheckSquare className="h-4 w-4" />
+          Tarefas
         </TabsTrigger>
       </TabsList>
 
@@ -825,6 +842,35 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
               <Save className="mr-2 h-4 w-4" />
               Salvar Financeiro
             </Button>
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Aba Tarefas */}
+      <TabsContent value="tarefas" className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckSquare className="h-5 w-5" />
+              Tarefas do Projeto
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <CustomFieldManager 
+              customFields={customFields}
+              onFieldCreate={createCustomField}
+              onFieldUpdate={() => {}} // TODO: Implementar update se necessário
+              onFieldDelete={deleteCustomField}
+            />
+            
+            <div className="border-t pt-6">
+              <TaskList 
+                tasks={tasks}
+                onTaskCreate={createTask}
+                onTaskUpdate={updateTask}
+                onTaskDelete={deleteTask}
+              />
+            </div>
           </CardContent>
         </Card>
       </TabsContent>
