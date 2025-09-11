@@ -85,6 +85,42 @@ export type Database = {
           },
         ]
       }
+      custom_fields: {
+        Row: {
+          created_at: string
+          field_name: string
+          field_options: string[] | null
+          field_type: string
+          id: string
+          is_required: boolean
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          field_name: string
+          field_options?: string[] | null
+          field_type: string
+          id?: string
+          is_required?: boolean
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          field_name?: string
+          field_options?: string[] | null
+          field_type?: string
+          id?: string
+          is_required?: boolean
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       folders: {
         Row: {
           cor: string
@@ -488,6 +524,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          custom_fields: Json | null
+          data_vencimento: string | null
+          id: string
+          nome: string
+          prioridade: string
+          project_id: string
+          responsavel: string | null
+          status: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_fields?: Json | null
+          data_vencimento?: string | null
+          id?: string
+          nome: string
+          prioridade?: string
+          project_id: string
+          responsavel?: string | null
+          status?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_fields?: Json | null
+          data_vencimento?: string | null
+          id?: string
+          nome?: string
+          prioridade?: string
+          project_id?: string
+          responsavel?: string | null
+          status?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       workspaces: {
         Row: {

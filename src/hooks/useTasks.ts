@@ -23,7 +23,7 @@ export function useTasks(projectId?: string) {
     
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('tasks')
         .select('*')
         .eq('project_id', projectId)
@@ -52,7 +52,7 @@ export function useTasks(projectId?: string) {
     if (!projectId || !user) return;
     
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('custom_fields')
         .select('*')
         .eq('project_id', projectId)
@@ -81,7 +81,7 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('tasks')
         .insert({
           ...taskData,
@@ -116,7 +116,7 @@ export function useTasks(projectId?: string) {
 
   const updateTask = async (id: string, taskData: Partial<TaskFormData>): Promise<Task | null> => {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('tasks')
         .update(taskData)
         .eq('id', id)
@@ -148,7 +148,7 @@ export function useTasks(projectId?: string) {
 
   const deleteTask = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('tasks')
         .delete()
         .eq('id', id);
@@ -186,7 +186,7 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('custom_fields')
         .insert({
           ...fieldData,
@@ -221,7 +221,7 @@ export function useTasks(projectId?: string) {
 
   const deleteCustomField = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from('custom_fields')
         .delete()
         .eq('id', id);
