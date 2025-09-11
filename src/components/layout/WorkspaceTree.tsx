@@ -6,6 +6,11 @@ import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { WorkspaceWithProjectDialog } from "@/components/workspaces/WorkspaceWithProjectDialog";
 
 interface WorkspaceTreeProps {
   collapsed?: boolean;
@@ -78,7 +83,14 @@ function WorkspaceItem({
   currentPath,
   navigate
 }: WorkspaceItemProps) {
-  const { folders } = useFolders(workspace.id);
+  const { folders, createFolder, refreshFolders } = useFolders(workspace.id);
+  const [folderOpen, setFolderOpen] = useState(false);
+  const [folderForm, setFolderForm] = useState<{ nome: string; descricao: string | null; cor: string; workspace_id: string }>({
+    nome: "",
+    descricao: "",
+    cor: workspace.cor,
+    workspace_id: workspace.id,
+  });
 
   const isActive = currentPath.includes(`/workspaces/${workspace.id}`);
 
@@ -151,10 +163,10 @@ function FolderItem({
   currentPath,
   navigate
 }: FolderItemProps) {
-  const { projects } = useProjects();
+  const { projects, refreshProjects } = useProjects(folder.id);
   
-  // Filtrar projetos por folder_id quando a estrutura estiver implementada
-  const folderProjects = projects.filter(p => (p as any).folder_id === folder.id);
+  // Projetos já filtrados pelo folderId no hook
+  const folderProjects = projects;
 
   const isActive = currentPath.includes(`/folders/${folder.id}`);
 

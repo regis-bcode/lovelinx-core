@@ -9,9 +9,29 @@ export function useWorkspaces() {
   const { user } = useAuth();
 
   useEffect(() => {
-    if (user) {
-      loadWorkspaces();
-    }
+    if (!user) return;
+    loadWorkspaces();
+
+    const channel = supabase
+      .channel('workspaces-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workspaces', filter: `user_id=eq.${user.id}` }, (payload) => {
+        const w = payload.new as Workspace;
+        if (w.ativo) {
+          setWorkspaces((prev) => [w, ...prev.filter((p) => p.id !== w.id)]);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'workspaces', filter: `user_id=eq.${user.id}` }, (payload) => {
+        const w = payload.new as Workspace;
+        setWorkspaces((prev) => {
+          const updated = prev.map((p) => (p.id === w.id ? w : p));
+          return w.ativo ? updated : updated.filter((p) => p.id !== w.id);
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   const loadWorkspaces = async () => {
@@ -42,7 +62,8 @@ export function useWorkspaces() {
   const createWorkspace = async (data: WorkspaceFormData): Promise<Workspace | null> => {
     try {
       const isUuid = (v: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
-      const userId = user?.id && isUuid(user.id) ? user.id : "550e8400-e29b-41d4-a716-446655440000";
+      const userId = user?.id && isUuid(user.id) ? user.id : null;
+      if (!userId) throw new Error('Usuário não autenticado. Faça login para criar workspaces.');
 
       const { data: newWorkspace, error } = await supabase
         .from('workspaces')

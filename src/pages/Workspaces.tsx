@@ -34,6 +34,7 @@ import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { WorkspaceFormData } from "@/types/workspace";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const colors = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', 
@@ -54,6 +55,7 @@ export default function Workspaces() {
   const { workspaces, loading, createWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaces();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   const filteredWorkspaces = workspaces.filter(workspace =>
     workspace.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,7 +159,17 @@ export default function Workspaces() {
           <div className="flex gap-2">
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary hover:opacity-90" onClick={() => resetForm()}>
+                <Button 
+                  className="bg-gradient-primary hover:opacity-90" 
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast({ title: "Faça login", description: "Você precisa estar logado para criar workspaces.", variant: "destructive" });
+                      return;
+                    }
+                    resetForm();
+                  }}
+                  disabled={!isAuthenticated}
+                >
                   <Plus className="mr-2 h-4 w-4" />
                   Novo Workspace
                 </Button>
