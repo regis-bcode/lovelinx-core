@@ -631,134 +631,186 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="valor_projeto">Valor do Projeto (R$)</Label>
-                <Input
-                  id="valor_projeto"
-                  type="number"
-                  step="0.01"
-                  value={formData.valor_projeto}
-                  onChange={(e) => updateField('valor_projeto', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="valor_projeto">Valor do Projeto</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="valor_projeto"
+                    type="number"
+                    step="0.01"
+                    value={formData.valor_projeto}
+                    onChange={(e) => updateField('valor_projeto', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="margem_venda_percent">Margem da Venda (%)</Label>
-                <Input
-                  id="margem_venda_percent"
-                  type="number"
-                  step="0.01"
-                  value={formData.margem_venda_percent}
-                  onChange={(e) => updateField('margem_venda_percent', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="margem_venda_percent">Margem da Venda</Label>
+                <div className="relative">
+                  <Input
+                    id="margem_venda_percent"
+                    type="number"
+                    step="0.01"
+                    value={formData.margem_venda_percent}
+                    onChange={(e) => updateField('margem_venda_percent', parseFloat(e.target.value) || 0)}
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">%</span>
+                </div>
               </div>
               <div>
-                <Label htmlFor="margem_venda_valor">Margem da Venda (valor) (R$)</Label>
-                <Input
-                  id="margem_venda_valor"
-                  type="number"
-                  step="0.01"
-                  value={formData.margem_venda_valor}
-                  onChange={(e) => updateField('margem_venda_valor', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="margem_venda_valor">Margem da Venda (valor)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="margem_venda_valor"
+                    type="number"
+                    step="0.01"
+                    value={formData.margem_venda_valor}
+                    onChange={(e) => updateField('margem_venda_valor', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="mrr">MRR - Recorrente Mensal (R$)</Label>
-                <Input
-                  id="mrr"
-                  type="number"
-                  step="0.01"
-                  value={formData.mrr}
-                  onChange={(e) => updateField('mrr', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="mrr">MRR - Recorrente Mensal</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="mrr"
+                    type="number"
+                    step="0.01"
+                    value={formData.mrr}
+                    onChange={(e) => updateField('mrr', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="mrr_total">MRR Total (Contratados) (R$)</Label>
-                <Input
-                  id="mrr_total"
-                  type="number"
-                  step="0.01"
-                  value={formData.mrr_total}
-                  onChange={(e) => updateField('mrr_total', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="mrr_total">MRR Total (Contratados)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="mrr_total"
+                    type="number"
+                    step="0.01"
+                    value={formData.mrr_total}
+                    onChange={(e) => updateField('mrr_total', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="psa_planejado">PSA Planejado (R$)</Label>
-                <Input
-                  id="psa_planejado"
-                  type="number"
-                  step="0.01"
-                  value={formData.psa_planejado}
-                  onChange={(e) => updateField('psa_planejado', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="psa_planejado">PSA Planejado</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="psa_planejado"
+                    type="number"
+                    step="0.01"
+                    value={formData.psa_planejado}
+                    onChange={(e) => updateField('psa_planejado', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="diferenca_psa_projeto">Diferença PSA x Projeto (R$)</Label>
-                <Input
-                  id="diferenca_psa_projeto"
-                  type="number"
-                  step="0.01"
-                  value={formData.diferenca_psa_projeto}
-                  onChange={(e) => updateField('diferenca_psa_projeto', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="diferenca_psa_projeto">Diferença PSA x Projeto</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="diferenca_psa_projeto"
+                    type="number"
+                    step="0.01"
+                    value={formData.diferenca_psa_projeto}
+                    onChange={(e) => updateField('diferenca_psa_projeto', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="receita_atual">Receita Atual (R$)</Label>
-                <Input
-                  id="receita_atual"
-                  type="number"
-                  step="0.01"
-                  value={formData.receita_atual}
-                  onChange={(e) => updateField('receita_atual', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="receita_atual">Receita Atual</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="receita_atual"
+                    type="number"
+                    step="0.01"
+                    value={formData.receita_atual}
+                    onChange={(e) => updateField('receita_atual', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="margem_atual_percent">Margem Atual (%)</Label>
-                <Input
-                  id="margem_atual_percent"
-                  type="number"
-                  step="0.01"
-                  value={formData.margem_atual_percent}
-                  onChange={(e) => updateField('margem_atual_percent', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="margem_atual_percent">Margem Atual</Label>
+                <div className="relative">
+                  <Input
+                    id="margem_atual_percent"
+                    type="number"
+                    step="0.01"
+                    value={formData.margem_atual_percent}
+                    onChange={(e) => updateField('margem_atual_percent', parseFloat(e.target.value) || 0)}
+                    className="pr-8"
+                  />
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">%</span>
+                </div>
               </div>
               <div>
-                <Label htmlFor="margem_atual_valor">Margem Atual (valor) (R$)</Label>
-                <Input
-                  id="margem_atual_valor"
-                  type="number"
-                  step="0.01"
-                  value={formData.margem_atual_valor}
-                  onChange={(e) => updateField('margem_atual_valor', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="margem_atual_valor">Margem Atual (valor)</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="margem_atual_valor"
+                    type="number"
+                    step="0.01"
+                    value={formData.margem_atual_valor}
+                    onChange={(e) => updateField('margem_atual_valor', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="investimento_perdas">Investimento Perdas (R$)</Label>
-                <Input
-                  id="investimento_perdas"
-                  type="number"
-                  step="0.01"
-                  value={formData.investimento_perdas}
-                  onChange={(e) => updateField('investimento_perdas', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="investimento_perdas">Investimento Perdas</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="investimento_perdas"
+                    type="number"
+                    step="0.01"
+                    value={formData.investimento_perdas}
+                    onChange={(e) => updateField('investimento_perdas', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="investimento_comercial">Investimento Comercial (R$)</Label>
-                <Input
-                  id="investimento_comercial"
-                  type="number"
-                  step="0.01"
-                  value={formData.investimento_comercial}
-                  onChange={(e) => updateField('investimento_comercial', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="investimento_comercial">Investimento Comercial</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="investimento_comercial"
+                    type="number"
+                    step="0.01"
+                    value={formData.investimento_comercial}
+                    onChange={(e) => updateField('investimento_comercial', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div>
-                <Label htmlFor="investimento_erro_produto">Investimento Erro Produto (R$)</Label>
-                <Input
-                  id="investimento_erro_produto"
-                  type="number"
-                  step="0.01"
-                  value={formData.investimento_erro_produto}
-                  onChange={(e) => updateField('investimento_erro_produto', parseFloat(e.target.value) || 0)}
-                />
+                <Label htmlFor="investimento_erro_produto">Investimento Erro Produto</Label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground">R$</span>
+                  <Input
+                    id="investimento_erro_produto"
+                    type="number"
+                    step="0.01"
+                    value={formData.investimento_erro_produto}
+                    onChange={(e) => updateField('investimento_erro_produto', parseFloat(e.target.value) || 0)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
               <div className="flex items-center space-x-2 md:col-span-2 lg:col-span-3">
                 <Checkbox
