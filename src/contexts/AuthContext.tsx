@@ -67,10 +67,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       // Fallback: ensure default user exists, then retry
       if (email === DEFAULT_EMAIL && password === DEFAULT_PASSWORD) {
         try {
-          await fetch(FUNCTIONS_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email, password }),
+          await supabase.functions.invoke('bootstrap-default-user', {
+            body: { email, password },
           });
 
           const { data: data2, error: error2 } = await supabase.auth.signInWithPassword({ email, password });
