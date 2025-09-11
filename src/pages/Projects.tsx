@@ -151,7 +151,8 @@ export default function Projects() {
   );
 
   const handleCreateProject = () => {
-    navigate("/projects-tap");
+    // Navegar diretamente para a página de criação de TAP
+    navigate("/projects-tap/new");
   };
 
   return (

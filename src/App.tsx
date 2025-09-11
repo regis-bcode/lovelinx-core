@@ -88,6 +88,14 @@ function AppRoutes() {
         } 
       />
       <Route 
+        path="/projects-tap/new" 
+        element={
+          <ProtectedRoute>
+            <ProjectsNew />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/projects-tap/:id" 
         element={
           <ProtectedRoute>
