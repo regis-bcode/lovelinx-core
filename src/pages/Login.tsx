@@ -156,6 +156,29 @@ export default function Login() {
                 </div>
               )}
               
+              {!isSignup && (
+                <div className="mt-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={async () => {
+                      setEmail("admin@projectos.com");
+                      setPassword("123456");
+                      setIsLoading(true);
+                      try {
+                        await login("admin@projectos.com", "123456");
+                      } finally {
+                        setIsLoading(false);
+                      }
+                    }}
+                    disabled={isLoading}
+                  >
+                    Entrar como Admin (padrão)
+                  </Button>
+                </div>
+              )}
+              
               <div className="mt-6 text-center">
                 <p className="text-sm text-muted-foreground">
                   {isSignup ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
