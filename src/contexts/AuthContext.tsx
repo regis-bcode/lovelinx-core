@@ -41,11 +41,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Supabase authentication
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      const u = data.user;
-      if (!u) throw new Error("Usuário não encontrado");
+    const DEFAULT_EMAIL = "admin@projectos.com";
+    const DEFAULT_PASSWORD = "123456";
+    const FUNCTIONS_URL = "https://mmghpkoumxqbuwebkjxo.functions.supabase.co/bootstrap-default-user";
+
+    const mapAndPersistUser = (u: any) => {
       const mapped: User = {
         id: u.id,
         name: (u.user_metadata as any)?.full_name ?? u.email,
@@ -54,10 +54,39 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       };
       setUser(mapped);
       localStorage.setItem("user", JSON.stringify(mapped));
+    };
+
+    try {
+      // First attempt
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data.user) throw new Error("Usuário não encontrado");
+      mapAndPersistUser(data.user);
       toast({ title: "Login realizado com sucesso!" });
-    } catch (error) {
-      toast({ title: "Erro no login", description: "Verifique suas credenciais.", variant: "destructive" });
-      throw error as Error;
+    } catch (err: any) {
+      // Fallback: ensure default user exists, then retry
+      if (email === DEFAULT_EMAIL && password === DEFAULT_PASSWORD) {
+        try {
+          await fetch(FUNCTIONS_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+
+          const { data: data2, error: error2 } = await supabase.auth.signInWithPassword({ email, password });
+          if (error2) throw error2;
+          if (!data2.user) throw new Error("Usuário não encontrado");
+          mapAndPersistUser(data2.user);
+          toast({ title: "Login realizado com sucesso!" });
+          return;
+        } catch (fallbackErr) {
+          toast({ title: "Erro no login", description: "Não foi possível acessar com o usuário padrão.", variant: "destructive" });
+          throw fallbackErr as Error;
+        }
+      } else {
+        toast({ title: "Erro no login", description: "Verifique suas credenciais.", variant: "destructive" });
+        throw err as Error;
+      }
     } finally {
       setIsLoading(false);
     }
