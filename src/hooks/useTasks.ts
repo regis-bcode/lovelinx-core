@@ -81,10 +81,30 @@ export function useTasks(projectId?: string) {
     }
 
     try {
+      // Gerar ID automático sequencial
+      const { data: existingTasks } = await (supabase as any)
+        .from('tasks')
+        .select('task_id')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let nextId = 1;
+      if (existingTasks && existingTasks.length > 0) {
+        const lastId = existingTasks[0].task_id;
+        const match = lastId.match(/TASK-(\d+)/);
+        if (match) {
+          nextId = parseInt(match[1]) + 1;
+        }
+      }
+
+      const taskId = `TASK-${nextId.toString().padStart(3, '0')}`;
+
       const { data, error } = await (supabase as any)
         .from('tasks')
         .insert({
           ...taskData,
+          task_id: taskId,
           project_id: projectId,
           user_id: user.id,
         })

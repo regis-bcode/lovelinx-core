@@ -26,7 +26,7 @@ import {
   CheckSquare
 } from "lucide-react";
 import { TaskList } from "./TaskList";
-import { CustomFieldManager } from "./CustomFieldManager";
+import { CustomFieldListManager } from "./CustomFieldListManager";
 import { useTasks } from "@/hooks/useTasks";
 
 // Opções padrão para os campos criativos
@@ -856,10 +856,10 @@ export function ProjectTabs({ project, isLoading = false, folderId }: ProjectTab
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <CustomFieldManager 
+            <CustomFieldListManager 
               customFields={customFields}
               onFieldCreate={createCustomField}
-              onFieldUpdate={() => {}} // TODO: Implementar update se necessário
+              onFieldUpdate={() => {}}
               onFieldDelete={deleteCustomField}
             />
             

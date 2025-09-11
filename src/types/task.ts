@@ -2,7 +2,7 @@ export interface Task {
   id: string;
   project_id: string;
   user_id: string;
-  task_id: string; // ID personalizado da tarefa
+  task_id: string; // ID automático gerado pelo sistema
   nome: string;
   responsavel?: string;
   data_vencimento?: string;

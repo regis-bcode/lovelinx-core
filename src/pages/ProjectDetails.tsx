@@ -11,7 +11,7 @@ import { StakeholdersList } from "@/components/projects/StakeholdersList";
 import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
 import { TaskList } from "@/components/projects/TaskList";
-import { CustomFieldManager } from "@/components/projects/CustomFieldManager";
+import { CustomFieldListManager } from "@/components/projects/CustomFieldListManager";
 import { useTasks } from "@/hooks/useTasks";
 
 export default function ProjectDetails() {
@@ -191,12 +191,12 @@ export default function ProjectDetails() {
                 <CardTitle>Tarefas do Projeto</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <CustomFieldManager 
-                  customFields={customFields}
-                  onFieldCreate={createCustomField}
-                  onFieldUpdate={() => {}}
-                  onFieldDelete={deleteCustomField}
-                />
+            <CustomFieldListManager 
+              customFields={customFields}
+              onFieldCreate={createCustomField}
+              onFieldUpdate={() => {}}
+              onFieldDelete={deleteCustomField}
+            />
                 <div className="border-t pt-6">
                   <TaskList 
                     tasks={tasks}
