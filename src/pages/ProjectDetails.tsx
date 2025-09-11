@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Calendar, DollarSign, Users, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Edit, Calendar, DollarSign, FileText, Users, AlertTriangle, ClipboardList, MessageCircle, BarChart, FileX, RotateCw, FolderOpen } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
+import { ProjectTabs } from "@/components/projects/ProjectTabs";
 import { StakeholdersList } from "@/components/projects/StakeholdersList";
 import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
@@ -13,7 +14,7 @@ import { CommunicationPlanList } from "@/components/projects/CommunicationPlanLi
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject } = useProjects();
+  const { getProject, updateProject } = useProjects();
   
   const project = id ? getProject(id) : null;
 
@@ -122,133 +123,110 @@ export default function ProjectDetails() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="financial">Financeiro</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="stakeholders">Stakeholders</TabsTrigger>
-            <TabsTrigger value="risks">Riscos</TabsTrigger>
-            <TabsTrigger value="communication">Comunicação</TabsTrigger>
+        <Tabs defaultValue="tap" className="w-full">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 h-auto">
+            <TabsTrigger value="tap" className="text-xs p-2">
+              <FileText className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">TAP</span>
+            </TabsTrigger>
+            <TabsTrigger value="stakeholders" className="text-xs p-2">
+              <Users className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Stakeholders</span>
+            </TabsTrigger>
+            <TabsTrigger value="tasks" className="text-xs p-2">
+              <ClipboardList className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Tarefas</span>
+            </TabsTrigger>
+            <TabsTrigger value="communication" className="text-xs p-2">
+              <MessageCircle className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Comunicação</span>
+            </TabsTrigger>
+            <TabsTrigger value="risks" className="text-xs p-2">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Riscos</span>
+            </TabsTrigger>
+            <TabsTrigger value="gaps" className="text-xs p-2">
+              <FileX className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Gaps</span>
+            </TabsTrigger>
+            <TabsTrigger value="turnover" className="text-xs p-2">
+              <RotateCw className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Virada</span>
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs p-2">
+              <FolderOpen className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Documentos</span>
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Informações do Projeto</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div><strong>GPP:</strong> {project.gpp}</div>
-                  <div><strong>Coordenador:</strong> {project.coordenador}</div>
-                  <div><strong>Arquiteto:</strong> {project.arquiteto}</div>
-                  <div><strong>Produto:</strong> {project.produto}</div>
-                  <div><strong>ESN:</strong> {project.esn}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Escopo e Objetivos</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div><strong>Escopo:</strong></div>
-                  <p className="text-sm text-muted-foreground">{project.escopo || 'Não definido'}</p>
-                  <div><strong>Objetivo:</strong></div>
-                  <p className="text-sm text-muted-foreground">{project.objetivo || 'Não definido'}</p>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="financial" className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Valores Principais</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Valor do Projeto:</span>
-                    <span>R$ {project.valor_projeto?.toLocaleString() || '0'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Receita Atual:</span>
-                    <span>R$ {project.receita_atual?.toLocaleString() || '0'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>MRR:</span>
-                    <span>R$ {project.mrr?.toLocaleString() || '0'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>MRR Total:</span>
-                    <span>R$ {project.mrr_total?.toLocaleString() || '0'}</span>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Margens</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Margem Venda (%):</span>
-                    <span>{project.margem_venda_percent?.toFixed(1) || '0'}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Margem Atual (%):</span>
-                    <span>{project.margem_atual_percent?.toFixed(1) || '0'}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Margem Venda (R$):</span>
-                    <span>R$ {project.margem_venda_reais?.toLocaleString() || '0'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Margem Atual (R$):</span>
-                    <span>R$ {project.margem_atual_reais?.toLocaleString() || '0'}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="timeline" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Cronograma do Projeto</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <strong>Data de Início:</strong>
-                    <p>{project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'Não definida'}</p>
-                  </div>
-                  <div>
-                    <strong>Go Live Previsto:</strong>
-                    <p>{project.go_live_previsto ? new Date(project.go_live_previsto).toLocaleDateString('pt-BR') : 'Não definido'}</p>
-                  </div>
-                  <div>
-                    <strong>Duração Pós-Produção:</strong>
-                    <p>{project.duracao_pos_producao || 0} dias</p>
-                  </div>
-                  <div>
-                    <strong>Encerramento:</strong>
-                    <p>{project.encerramento ? new Date(project.encerramento).toLocaleDateString('pt-BR') : 'Não definido'}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="stakeholders" className="space-y-4">
-            <StakeholdersList projectId={project.id} />
+          <TabsContent value="tap" className="space-y-4">
+            <ProjectTabs 
+              project={project} 
+              onSave={async (data) => {
+                try {
+                  await updateProject(project.id, data);
+                  console.log('TAP atualizada com sucesso');
+                } catch (error) {
+                  console.error('Erro ao salvar TAP:', error);
+                }
+              }} 
+            />
           </TabsContent>
 
           <TabsContent value="risks" className="space-y-4">
             <RisksList projectId={project.id} />
           </TabsContent>
 
+          <TabsContent value="stakeholders" className="space-y-4">
+            <StakeholdersList projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="tasks" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Tarefas do Projeto</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Funcionalidade de tarefas será implementada em breve.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="communication" className="space-y-4">
             <CommunicationPlanList projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="gaps" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gaps e Mudanças</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Funcionalidade de gaps e mudanças será implementada em breve.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="turnover" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Plano de Virada</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Funcionalidade de plano de virada será implementada em breve.</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Gestão de Documentos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-muted-foreground">Funcionalidade de gestão de documentos será implementada em breve.</p>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
