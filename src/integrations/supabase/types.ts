@@ -31,6 +31,7 @@ export type Database = {
           midia: string | null
           objetivo: string | null
           project_id: string
+          project_id_new: string | null
           responsavel: string | null
           updated_at: string
         }
@@ -50,6 +51,7 @@ export type Database = {
           midia?: string | null
           objetivo?: string | null
           project_id: string
+          project_id_new?: string | null
           responsavel?: string | null
           updated_at?: string
         }
@@ -69,10 +71,215 @@ export type Database = {
           midia?: string | null
           objetivo?: string | null
           project_id?: string
+          project_id_new?: string | null
           responsavel?: string | null
           updated_at?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "communication_plan_project_id_new_fkey"
+            columns: ["project_id_new"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      folders: {
+        Row: {
+          cor: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "folders_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
         Relationships: []
+      }
+      projects: {
+        Row: {
+          arquiteto: string
+          cliente: string
+          cod_cliente: string
+          coordenador: string
+          created_at: string
+          criticidade: string
+          data: string
+          data_inicio: string | null
+          diferenca_psa_projeto: number | null
+          drive: string | null
+          duracao_pos_producao: number | null
+          encerramento: string | null
+          escopo: string | null
+          esn: string
+          folder_id: string | null
+          go_live_previsto: string | null
+          gpp: string
+          id: string
+          investimento_comercial: number | null
+          investimento_erro_produto: number | null
+          investimento_perdas: number | null
+          margem_atual_percent: number | null
+          margem_atual_reais: number | null
+          margem_venda_percent: number | null
+          margem_venda_reais: number | null
+          mrr: number | null
+          mrr_total: number | null
+          nome_projeto: string
+          objetivo: string | null
+          observacao: string | null
+          produto: string
+          projeto_em_perda: boolean | null
+          psa_planejado: number | null
+          receita_atual: number | null
+          updated_at: string
+          user_id: string
+          valor_projeto: number | null
+        }
+        Insert: {
+          arquiteto: string
+          cliente: string
+          cod_cliente: string
+          coordenador: string
+          created_at?: string
+          criticidade: string
+          data: string
+          data_inicio?: string | null
+          diferenca_psa_projeto?: number | null
+          drive?: string | null
+          duracao_pos_producao?: number | null
+          encerramento?: string | null
+          escopo?: string | null
+          esn: string
+          folder_id?: string | null
+          go_live_previsto?: string | null
+          gpp: string
+          id?: string
+          investimento_comercial?: number | null
+          investimento_erro_produto?: number | null
+          investimento_perdas?: number | null
+          margem_atual_percent?: number | null
+          margem_atual_reais?: number | null
+          margem_venda_percent?: number | null
+          margem_venda_reais?: number | null
+          mrr?: number | null
+          mrr_total?: number | null
+          nome_projeto: string
+          objetivo?: string | null
+          observacao?: string | null
+          produto: string
+          projeto_em_perda?: boolean | null
+          psa_planejado?: number | null
+          receita_atual?: number | null
+          updated_at?: string
+          user_id: string
+          valor_projeto?: number | null
+        }
+        Update: {
+          arquiteto?: string
+          cliente?: string
+          cod_cliente?: string
+          coordenador?: string
+          created_at?: string
+          criticidade?: string
+          data?: string
+          data_inicio?: string | null
+          diferenca_psa_projeto?: number | null
+          drive?: string | null
+          duracao_pos_producao?: number | null
+          encerramento?: string | null
+          escopo?: string | null
+          esn?: string
+          folder_id?: string | null
+          go_live_previsto?: string | null
+          gpp?: string
+          id?: string
+          investimento_comercial?: number | null
+          investimento_erro_produto?: number | null
+          investimento_perdas?: number | null
+          margem_atual_percent?: number | null
+          margem_atual_reais?: number | null
+          margem_venda_percent?: number | null
+          margem_venda_reais?: number | null
+          mrr?: number | null
+          mrr_total?: number | null
+          nome_projeto?: string
+          objetivo?: string | null
+          observacao?: string | null
+          produto?: string
+          projeto_em_perda?: boolean | null
+          psa_planejado?: number | null
+          receita_atual?: number | null
+          updated_at?: string
+          user_id?: string
+          valor_projeto?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stakeholders: {
         Row: {
@@ -85,6 +292,7 @@ export type Database = {
           nivel: string
           nome: string
           project_id: string
+          project_id_new: string | null
           telefone: string | null
           tipo_influencia: string
           updated_at: string
@@ -99,6 +307,7 @@ export type Database = {
           nivel: string
           nome: string
           project_id: string
+          project_id_new?: string | null
           telefone?: string | null
           tipo_influencia: string
           updated_at?: string
@@ -113,9 +322,51 @@ export type Database = {
           nivel?: string
           nome?: string
           project_id?: string
+          project_id_new?: string | null
           telefone?: string | null
           tipo_influencia?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stakeholders_project_id_new_fkey"
+            columns: ["project_id_new"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspaces: {
+        Row: {
+          ativo: boolean
+          cor: string
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          cor?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

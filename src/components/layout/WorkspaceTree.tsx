@@ -205,7 +205,7 @@ function FolderItem({
           onClick={() => navigate(`/projects-tap/${project.id}`)}
         >
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate">{project.nomeProjeto}</span>
+          <span className="truncate">{project.nome_projeto}</span>
         </div>
       ))}
     </div>

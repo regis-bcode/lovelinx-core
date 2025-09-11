@@ -1,10 +1,12 @@
 export interface Project {
   id: string;
+  folder_id?: string;
+  user_id: string;
   
   // Identificação
   data: string;
-  codCliente: string;
-  nomeProjeto: string;
+  cod_cliente: string;
+  nome_projeto: string;
   cliente: string;
   gpp: string;
   coordenador: string;
@@ -12,38 +14,53 @@ export interface Project {
   esn: string;
   arquiteto: string;
   criticidade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
-  drive: string;
+  drive?: string;
   
   // Financeiro
-  valorProjeto: number;
-  receitaAtual: number;
-  margemVendaPercent: number;
-  margemAtualPercent: number;
-  margemVendaReais: number;
-  margemAtualReais: number;
+  valor_projeto: number;
+  receita_atual: number;
+  margem_venda_percent: number;
+  margem_atual_percent: number;
+  margem_venda_reais: number;
+  margem_atual_reais: number;
   mrr: number;
-  investimentoPerdas: number;
-  mrrTotal: number;
-  investimentoComercial: number;
-  psaPlanejado: number;
-  investimentoErroProduto: number;
-  diferencaPsaProjeto: number;
-  projetoEmPerda: boolean;
+  investimento_perdas: number;
+  mrr_total: number;
+  investimento_comercial: number;
+  psa_planejado: number;
+  investimento_erro_produto: number;
+  diferenca_psa_projeto: number;
+  projeto_em_perda: boolean;
   
   // Timeline
-  dataInicio: string;
-  goLivePrevisto: string;
-  duracaoPosProducao: number;
-  encerramento: string;
+  data_inicio?: string;
+  go_live_previsto?: string;
+  duracao_pos_producao: number;
+  encerramento?: string;
   
   // Outros
-  escopo: string;
-  objetivo: string;
-  observacao: string;
+  escopo?: string;
+  objetivo?: string;
+  observacao?: string;
   
   // Sistema
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export type ProjectFormData = Omit<Project, 'id' | 'createdAt' | 'updatedAt'>;
+export type ProjectFormData = Omit<Project, 'id' | 'user_id' | 'created_at' | 'updated_at'>;
+
+// Tipo para dados mínimos obrigatórios do TAP
+export interface TAPBasicData {
+  // Identificação básica
+  data: string;
+  cod_cliente: string;
+  nome_projeto: string;
+  cliente: string;
+  gpp: string;
+  coordenador: string;
+  produto: string;
+  esn: string;
+  arquiteto: string;
+  criticidade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+}

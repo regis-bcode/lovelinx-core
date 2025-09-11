@@ -134,12 +134,12 @@ export default function Projects() {
   // Usar projetos reais se existirem, caso contrário usar dados mock
   const projectsToShow = realProjects.length > 0 ? realProjects.map(p => ({
     id: parseInt(p.id),
-    name: p.nomeProjeto,
+    name: p.nome_projeto,
     description: p.objetivo || p.escopo,
     progress: 0, // Calcular baseado em dados reais
     status: "Planejamento",
     priority: p.criticidade === "Alta" ? "Alta" : p.criticidade === "Crítica" ? "Alta" : "Média",
-    dueDate: p.goLivePrevisto,
+    dueDate: p.go_live_previsto,
     members: 1,
     tasks: { completed: 0, total: 10 },
     color: "bg-blue-500",
@@ -147,7 +147,7 @@ export default function Projects() {
   
   const filteredProjects = projectsToShow.filter(project =>
     project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+    (project.description && project.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const handleCreateProject = () => {
