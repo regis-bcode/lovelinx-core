@@ -174,7 +174,7 @@ export default function ProjectDetails() {
           </TabsList>
 
           <TabsContent value="tap" className="space-y-4">
-            <ProjectTabs project={project} />
+            <ProjectTabs projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="risks" className="space-y-4">

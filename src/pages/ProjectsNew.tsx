@@ -141,11 +141,9 @@ export default function ProjectsNew() {
         )}
 
         {/* Project Form Tabs */}
-        <ProjectTabs 
-          project={project || undefined}
-          isLoading={isLoading}
-          folderId={folderId}
-        />
+        {isEditing && id ? (
+          <ProjectTabs projectId={id} />
+        ) : null}
       </div>
     </DashboardLayout>
   );
