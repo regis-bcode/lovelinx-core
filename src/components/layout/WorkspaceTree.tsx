@@ -51,22 +51,23 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
       {collapsed ? (
         <div className="space-y-1">
           {workspaces.slice(0, 3).map((workspace) => (
-            <SophisticatedTooltip
-              key={workspace.id}
-              content={workspace.nome}
-              description={workspace.descricao}
-              side="right"
-            >
-              <div
-                className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:scale-110"
-                onClick={() => navigate(`/workspaces/${workspace.id}`)}
+            <div key={workspace.id}>
+              <SophisticatedTooltip
+                content={workspace.nome}
+                description={workspace.descricao}
+                side="right"
               >
                 <div
-                  className="w-4 h-4 rounded-full shadow-sm"
-                  style={{ backgroundColor: workspace.cor }}
-                />
-              </div>
-            </SophisticatedTooltip>
+                  className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:scale-110"
+                  onClick={() => navigate(`/workspaces/${workspace.id}`)}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full shadow-sm"
+                    style={{ backgroundColor: workspace.cor }}
+                  />
+                </div>
+              </SophisticatedTooltip>
+            </div>
           ))}
           {workspaces.length > 3 && (
             <Tooltip>
@@ -192,16 +193,18 @@ function WorkspaceItem({
       />
       <FolderKanban className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <SophisticatedTooltip 
-          content={workspace.nome}
-          description={workspace.descricao}
-          disabled={workspace.nome.length <= 20}
-          side="right"
-        >
-          <span className="truncate">
-            {workspace.nome}
-          </span>
-        </SophisticatedTooltip>
+        <div>
+          <SophisticatedTooltip 
+            content={workspace.nome}
+            description={workspace.descricao}
+            disabled={workspace.nome.length <= 20}
+            side="right"
+          >
+            <span className="truncate">
+              {workspace.nome}
+            </span>
+          </SophisticatedTooltip>
+        </div>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -423,16 +426,18 @@ function FolderItem({
       />
       <Folder className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <SophisticatedTooltip 
-          content={folder.nome}
-          description="Pasta de Trabalho"
-          disabled={folder.nome.length <= 20}
-          side="right"
-        >
-          <span className="truncate">
-            {folder.nome}
-          </span>
-        </SophisticatedTooltip>
+        <div>
+          <SophisticatedTooltip 
+            content={folder.nome}
+            description="Pasta de Trabalho"
+            disabled={folder.nome.length <= 20}
+            side="right"
+          >
+            <span className="truncate">
+              {folder.nome}
+            </span>
+          </SophisticatedTooltip>
+        </div>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -595,16 +600,18 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
     >
       <FileText className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <SophisticatedTooltip 
-          content={project.nome_projeto}
-          description={`Cliente: ${project.cod_cliente || 'N/A'}`}
-          disabled={project.nome_projeto.length <= 20}
-          side="right"
-        >
-          <span className="truncate">
-            {project.nome_projeto}
-          </span>
-        </SophisticatedTooltip>
+        <div>
+          <SophisticatedTooltip 
+            content={project.nome_projeto}
+            description={`Cliente: ${project.cod_cliente || 'N/A'}`}
+            disabled={project.nome_projeto.length <= 20}
+            side="right"
+          >
+            <span className="truncate">
+              {project.nome_projeto}
+            </span>
+          </SophisticatedTooltip>
+        </div>
       )}
       <div className="ml-auto flex gap-1">
         <Button
