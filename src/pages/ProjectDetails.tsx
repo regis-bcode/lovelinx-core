@@ -90,52 +90,6 @@ export default function ProjectDetails() {
           </div>
         </div>
 
-        {/* Project Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Valor do Projeto</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                R$ {project.valor_projeto?.toLocaleString() || '0'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Receita Atual: R$ {project.receita_atual?.toLocaleString() || '0'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Margem Atual</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {project.margem_atual_percent?.toFixed(1) || '0'}%
-              </div>
-              <p className="text-xs text-muted-foreground">
-                R$ {project.margem_atual_reais?.toLocaleString() || '0'}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Go Live</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {project.go_live_previsto ? new Date(project.go_live_previsto).toLocaleDateString('pt-BR') : 'N/A'}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Início: {project.data_inicio ? new Date(project.data_inicio).toLocaleDateString('pt-BR') : 'N/A'}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Tabs */}
         <Tabs defaultValue="tap" className="w-full">
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 h-auto">
