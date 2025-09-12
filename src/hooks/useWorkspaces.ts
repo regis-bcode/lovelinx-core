@@ -117,9 +117,10 @@ export function useWorkspaces() {
         throw new Error('Não é possível excluir um workspace que contém pastas. Exclua todas as pastas primeiro.');
       }
 
+      // Hard delete em vez de soft delete
       const { error } = await supabase
         .from('workspaces')
-        .update({ ativo: false })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;

@@ -93,6 +93,17 @@ export function useProjects(folderId?: string) {
 
   const deleteProject = async (id: string): Promise<boolean> => {
     try {
+      // Excluir todas as tabelas relacionadas primeiro
+      await Promise.all([
+        supabase.from('tasks').delete().eq('project_id', id),
+        supabase.from('stakeholders').delete().eq('project_id', id),
+        supabase.from('communication_plan').delete().eq('project_id', id),
+        supabase.from('teams').delete().eq('project_id', id),
+        supabase.from('custom_fields').delete().eq('project_id', id),
+        supabase.from('tap').delete().eq('project_id', id)
+      ]);
+
+      // Agora excluir o projeto
       const { error } = await supabase
         .from('projects')
         .delete()
@@ -104,7 +115,7 @@ export function useProjects(folderId?: string) {
       return true;
     } catch (error) {
       console.error('Erro ao excluir projeto:', error);
-      return false;
+      throw error;
     }
   };
 
