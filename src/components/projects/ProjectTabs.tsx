@@ -26,6 +26,13 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   const tabs = [
     {
+      value: 'tap',
+      label: 'TAP',
+      icon: FileText,
+      count: tap ? 1 : 0,
+      content: <TAPDetails projectId={projectId} />
+    },
+    {
       value: 'tasks',
       label: 'Tarefas',
       icon: CheckSquare,
@@ -38,13 +45,6 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       icon: Users,
       count: teams.length,
       content: <TeamsManager projectId={projectId} />
-    },
-    {
-      value: 'tap',
-      label: 'TAP',
-      icon: FileText,
-      count: tap ? 1 : 0,
-      content: <TAPDetails projectId={projectId} />
     },
     {
       value: 'communication',
