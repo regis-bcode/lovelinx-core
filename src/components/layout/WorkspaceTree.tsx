@@ -5,7 +5,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -47,7 +47,7 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
   if (loadingWorkspaces) return null;
   
   return (
-    <TooltipProvider>
+    <>
       {collapsed ? (
         <div className="space-y-1">
           {workspaces.slice(0, 3).map((workspace) => (
@@ -102,7 +102,7 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
           ))}
         </div>
       )}
-    </TooltipProvider>
+    </>
   );
 }
 
