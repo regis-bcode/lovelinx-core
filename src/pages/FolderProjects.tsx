@@ -27,6 +27,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useFolders } from "@/hooks/useFolders";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { useToast } from "@/hooks/use-toast";
+import { ProjectSummaryCards } from "@/components/projects/ProjectSummaryCards";
 
 export default function FolderProjects() {
   const { workspaceId, folderId } = useParams<{ workspaceId: string; folderId: string }>();
@@ -131,6 +132,8 @@ export default function FolderProjects() {
             Novo Projeto TAP
           </Button>
         </div>
+
+        <ProjectSummaryCards projects={projects} />
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4">

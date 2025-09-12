@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,10 @@ import { useFolders } from "@/hooks/useFolders";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { FolderFormData } from "@/types/folder";
 import { useToast } from "@/hooks/use-toast";
+import { Project } from "@/types/project";
+import { ProjectSummaryCards } from "@/components/projects/ProjectSummaryCards";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 const colors = [
   '#3B82F6', '#EF4444', '#10B981', '#F59E0B', 
@@ -56,9 +60,44 @@ export default function Folders() {
 
   const { folders, loading, createFolder, updateFolder, deleteFolder } = useFolders(workspaceId);
   const { getWorkspace } = useWorkspaces();
-  const { toast } = useToast();
+const { toast } = useToast();
 
-  const workspace = workspaceId ? getWorkspace(workspaceId) : null;
+const { user } = useAuth();
+const [workspaceProjects, setWorkspaceProjects] = useState<Project[]>([]);
+
+const loadWorkspaceProjects = async () => {
+  if (!workspaceId || !user?.id) { setWorkspaceProjects([]); return; }
+  try {
+    const { data: folderRows, error: folderErr } = await supabase
+      .from('folders')
+      .select('id')
+      .eq('workspace_id', workspaceId);
+    if (folderErr) throw folderErr;
+    const folderIds = (folderRows || []).map((f: any) => f.id);
+    if (folderIds.length === 0) { setWorkspaceProjects([]); return; }
+    const { data: projectRows, error: projErr } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('user_id', user.id)
+      .in('folder_id', folderIds)
+      .order('created_at', { ascending: false });
+    if (projErr) throw projErr;
+    const converted = (projectRows || []).map((p: any) => ({
+      ...p,
+      criticidade: p.criticidade as 'Baixa' | 'Média' | 'Alta' | 'Crítica',
+    }));
+    setWorkspaceProjects(converted);
+  } catch (e) {
+    console.error('Erro ao carregar projetos do workspace:', e);
+  }
+};
+
+useEffect(() => {
+  loadWorkspaceProjects();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [workspaceId, user?.id, folders.length]);
+
+const workspace = workspaceId ? getWorkspace(workspaceId) : null;
 
   const filteredFolders = folders.filter(folder =>
     folder.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -240,6 +279,8 @@ export default function Folders() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <ProjectSummaryCards projects={workspaceProjects} />
 
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
