@@ -6,10 +6,11 @@ import { useTAP } from '@/hooks/useTAP';
 import { useCommunicationPlan } from '@/hooks/useCommunicationPlan';
 import { useStakeholders } from '@/hooks/useStakeholders';
 import { useRisks } from '@/hooks/useRisks';
-import { TaskManagementSystem } from './TaskManagementSystem';
-import { TeamsManager } from './TeamsManager';
 import { useTasks } from '@/hooks/useTasks';
 import { useTeams } from '@/hooks/useTeams';
+import { TaskList } from './TaskList';
+import { TAPDetails } from './TAPDetails';
+import { TeamsManager } from './TeamsManager';
 
 interface ProjectTabsProps {
   projectId: string;
@@ -29,7 +30,12 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       label: 'Tarefas',
       icon: CheckSquare,
       count: tasks.length,
-      content: <TaskManagementSystem projectId={projectId} />
+      content: <TaskList 
+        tasks={tasks} 
+        onTaskCreate={() => {}} 
+        onTaskUpdate={() => {}} 
+        onTaskDelete={() => {}} 
+      />
     },
     {
       value: 'teams',
@@ -43,7 +49,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       label: 'TAP',
       icon: FileText,
       count: tap ? 1 : 0,
-      content: <div className="text-center py-12 text-muted-foreground">TAP será implementado em breve</div>
+      content: <TAPDetails projectId={projectId} />
     },
     {
       value: 'communication',

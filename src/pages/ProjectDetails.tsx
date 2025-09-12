@@ -188,23 +188,15 @@ export default function ProjectDetails() {
           <TabsContent value="tasks" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Tarefas do Projeto</CardTitle>
+                <CardTitle>Gestão de Tarefas</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-            <CustomFieldListManager 
-              customFields={customFields}
-              onFieldCreate={createCustomField}
-              onFieldUpdate={() => {}}
-              onFieldDelete={deleteCustomField}
-            />
-                <div className="border-t pt-6">
-                  <TaskList 
-                    tasks={tasks}
-                    onTaskCreate={createTask}
-                    onTaskUpdate={updateTask}
-                    onTaskDelete={deleteTask}
-                  />
-                </div>
+              <CardContent>
+                <TaskList 
+                  tasks={tasks}
+                  onTaskCreate={createTask}
+                  onTaskUpdate={updateTask}
+                  onTaskDelete={deleteTask}
+                />
               </CardContent>
             </Card>
           </TabsContent>
