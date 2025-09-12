@@ -78,6 +78,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [createdTAP, setCreatedTAP] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>('identificacao');
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -141,10 +142,10 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
           <CardTitle>TAP</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="identificacao" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TooltipProvider>
-              <TabsList className="flex w-full flex-wrap gap-2 h-auto items-start">
-                <TabsTrigger value="identificacao">
+              <TabsList className="flex w-full gap-2 h-auto items-start overflow-x-auto flex-nowrap">
+                <TabsTrigger value="identificacao" className="shrink-0">
                   <span className="flex items-center gap-1">
                     TAP
                     <Tooltip>
@@ -157,7 +158,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     </Tooltip>
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="financeiro">
+                <TabsTrigger value="financeiro" className="shrink-0">
                   <span className="flex items-center gap-1">
                     Financeiro
                     <Tooltip>
@@ -170,7 +171,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     </Tooltip>
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="timeline">
+                <TabsTrigger value="timeline" className="shrink-0">
                   <span className="flex items-center gap-1">
                     Timeline
                     <Tooltip>
@@ -183,7 +184,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     </Tooltip>
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="outros">
+                <TabsTrigger value="outros" className="shrink-0">
                   <span className="flex items-center gap-1">
                     Outros
                     <Tooltip>
@@ -196,7 +197,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     </Tooltip>
                   </span>
                 </TabsTrigger>
-                <TabsTrigger value="anexos">
+                <TabsTrigger value="anexos" className="shrink-0">
                   <span className="flex items-center gap-1">
                     Anexos
                     <Tooltip>
