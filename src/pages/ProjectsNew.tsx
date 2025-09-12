@@ -43,11 +43,11 @@ export default function ProjectsNew() {
       if (folderId) {
         try {
           // Get folder information
-          const { data: folderData, error: folderError } = await supabase
-            .from('folders')
-            .select('*')
-            .eq('id', folderId)
-            .single();
+            const { data: folderData, error: folderError } = await supabase
+              .from('folders')
+              .select('*')
+              .eq('id', folderId)
+              .maybeSingle();
 
           if (folderError) throw folderError;
           setFolder(folderData);

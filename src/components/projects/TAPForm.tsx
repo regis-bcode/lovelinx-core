@@ -143,13 +143,13 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         <CardContent>
           <Tabs defaultValue="identificacao" className="space-y-4">
             <TooltipProvider>
-              <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto">
+              <TabsList className="flex w-full flex-wrap gap-2 h-auto items-start">
                 <TabsTrigger value="identificacao">
                   <span className="flex items-center gap-1">
                     TAP
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Informações de identificação do projeto</p>
@@ -162,7 +162,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     Financeiro
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Valores, margens, MRR e investimentos</p>
@@ -175,7 +175,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     Timeline
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Datas: início, go live e encerramento</p>
@@ -188,7 +188,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     Outros
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Campos adicionais e observações</p>
@@ -201,7 +201,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     Anexos
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
                       </TooltipTrigger>
                       <TooltipContent>
                         <p>Envie documentos relacionados ao projeto</p>
