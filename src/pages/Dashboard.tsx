@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useNavigate } from "react-router-dom";
 import { 
   FolderKanban, 
@@ -11,7 +12,8 @@ import {
   AlertCircle,
   Plus,
   TrendingUp,
-  Calendar
+  Calendar,
+  HelpCircle
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
@@ -22,6 +24,7 @@ const stats = [
     change: "+2",
     icon: FolderKanban,
     color: "bg-primary",
+    tooltip: "Número total de projetos em andamento no sistema",
   },
   {
     title: "Tarefas Concluídas",
@@ -29,6 +32,7 @@ const stats = [
     change: "+15",
     icon: CheckCircle,
     color: "bg-success",
+    tooltip: "Tarefas finalizadas este mês",
   },
   {
     title: "Membros da Equipe",
@@ -36,6 +40,7 @@ const stats = [
     change: "+3",
     icon: Users,
     color: "bg-accent",
+    tooltip: "Total de colaboradores ativos em todos os projetos",
   },
   {
     title: "Prazo Hoje",
@@ -43,6 +48,7 @@ const stats = [
     change: "0",
     icon: Clock,
     color: "bg-warning",
+    tooltip: "Tarefas com vencimento hoje que precisam de atenção",
   },
 ];
 
@@ -94,6 +100,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   return (
     <DashboardLayout>
+      <TooltipProvider>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -104,35 +111,52 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Calendar className="mr-2 h-4 w-4" />
-              Calendário
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Calendário
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Visualizar calendário de projetos e prazos</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat) => (
-            <Card key={stat.title} className="shadow-soft hover:shadow-medium transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                      <Badge variant="secondary" className="text-xs">
-                        <TrendingUp className="mr-1 h-3 w-3" />
-                        {stat.change}
-                      </Badge>
+            <Tooltip key={stat.title}>
+              <TooltipTrigger asChild>
+                <Card className="shadow-soft hover:shadow-medium transition-shadow cursor-help">
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                          <HelpCircle className="h-3 w-3 text-muted-foreground/50" />
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                          <Badge variant="secondary" className="text-xs">
+                            <TrendingUp className="mr-1 h-3 w-3" />
+                            {stat.change}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className={`p-3 rounded-xl ${stat.color}`}>
+                        <stat.icon className="h-6 w-6 text-white" />
+                      </div>
                     </div>
-                  </div>
-                  <div className={`p-3 rounded-xl ${stat.color}`}>
-                    <stat.icon className="h-6 w-6 text-white" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{stat.tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
           ))}
         </div>
 
@@ -140,14 +164,21 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Projects */}
           <Card className="shadow-soft">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-xl">Projetos Recentes</CardTitle>
-                <Button variant="ghost" size="sm">
-                  Ver todos
-                </Button>
-              </div>
-            </CardHeader>
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl">Projetos Recentes</CardTitle>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        Ver todos
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Visualizar lista completa de projetos</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              </CardHeader>
             <CardContent className="space-y-4">
               {recentProjects.map((project, index) => (
                 <div key={index} className="p-4 rounded-lg border bg-gradient-card hover:shadow-soft transition-shadow">
@@ -167,13 +198,22 @@ export default function Dashboard() {
                       {new Date(project.dueDate).toLocaleDateString("pt-BR")}
                     </span>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Progresso</span>
-                      <span className="font-medium">{project.progress}%</span>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Progresso</span>
+                        <span className="font-medium">{project.progress}%</span>
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="cursor-help">
+                            <Progress value={project.progress} className="h-2" />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Progresso geral do projeto: {project.progress}% concluído</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
-                    <Progress value={project.progress} className="h-2" />
-                  </div>
                 </div>
               ))}
             </CardContent>
@@ -187,18 +227,39 @@ export default function Dashboard() {
                 <CardTitle className="text-xl">Ações Rápidas</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-2 gap-3">
-                <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/workspaces")}>
-                  <FolderKanban className="h-6 w-6" />
-                  <span>Workspaces</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col gap-2">
-                  <Calendar className="h-6 w-6" />
-                  <span>Agendar Reunião</span>
-                </Button>
-                <Button variant="outline" className="h-20 flex-col gap-2">
-                  <AlertCircle className="h-6 w-6" />
-                  <span>Relatório</span>
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" className="h-20 flex-col gap-2" onClick={() => navigate("/workspaces")}>
+                      <FolderKanban className="h-6 w-6" />
+                      <span>Workspaces</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Gerenciar seus espaços de trabalho e projetos</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" className="h-20 flex-col gap-2">
+                      <Calendar className="h-6 w-6" />
+                      <span>Agendar Reunião</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Criar nova reunião com a equipe</p>
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="outline" className="h-20 flex-col gap-2">
+                      <AlertCircle className="h-6 w-6" />
+                      <span>Relatório</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Gerar relatórios de desempenho e progresso</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardContent>
             </Card>
 
@@ -222,14 +283,22 @@ export default function Dashboard() {
                     <span className="text-sm text-foreground">{task}</span>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" className="w-full mt-2">
-                  Ver todas as tarefas
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full mt-2">
+                      Ver todas as tarefas
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Acessar lista completa de tarefas pendentes</p>
+                  </TooltipContent>
+                </Tooltip>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+      </TooltipProvider>
     </DashboardLayout>
   );
 }
