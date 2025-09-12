@@ -75,6 +75,19 @@ export function useFolders(workspaceId?: string) {
 
   const deleteFolder = async (id: string): Promise<boolean> => {
     try {
+      // Verificar se existem projetos vinculados à pasta
+      const { data: projects, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('folder_id', id)
+        .limit(1);
+
+      if (projectError) throw projectError;
+
+      if (projects && projects.length > 0) {
+        throw new Error('Não é possível excluir uma pasta que contém projetos. Exclua todos os projetos primeiro.');
+      }
+
       const { error } = await supabase
         .from('folders')
         .delete()
@@ -86,7 +99,7 @@ export function useFolders(workspaceId?: string) {
       return true;
     } catch (error) {
       console.error('Erro ao excluir pasta:', error);
-      return false;
+      throw error;
     }
   };
 

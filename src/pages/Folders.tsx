@@ -117,16 +117,18 @@ export default function Folders() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Tem certeza que deseja excluir esta pasta?")) {
-      const success = await deleteFolder(id);
-      if (success) {
+      try {
+        const success = await deleteFolder(id);
+        if (success) {
+          toast({
+            title: "Pasta excluída",
+            description: "A pasta foi excluída com sucesso.",
+          });
+        }
+      } catch (error: any) {
         toast({
-          title: "Pasta excluída",
-          description: "A pasta foi excluída com sucesso.",
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: "Erro ao excluir a pasta.",
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir a pasta.",
           variant: "destructive",
         });
       }

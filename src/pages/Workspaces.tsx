@@ -114,16 +114,18 @@ export default function Workspaces() {
 
   const handleDelete = async (id: string) => {
     if (confirm("Tem certeza que deseja excluir este workspace?")) {
-      const success = await deleteWorkspace(id);
-      if (success) {
+      try {
+        const success = await deleteWorkspace(id);
+        if (success) {
+          toast({
+            title: "Workspace excluído",
+            description: "O workspace foi excluído com sucesso.",
+          });
+        }
+      } catch (error: any) {
         toast({
-          title: "Workspace excluído",
-          description: "O workspace foi excluído com sucesso.",
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: "Erro ao excluir o workspace.",
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir o workspace.",
           variant: "destructive",
         });
       }

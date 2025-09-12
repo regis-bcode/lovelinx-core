@@ -33,7 +33,7 @@ export default function FolderProjects() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { projects, loading } = useProjects(folderId);
+  const { projects, loading, deleteProject } = useProjects(folderId);
   const { getFolder } = useFolders(workspaceId);
   const { getWorkspace } = useWorkspaces();
   const { toast } = useToast();
@@ -53,11 +53,21 @@ export default function FolderProjects() {
 
   const handleDeleteProject = async (projectId: string) => {
     if (confirm("Tem certeza que deseja excluir este projeto?")) {
-      // Implementar lógica de exclusão
-      toast({
-        title: "Projeto excluído",
-        description: "O projeto foi excluído com sucesso.",
-      });
+      try {
+        const success = await deleteProject(projectId);
+        if (success) {
+          toast({
+            title: "Projeto excluído",
+            description: "O projeto foi excluído com sucesso.",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir o projeto.",
+          variant: "destructive",
+        });
+      }
     }
   };
 

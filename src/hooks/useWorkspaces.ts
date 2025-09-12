@@ -104,6 +104,19 @@ export function useWorkspaces() {
 
   const deleteWorkspace = async (id: string): Promise<boolean> => {
     try {
+      // Verificar se existem pastas vinculadas ao workspace
+      const { data: folders, error: folderError } = await supabase
+        .from('folders')
+        .select('id')
+        .eq('workspace_id', id)
+        .limit(1);
+
+      if (folderError) throw folderError;
+
+      if (folders && folders.length > 0) {
+        throw new Error('Não é possível excluir um workspace que contém pastas. Exclua todas as pastas primeiro.');
+      }
+
       const { error } = await supabase
         .from('workspaces')
         .update({ ativo: false })
@@ -115,7 +128,7 @@ export function useWorkspaces() {
       return true;
     } catch (error) {
       console.error('Erro ao excluir workspace:', error);
-      return false;
+      throw error;
     }
   };
 
