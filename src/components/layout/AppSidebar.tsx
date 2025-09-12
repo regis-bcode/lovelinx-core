@@ -89,10 +89,12 @@ export function AppSidebar() {
         {/* Navegação Principal */}
         <SidebarGroup className="py-2">
           <div className="flex items-center justify-between px-2 py-1.5">
-            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Navegação
-            </SidebarGroupLabel>
-            <SidebarTrigger className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+            {state !== "collapsed" && (
+              <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Navegação
+              </SidebarGroupLabel>
+            )}
+            <SidebarTrigger className="h-6 w-6 text-muted-foreground hover:text-foreground" />
           </div>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
