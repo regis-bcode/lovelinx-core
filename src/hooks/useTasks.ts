@@ -12,10 +12,46 @@ export function useTasks(projectId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (projectId && user) {
-      loadTasks();
-      loadCustomFields();
-    }
+    if (!projectId || !user) return;
+    loadTasks();
+    loadCustomFields();
+
+    const tasksChannel = supabase
+      .channel(`tasks-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const task = payload.new as Task;
+        setTasks((prev) => [task, ...prev.filter((t) => t.id !== task.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const task = payload.new as Task;
+        setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const taskId = payload.old.id;
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      })
+      .subscribe();
+
+    const customFieldsChannel = supabase
+      .channel(`custom-fields-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'custom_fields', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const field = payload.new as CustomField;
+        setCustomFields((prev) => [field, ...prev.filter((cf) => cf.id !== field.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'custom_fields', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const field = payload.new as CustomField;
+        setCustomFields((prev) => prev.map((cf) => (cf.id === field.id ? field : cf)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'custom_fields', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const fieldId = payload.old.id;
+        setCustomFields((prev) => prev.filter((cf) => cf.id !== fieldId));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(tasksChannel);
+      supabase.removeChannel(customFieldsChannel);
+    };
   }, [projectId, user]);
 
   const loadTasks = async () => {

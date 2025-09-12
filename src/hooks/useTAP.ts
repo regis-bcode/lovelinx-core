@@ -11,9 +11,27 @@ export function useTAP(projectId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (projectId && user) {
-      loadTAP();
-    }
+    if (!projectId || !user) return;
+    loadTAP();
+
+    const channel = supabase
+      .channel(`tap-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tap', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const newTap = payload.new as TAP;
+        setTap(newTap);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tap', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const updatedTap = payload.new as TAP;
+        setTap(updatedTap);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tap', filter: `project_id=eq.${projectId}` }, () => {
+        setTap(null);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId, user]);
 
   const loadTAP = async () => {

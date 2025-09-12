@@ -15,9 +15,28 @@ export function useTAPDocuments(tapId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (tapId && user) {
-      loadDocuments();
-    }
+    if (!tapId || !user) return;
+    loadDocuments();
+
+    const channel = supabase
+      .channel(`tap-documents-realtime-${tapId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tap_documents', filter: `tap_id=eq.${tapId}` }, (payload) => {
+        const document = payload.new as TAPDocument;
+        setDocuments((prev) => [document, ...prev.filter((d) => d.id !== document.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tap_documents', filter: `tap_id=eq.${tapId}` }, (payload) => {
+        const document = payload.new as TAPDocument;
+        setDocuments((prev) => prev.map((d) => (d.id === document.id ? document : d)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tap_documents', filter: `tap_id=eq.${tapId}` }, (payload) => {
+        const documentId = payload.old.id;
+        setDocuments((prev) => prev.filter((d) => d.id !== documentId));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [tapId, user]);
 
   const loadDocuments = async () => {

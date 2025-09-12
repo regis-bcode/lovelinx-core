@@ -7,7 +7,28 @@ export function useStakeholders(projectId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!projectId) return;
     loadStakeholders();
+
+    const channel = supabase
+      .channel(`stakeholders-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'stakeholders', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const stakeholder = payload.new as Stakeholder;
+        setStakeholders((prev) => [stakeholder, ...prev.filter((s) => s.id !== stakeholder.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stakeholders', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const stakeholder = payload.new as Stakeholder;
+        setStakeholders((prev) => prev.map((s) => (s.id === stakeholder.id ? stakeholder : s)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'stakeholders', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const stakeholderId = payload.old.id;
+        setStakeholders((prev) => prev.filter((s) => s.id !== stakeholderId));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId]);
 
   const loadStakeholders = async () => {

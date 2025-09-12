@@ -7,7 +7,28 @@ export function useCommunicationPlan(projectId: string) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!projectId) return;
     loadCommunicationPlans();
+
+    const channel = supabase
+      .channel(`communication-plan-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'communication_plan', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const plan = payload.new as CommunicationPlan;
+        setCommunicationPlans((prev) => [plan, ...prev.filter((p) => p.id !== plan.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'communication_plan', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const plan = payload.new as CommunicationPlan;
+        setCommunicationPlans((prev) => prev.map((p) => (p.id === plan.id ? plan : p)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'communication_plan', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const planId = payload.old.id;
+        setCommunicationPlans((prev) => prev.filter((p) => p.id !== planId));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId]);
 
   const loadCommunicationPlans = async () => {

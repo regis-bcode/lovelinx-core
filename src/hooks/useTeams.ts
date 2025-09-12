@@ -11,9 +11,28 @@ export function useTeams(projectId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (projectId && user) {
-      loadTeams();
-    }
+    if (!projectId || !user) return;
+    loadTeams();
+
+    const channel = supabase
+      .channel(`teams-realtime-${projectId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'teams', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const team = payload.new as Team;
+        setTeams((prev) => [team, ...prev.filter((t) => t.id !== team.id)]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'teams', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const team = payload.new as Team;
+        setTeams((prev) => prev.map((t) => (t.id === team.id ? team : t)));
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'teams', filter: `project_id=eq.${projectId}` }, (payload) => {
+        const teamId = payload.old.id;
+        setTeams((prev) => prev.filter((t) => t.id !== teamId));
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId, user]);
 
   const loadTeams = async () => {
