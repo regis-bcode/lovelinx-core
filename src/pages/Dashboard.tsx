@@ -16,72 +16,11 @@ import {
   HelpCircle
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 
-const stats = [
-  {
-    title: "Projetos Ativos",
-    value: "12",
-    change: "+2",
-    icon: FolderKanban,
-    color: "bg-primary",
-    tooltip: "Número total de projetos em andamento no sistema",
-  },
-  {
-    title: "Tarefas Concluídas",
-    value: "89",
-    change: "+15",
-    icon: CheckCircle,
-    color: "bg-success",
-    tooltip: "Tarefas finalizadas este mês",
-  },
-  {
-    title: "Membros da Equipe",
-    value: "24",
-    change: "+3",
-    icon: Users,
-    color: "bg-accent",
-    tooltip: "Total de colaboradores ativos em todos os projetos",
-  },
-  {
-    title: "Prazo Hoje",
-    value: "7",
-    change: "0",
-    icon: Clock,
-    color: "bg-warning",
-    tooltip: "Tarefas com vencimento hoje que precisam de atenção",
-  },
-];
+// Dynamic stats migrated to useDashboardStats hook
 
-const recentProjects = [
-  {
-    name: "Sistema de E-commerce",
-    progress: 75,
-    status: "Em progresso",
-    dueDate: "2024-12-30",
-    members: 6,
-  },
-  {
-    name: "App Mobile Delivery",
-    progress: 45,
-    status: "Em progresso", 
-    dueDate: "2024-12-25",
-    members: 4,
-  },
-  {
-    name: "Dashboard Analytics",
-    progress: 90,
-    status: "Revisão",
-    dueDate: "2024-12-20",
-    members: 3,
-  },
-  {
-    name: "API Integração",
-    progress: 30,
-    status: "Planejamento",
-    dueDate: "2025-01-15", 
-    members: 2,
-  },
-];
+// Recent projects migrated to useDashboardStats hook
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -98,6 +37,14 @@ const getStatusColor = (status: string) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { counts, recentProjects: rp } = useDashboardStats();
+  const statsUI = [
+    { title: "Projetos Ativos", value: String(counts.projects), change: "+0", icon: FolderKanban, color: "bg-primary", tooltip: "Número total de projetos do usuário" },
+    { title: "Tarefas Concluídas", value: String(counts.tasksCompleted), change: "+0", icon: CheckCircle, color: "bg-success", tooltip: "Tarefas finalizadas (100%)" },
+    { title: "Membros da Equipe", value: String(counts.teamMembers), change: "+0", icon: Users, color: "bg-accent", tooltip: "Total de membros de equipe" },
+    { title: "Prazo Hoje", value: String(counts.tasksDueToday), change: "+0", icon: Clock, color: "bg-warning", tooltip: "Tarefas com vencimento hoje" },
+  ];
+  const projectsList = rp;
   return (
     <DashboardLayout>
       <TooltipProvider>
@@ -127,7 +74,7 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat) => (
+          {statsUI.map((stat) => (
             <Tooltip key={stat.title}>
               <TooltipTrigger asChild>
                 <Card className="shadow-soft hover:shadow-medium transition-shadow cursor-help">
@@ -180,7 +127,7 @@ export default function Dashboard() {
                 </div>
               </CardHeader>
             <CardContent className="space-y-4">
-              {recentProjects.map((project, index) => (
+              {projectsList.map((project, index) => (
                 <div key={index} className="p-4 rounded-lg border bg-gradient-card hover:shadow-soft transition-shadow">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
