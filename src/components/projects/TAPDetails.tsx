@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { useTAP } from "@/hooks/useTAP";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, DollarSign, FileText, Target } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface TAPDetailsProps {
   projectId: string;

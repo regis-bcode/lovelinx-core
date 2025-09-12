@@ -8,7 +8,7 @@ import { useStakeholders } from '@/hooks/useStakeholders';
 import { useRisks } from '@/hooks/useRisks';
 import { useTasks } from '@/hooks/useTasks';
 import { useTeams } from '@/hooks/useTeams';
-import { TaskList } from './TaskList';
+import { TaskManagementSystem } from './TaskManagementSystem';
 import { TAPDetails } from './TAPDetails';
 import { TeamsManager } from './TeamsManager';
 
@@ -30,12 +30,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
       label: 'Tarefas',
       icon: CheckSquare,
       count: tasks.length,
-      content: <TaskList 
-        tasks={tasks} 
-        onTaskCreate={() => {}} 
-        onTaskUpdate={() => {}} 
-        onTaskDelete={() => {}} 
-      />
+      content: <TaskManagementSystem projectId={projectId} />
     },
     {
       value: 'teams',
