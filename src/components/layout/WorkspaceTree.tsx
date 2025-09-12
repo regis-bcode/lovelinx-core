@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus, Trash2 } from "lucide-react";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { WorkspaceWithProjectDialog } from "@/components/workspaces/WorkspaceWithProjectDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceTreeProps {
   collapsed?: boolean;
@@ -84,6 +85,8 @@ function WorkspaceItem({
   navigate
 }: WorkspaceItemProps) {
   const { folders, createFolder, refreshFolders } = useFolders(workspace.id);
+  const { deleteWorkspace } = useWorkspaces();
+  const { toast } = useToast();
   const [folderOpen, setFolderOpen] = useState(false);
   const [folderForm, setFolderForm] = useState<{ nome: string; descricao: string | null; cor: string; workspace_id: string }>({
     nome: "",
@@ -94,12 +97,33 @@ function WorkspaceItem({
 
   const isActive = currentPath.includes(`/workspaces/${workspace.id}`);
 
+  const handleDeleteWorkspace = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Tem certeza que deseja excluir este workspace?")) {
+      try {
+        const success = await deleteWorkspace(workspace.id);
+        if (success) {
+          toast({
+            title: "Workspace excluído",
+            description: "O workspace foi excluído com sucesso.",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir o workspace.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   return (
     <div className="space-y-1">
       {/* Workspace Item */}
       <div
         className={cn(
-          "flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+          "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
           isActive && "bg-muted text-primary font-medium"
         )}
         onClick={onToggle}
@@ -117,17 +141,27 @@ function WorkspaceItem({
         />
         <FolderKanban className="h-4 w-4 text-muted-foreground" />
         <span className="truncate">{workspace.nome}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/workspaces/${workspace.id}/folders`);
-          }}
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
+        <div className="ml-auto flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/workspaces/${workspace.id}/folders`);
+            }}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+            onClick={handleDeleteWorkspace}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
 
       {/* Folders */}
@@ -163,19 +197,63 @@ function FolderItem({
   currentPath,
   navigate
 }: FolderItemProps) {
-  const { projects, refreshProjects } = useProjects(folder.id);
+  const { projects, refreshProjects, deleteProject } = useProjects(folder.id);
+  const { deleteFolder } = useFolders(workspaceId);
+  const { toast } = useToast();
   
   // Projetos já filtrados pelo folderId no hook
   const folderProjects = projects;
 
   const isActive = currentPath.includes(`/folders/${folder.id}`);
 
+  const handleDeleteFolder = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (confirm("Tem certeza que deseja excluir esta pasta?")) {
+      try {
+        const success = await deleteFolder(folder.id);
+        if (success) {
+          toast({
+            title: "Pasta excluída",
+            description: "A pasta foi excluída com sucesso.",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir a pasta.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleDeleteProject = async (e: React.MouseEvent, projectId: string) => {
+    e.stopPropagation();
+    if (confirm("Tem certeza que deseja excluir este projeto?")) {
+      try {
+        const success = await deleteProject(projectId);
+        if (success) {
+          toast({
+            title: "Projeto excluído",
+            description: "O projeto foi excluído com sucesso.",
+          });
+        }
+      } catch (error: any) {
+        toast({
+          title: "Erro ao excluir",
+          description: error.message || "Erro ao excluir o projeto.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
   return (
     <div className="ml-4 space-y-1">
       {/* Folder Item */}
       <div
         className={cn(
-          "flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+          "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
           isActive && "bg-muted text-primary font-medium"
         )}
         onClick={onToggle}
@@ -193,17 +271,27 @@ function FolderItem({
         />
         <Folder className="h-4 w-4 text-muted-foreground" />
         <span className="truncate">{folder.nome}</span>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation();
-            navigate(`/workspaces/${workspaceId}/folders/${folder.id}/projects`);
-          }}
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
+        <div className="ml-auto flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/workspaces/${workspaceId}/folders/${folder.id}/projects`);
+            }}
+          >
+            <Plus className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+            onClick={handleDeleteFolder}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
       </div>
 
       {/* Projects */}
@@ -211,13 +299,21 @@ function FolderItem({
         <div
           key={project.id}
           className={cn(
-            "ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+            "group ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
             currentPath.includes(`/projects-tap/${project.id}`) && "bg-muted text-primary font-medium"
           )}
           onClick={() => navigate(`/projects-tap/${project.id}`)}
         >
           <FileText className="h-4 w-4 text-muted-foreground" />
           <span className="truncate">{project.nome_projeto}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+            onClick={(e) => handleDeleteProject(e, project.id)}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
         </div>
       ))}
     </div>
