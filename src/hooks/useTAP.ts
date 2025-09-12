@@ -26,9 +26,9 @@ export function useTAP(projectId?: string) {
         .select('*')
         .eq('project_id', projectId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Erro ao carregar TAP:', error);
         toast({
           title: "Erro",
