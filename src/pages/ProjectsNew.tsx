@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { ProjectTabs } from "@/components/projects/ProjectTabs";
+import { TAPForm } from "@/components/projects/TAPForm";
 import { useProjects } from "@/hooks/useProjects";
 import { Project } from "@/types/project";
 import { useToast } from "@/hooks/use-toast";
@@ -143,7 +144,9 @@ export default function ProjectsNew() {
         {/* Project Form Tabs */}
         {isEditing && id ? (
           <ProjectTabs projectId={id} />
-        ) : null}
+        ) : (
+          <TAPForm folderId={folderId} />
+        )}
       </div>
     </DashboardLayout>
   );
