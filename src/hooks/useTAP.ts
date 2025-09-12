@@ -38,7 +38,7 @@ export function useTAP(projectId?: string) {
         return;
       }
 
-      setTap(data as TAP);
+      setTap(data);
     } catch (error) {
       console.error('Erro ao carregar TAP:', error);
     } finally {
@@ -76,12 +76,12 @@ export function useTAP(projectId?: string) {
         return null;
       }
 
-      setTap(data as TAP);
+      setTap(data);
       toast({
         title: "Sucesso",
         description: "TAP criado com sucesso!",
       });
-      return data as TAP;
+      return data;
     } catch (error) {
       console.error('Erro ao criar TAP:', error);
       return null;
@@ -107,12 +107,12 @@ export function useTAP(projectId?: string) {
         return null;
       }
 
-      setTap(data as TAP);
+      setTap(data);
       toast({
         title: "Sucesso",
         description: "TAP atualizado com sucesso!",
       });
-      return data as TAP;
+      return data;
     } catch (error) {
       console.error('Erro ao atualizar TAP:', error);
       return null;

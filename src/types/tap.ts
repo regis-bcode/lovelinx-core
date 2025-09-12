@@ -7,16 +7,14 @@ export interface TAP {
   data: string;
   nome_projeto: string;
   cod_cliente: string;
-  gpp: string;
+  gerente_portfolio: string; // GPP agora é Gerente de Portfólio
   produto: string;
   arquiteto: string;
   criticidade_totvs: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
   coordenador: string;
   gerente_projeto: string;
-  gerente_portfolio: string;
-  gerente_escritorio: string;
   esn: string;
-  criticidade_cliente: string;
+  criticidade_cliente: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
   drive?: string;
   
   // Timeline
@@ -61,14 +59,31 @@ export interface TAPBasicData {
   data: string;
   nome_projeto: string;
   cod_cliente: string;
-  gpp: string;
+  gerente_portfolio: string; // GPP agora é Gerente de Portfólio
   produto: string;
   arquiteto: string;
   criticidade_totvs: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
   coordenador: string;
   gerente_projeto: string;
-  gerente_portfolio: string;
-  gerente_escritorio: string;
   esn: string;
-  criticidade_cliente: string;
+  criticidade_cliente: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
 }
+
+// Tipos para documentos anexados na TAP
+export interface TAPDocument {
+  id: string;
+  tap_id: string;
+  project_id: string;
+  user_id: string;
+  file_name: string;
+  original_name: string;
+  file_size?: number;
+  mime_type?: string;
+  document_name: string;
+  upload_date: string;
+  uploaded_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TAPDocumentFormData = Omit<TAPDocument, 'id' | 'created_at' | 'updated_at' | 'upload_date'>;

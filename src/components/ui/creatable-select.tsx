@@ -13,6 +13,7 @@ interface CreatableSelectProps {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
+  onCreate?: (value: string) => void;
 }
 
 export function CreatableSelect({

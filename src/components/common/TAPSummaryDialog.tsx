@@ -6,31 +6,31 @@ import { Calendar, DollarSign, FileText, Target, CheckCircle } from "lucide-reac
 import { TAP } from "@/types/tap";
 
 interface TAPSummaryDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+  onClose: (open: boolean) => void;
   tapData: TAP;
   onComplete: () => void;
 }
 
 export function TAPSummaryDialog({
-  open,
-  onOpenChange,
+  isOpen,
+  onClose,
   tapData,
   onComplete
 }: TAPSummaryDialogProps) {
   const [timeLeft, setTimeLeft] = useState(5);
 
   useEffect(() => {
-    if (open && timeLeft > 0) {
+    if (isOpen && timeLeft > 0) {
       const timer = setTimeout(() => {
         setTimeLeft(timeLeft - 1);
       }, 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0) {
-      onOpenChange(false);
+      onClose(false);
       onComplete();
     }
-  }, [open, timeLeft, onOpenChange, onComplete]);
+  }, [isOpen, timeLeft, onClose, onComplete]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -45,7 +45,7 @@ export function TAPSummaryDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -74,8 +74,8 @@ export function TAPSummaryDialog({
                   <p className="font-medium">{tapData.cod_cliente}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">GPP:</span>
-                  <p className="font-medium">{tapData.gpp}</p>
+                  <span className="text-sm text-muted-foreground">Gerente de Portfólio:</span>
+                  <p className="font-medium">{tapData.gerente_portfolio}</p>
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Produto:</span>

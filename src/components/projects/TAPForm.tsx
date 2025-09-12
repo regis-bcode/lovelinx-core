@@ -1,18 +1,21 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Switch } from "@/components/ui/switch";
-import { Calendar, DollarSign, FileText, Target, Save } from "lucide-react";
-import { useTAP } from "@/hooks/useTAP";
-import { TAPFormData } from "@/types/tap";
-import { useToast } from "@/hooks/use-toast";
-import { TAPSummaryDialog } from "@/components/common/TAPSummaryDialog";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { PercentageInput } from '@/components/ui/percentage-input';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import { TAPFormData } from '@/types/tap';
+import { useTAP } from '@/hooks/useTAP';
+import { useToast } from '@/hooks/use-toast';
+import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
+import { TAPDocuments } from '@/components/projects/TAPDocuments';
 
 interface TAPFormProps {
   folderId?: string | null;
@@ -23,39 +26,35 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const navigate = useNavigate();
   const { createTAP } = useTAP();
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
-  const [createdTAP, setCreatedTAP] = useState<any>(null);
+  
+  // Estados para as listas editáveis
+  const [coordenadorOptions, setCoordenadorOptions] = useState<string[]>(['Coordenador 1', 'Coordenador 2']);
+  const [produtoOptions, setProdutoOptions] = useState<string[]>(['Produto A', 'Produto B']);
+  const [esnOptions, setEsnOptions] = useState<string[]>(['ESN 1', 'ESN 2']);
+  const [arquitetoOptions, setArquitetoOptions] = useState<string[]>(['Arquiteto 1', 'Arquiteto 2']);
+  const [gerenteProjetoOptions, setGerenteProjetoOptions] = useState<string[]>(['Gerente A', 'Gerente B']);
 
-  const [formData, setFormData] = useState<Partial<TAPFormData>>({
-    // Identificação
+  const [formData, setFormData] = useState<TAPFormData>({
+    project_id: '',
     data: new Date().toISOString().split('T')[0],
     nome_projeto: '',
     cod_cliente: '',
-    gpp: '',
+    gerente_portfolio: '', // GPP agora é Gerente de Portfólio
     produto: '',
     arquiteto: '',
-    criticidade_totvs: 'Média',
+    criticidade_totvs: 'Baixa',
     coordenador: '',
     gerente_projeto: '',
-    gerente_portfolio: '',
-    gerente_escritorio: '',
     esn: '',
-    criticidade_cliente: '',
+    criticidade_cliente: 'Baixo',
     drive: '',
-    
-    // Timeline
     data_inicio: '',
     go_live_previsto: '',
     duracao_pos_producao: 0,
     encerramento: '',
-    
-    // Escopo e Objetivo
     escopo: '',
     objetivo: '',
     observacoes: '',
-    
-    // Financeiro
     valor_projeto: 0,
     margem_venda_percent: 0,
     margem_venda_valor: 0,
@@ -70,10 +69,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     investimento_comercial: 0,
     investimento_erro_produto: 0,
     projeto_em_perda: false,
-
-    // Projeto ID será definido após criação
-    project_id: ''
   });
+
+  const [submitting, setSubmitting] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [createdTAP, setCreatedTAP] = useState<any>(null);
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -83,39 +83,32 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     e.preventDefault();
     
     // Validação básica
-    if (!formData.nome_projeto || !formData.cod_cliente || !formData.gpp) {
+    if (!formData.nome_projeto || !formData.cod_cliente || !formData.gerente_portfolio) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios: Nome do Projeto, Código do Cliente e GPP.",
+        description: "Preencha os campos obrigatórios: Nome do Projeto, Código do Cliente e Gerente de Portfólio.",
         variant: "destructive",
       });
       return;
     }
 
-    setIsSubmitting(true);
+    setSubmitting(true);
     
     try {
       // Primeiro criar o projeto básico
-      const projectData = {
-        nome_projeto: formData.nome_projeto,
-        cod_cliente: formData.cod_cliente,
-        folder_id: folderId || null,
-      };
-
-      // Simular criação de projeto (você pode ajustar isso conforme sua estrutura)
       const tempProjectId = crypto.randomUUID();
       
       // Criar TAP com o ID do projeto
       const tapData = {
         ...formData,
         project_id: tempProjectId,
-      } as TAPFormData;
+      };
 
       const newTAP = await createTAP(tapData);
       
       if (newTAP) {
         setCreatedTAP(newTAP);
-        setSummaryDialogOpen(true);
+        setShowSummary(true);
       }
     } catch (error) {
       console.error('Erro ao criar TAP:', error);
@@ -125,7 +118,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -139,36 +132,22 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <Card className="w-full">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Nova TAP do Projeto
-          </CardTitle>
+          <CardTitle>Novo TAP (Termo de Abertura do Projeto)</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="identificacao" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
-              <TabsTrigger value="identificacao" className="flex items-center gap-2">
-                <FileText className="h-4 w-4" />
-                Identificação
-              </TabsTrigger>
-              <TabsTrigger value="financeiro" className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Financeiro
-              </TabsTrigger>
-              <TabsTrigger value="timeline" className="flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Timeline do Projeto
-              </TabsTrigger>
-              <TabsTrigger value="outros" className="flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Outros dados
-              </TabsTrigger>
+          <Tabs defaultValue="identificacao" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="identificacao">Identificação</TabsTrigger>
+              <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="outros">Outros</TabsTrigger>
+              <TabsTrigger value="anexos">Anexos</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="identificacao" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TabsContent value="identificacao" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data">Data *</Label>
                   <Input
@@ -176,16 +155,6 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     type="date"
                     value={formData.data}
                     onChange={(e) => updateFormData('data', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="cod_cliente">Cod. Cliente *</Label>
-                  <Input
-                    id="cod_cliente"
-                    value={formData.cod_cliente}
-                    onChange={(e) => updateFormData('cod_cliente', e.target.value)}
-                    required
                   />
                 </div>
                 <div>
@@ -194,53 +163,55 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     id="nome_projeto"
                     value={formData.nome_projeto}
                     onChange={(e) => updateFormData('nome_projeto', e.target.value)}
-                    required
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gpp">GPP *</Label>
+                  <Label htmlFor="cod_cliente">Código do Cliente *</Label>
                   <Input
-                    id="gpp"
-                    value={formData.gpp}
-                    onChange={(e) => updateFormData('gpp', e.target.value)}
-                    required
+                    id="cod_cliente"
+                    value={formData.cod_cliente}
+                    onChange={(e) => updateFormData('cod_cliente', e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="coordenador">Coordenador do Projeto (CP)</Label>
+                  <Label htmlFor="gerente_portfolio">Gerente de Portfólio *</Label>
                   <Input
-                    id="coordenador"
-                    value={formData.coordenador}
-                    onChange={(e) => updateFormData('coordenador', e.target.value)}
+                    id="gerente_portfolio"
+                    value={formData.gerente_portfolio}
+                    onChange={(e) => updateFormData('gerente_portfolio', e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="produto">Produto</Label>
-                  <Input
-                    id="produto"
+                  <Label htmlFor="produto">Produto *</Label>
+                  <CreatableSelect
                     value={formData.produto}
-                    onChange={(e) => updateFormData('produto', e.target.value)}
+                    onValueChange={(value) => updateFormData('produto', value)}
+                    options={produtoOptions}
+                    placeholder="Selecione ou digite um produto"
+                    emptyMessage="Nenhum produto encontrado"
+                    onCreate={(value) => {
+                      setProdutoOptions(prev => [...prev, value]);
+                      updateFormData('produto', value);
+                    }}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="esn">ESN</Label>
-                  <Input
-                    id="esn"
-                    value={formData.esn}
-                    onChange={(e) => updateFormData('esn', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="arquiteto">Arquiteto</Label>
-                  <Input
-                    id="arquiteto"
+                  <Label htmlFor="arquiteto">Arquiteto *</Label>
+                  <CreatableSelect
                     value={formData.arquiteto}
-                    onChange={(e) => updateFormData('arquiteto', e.target.value)}
+                    onValueChange={(value) => updateFormData('arquiteto', value)}
+                    options={arquitetoOptions}
+                    placeholder="Selecione ou digite um arquiteto"
+                    emptyMessage="Nenhum arquiteto encontrado"
+                    onCreate={(value) => {
+                      setArquitetoOptions(prev => [...prev, value]);
+                      updateFormData('arquiteto', value);
+                    }}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="criticidade_totvs">Criticidade</Label>
-                  <Select value={formData.criticidade_totvs} onValueChange={(value) => updateFormData('criticidade_totvs', value)}>
+                  <Label htmlFor="criticidade_totvs">Criticidade TOTVS *</Label>
+                  <Select value={formData.criticidade_totvs} onValueChange={(value) => updateFormData('criticidade_totvs', value as any)}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -253,220 +224,216 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="gerente_projeto">Gerente do Projeto</Label>
-                  <Input
-                    id="gerente_projeto"
+                  <Label htmlFor="coordenador">Coordenador do Projeto (CP) *</Label>
+                  <CreatableSelect
+                    value={formData.coordenador}
+                    onValueChange={(value) => updateFormData('coordenador', value)}
+                    options={coordenadorOptions}
+                    placeholder="Selecione ou digite um coordenador"
+                    emptyMessage="Nenhum coordenador encontrado"
+                    onCreate={(value) => {
+                      setCoordenadorOptions(prev => [...prev, value]);
+                      updateFormData('coordenador', value);
+                    }}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="gerente_projeto">Gerente do Projeto/Consultoria *</Label>
+                  <CreatableSelect
                     value={formData.gerente_projeto}
-                    onChange={(e) => updateFormData('gerente_projeto', e.target.value)}
+                    onValueChange={(value) => updateFormData('gerente_projeto', value)}
+                    options={gerenteProjetoOptions}
+                    placeholder="Selecione ou digite um gerente"
+                    emptyMessage="Nenhum gerente encontrado"
+                    onCreate={(value) => {
+                      setGerenteProjetoOptions(prev => [...prev, value]);
+                      updateFormData('gerente_projeto', value);
+                    }}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gerente_portfolio">Gerente do Portfólio</Label>
-                  <Input
-                    id="gerente_portfolio"
-                    value={formData.gerente_portfolio}
-                    onChange={(e) => updateFormData('gerente_portfolio', e.target.value)}
+                  <Label htmlFor="esn">ESN *</Label>
+                  <CreatableSelect
+                    value={formData.esn}
+                    onValueChange={(value) => updateFormData('esn', value)}
+                    options={esnOptions}
+                    placeholder="Selecione ou digite um ESN"
+                    emptyMessage="Nenhum ESN encontrado"
+                    onCreate={(value) => {
+                      setEsnOptions(prev => [...prev, value]);
+                      updateFormData('esn', value);
+                    }}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gerente_escritorio">Gerente do Escritório</Label>
-                  <Input
-                    id="gerente_escritorio"
-                    value={formData.gerente_escritorio}
-                    onChange={(e) => updateFormData('gerente_escritorio', e.target.value)}
-                  />
+                  <Label htmlFor="criticidade_cliente">Criticidade Cliente *</Label>
+                  <Select value={formData.criticidade_cliente} onValueChange={(value) => updateFormData('criticidade_cliente', value as any)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Baixo">Baixo</SelectItem>
+                      <SelectItem value="Médio">Médio</SelectItem>
+                      <SelectItem value="Alto">Alto</SelectItem>
+                      <SelectItem value="Crítico">Crítico</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label htmlFor="criticidade_cliente">Criticidade Cliente</Label>
-                  <Input
-                    id="criticidade_cliente"
-                    value={formData.criticidade_cliente}
-                    onChange={(e) => updateFormData('criticidade_cliente', e.target.value)}
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="drive">Drive (link)</Label>
+                  <Label htmlFor="drive">Drive</Label>
                   <Input
                     id="drive"
-                    type="url"
-                    value={formData.drive}
+                    value={formData.drive || ''}
                     onChange={(e) => updateFormData('drive', e.target.value)}
-                    placeholder="https://"
                   />
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="financeiro" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <TabsContent value="financeiro" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="valor_projeto">Valor do Projeto (R$)</Label>
-                  <Input
+                  <Label htmlFor="valor_projeto">Valor do Projeto</Label>
+                  <CurrencyInput
                     id="valor_projeto"
-                    type="number"
-                    step="0.01"
                     value={formData.valor_projeto}
-                    onChange={(e) => updateFormData('valor_projeto', parseFloat(e.target.value) || 0)}
+                    onChange={(value) => updateFormData('valor_projeto', Number(value))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="receita_atual">Receita Atual (R$)</Label>
-                  <Input
-                    id="receita_atual"
-                    type="number"
-                    step="0.01"
-                    value={formData.receita_atual}
-                    onChange={(e) => updateFormData('receita_atual', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="margem_venda_percent">Margem da Venda (%)</Label>
-                  <Input
+                  <Label htmlFor="margem_venda_percent">Margem Venda (%)</Label>
+                  <PercentageInput
                     id="margem_venda_percent"
-                    type="number"
-                    step="0.01"
                     value={formData.margem_venda_percent}
-                    onChange={(e) => updateFormData('margem_venda_percent', parseFloat(e.target.value) || 0)}
+                    onChange={(value) => updateFormData('margem_venda_percent', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="margem_venda_valor">Margem Venda (Valor)</Label>
+                  <CurrencyInput
+                    id="margem_venda_valor"
+                    value={formData.margem_venda_valor}
+                    onChange={(value) => updateFormData('margem_venda_valor', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mrr">MRR</Label>
+                  <CurrencyInput
+                    id="mrr"
+                    value={formData.mrr}
+                    onChange={(value) => updateFormData('mrr', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="mrr_total">MRR Total</Label>
+                  <CurrencyInput
+                    id="mrr_total"
+                    value={formData.mrr_total}
+                    onChange={(value) => updateFormData('mrr_total', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="psa_planejado">PSA Planejado</Label>
+                  <CurrencyInput
+                    id="psa_planejado"
+                    value={formData.psa_planejado}
+                    onChange={(value) => updateFormData('psa_planejado', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="diferenca_psa_projeto">Diferença PSA/Projeto</Label>
+                  <CurrencyInput
+                    id="diferenca_psa_projeto"
+                    value={formData.diferenca_psa_projeto}
+                    onChange={(value) => updateFormData('diferenca_psa_projeto', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="receita_atual">Receita Atual</Label>
+                  <CurrencyInput
+                    id="receita_atual"
+                    value={formData.receita_atual}
+                    onChange={(value) => updateFormData('receita_atual', Number(value))}
                   />
                 </div>
                 <div>
                   <Label htmlFor="margem_atual_percent">Margem Atual (%)</Label>
-                  <Input
+                  <PercentageInput
                     id="margem_atual_percent"
-                    type="number"
-                    step="0.01"
                     value={formData.margem_atual_percent}
-                    onChange={(e) => updateFormData('margem_atual_percent', parseFloat(e.target.value) || 0)}
+                    onChange={(value) => updateFormData('margem_atual_percent', Number(value))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="margem_venda_valor">Margem da Venda (R$)</Label>
-                  <Input
-                    id="margem_venda_valor"
-                    type="number"
-                    step="0.01"
-                    value={formData.margem_venda_valor}
-                    onChange={(e) => updateFormData('margem_venda_valor', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="margem_atual_valor">Margem Atual (R$)</Label>
-                  <Input
+                  <Label htmlFor="margem_atual_valor">Margem Atual (Valor)</Label>
+                  <CurrencyInput
                     id="margem_atual_valor"
-                    type="number"
-                    step="0.01"
                     value={formData.margem_atual_valor}
-                    onChange={(e) => updateFormData('margem_atual_valor', parseFloat(e.target.value) || 0)}
+                    onChange={(value) => updateFormData('margem_atual_valor', Number(value))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="mrr">MRR - Recorrente Mensal (R$)</Label>
-                  <Input
-                    id="mrr"
-                    type="number"
-                    step="0.01"
-                    value={formData.mrr}
-                    onChange={(e) => updateFormData('mrr', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="mrr_total">MRR Total (Contratados R$)</Label>
-                  <Input
-                    id="mrr_total"
-                    type="number"
-                    step="0.01"
-                    value={formData.mrr_total}
-                    onChange={(e) => updateFormData('mrr_total', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="psa_planejado">PSA Planejado (R$)</Label>
-                  <Input
-                    id="psa_planejado"
-                    type="number"
-                    step="0.01"
-                    value={formData.psa_planejado}
-                    onChange={(e) => updateFormData('psa_planejado', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="investimento_comercial">Investimento Comercial (R$)</Label>
-                  <Input
-                    id="investimento_comercial"
-                    type="number"
-                    step="0.01"
-                    value={formData.investimento_comercial}
-                    onChange={(e) => updateFormData('investimento_comercial', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="investimento_erro_produto">Investimento Erro Produto (R$)</Label>
-                  <Input
-                    id="investimento_erro_produto"
-                    type="number"
-                    step="0.01"
-                    value={formData.investimento_erro_produto}
-                    onChange={(e) => updateFormData('investimento_erro_produto', parseFloat(e.target.value) || 0)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="investimento_perdas">Investimento Perdas (R$)</Label>
-                  <Input
+                  <Label htmlFor="investimento_perdas">Investimento Perdas</Label>
+                  <CurrencyInput
                     id="investimento_perdas"
-                    type="number"
-                    step="0.01"
                     value={formData.investimento_perdas}
-                    onChange={(e) => updateFormData('investimento_perdas', parseFloat(e.target.value) || 0)}
+                    onChange={(value) => updateFormData('investimento_perdas', Number(value))}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="diferenca_psa_projeto">Diferença PSA x Projeto (R$)</Label>
-                  <Input
-                    id="diferenca_psa_projeto"
-                    type="number"
-                    step="0.01"
-                    value={formData.diferenca_psa_projeto}
-                    onChange={(e) => updateFormData('diferenca_psa_projeto', parseFloat(e.target.value) || 0)}
+                  <Label htmlFor="investimento_comercial">Investimento Comercial</Label>
+                  <CurrencyInput
+                    id="investimento_comercial"
+                    value={formData.investimento_comercial}
+                    onChange={(value) => updateFormData('investimento_comercial', Number(value))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="investimento_erro_produto">Investimento Erro Produto</Label>
+                  <CurrencyInput
+                    id="investimento_erro_produto"
+                    value={formData.investimento_erro_produto}
+                    onChange={(value) => updateFormData('investimento_erro_produto', Number(value))}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Switch
+                  <Checkbox
                     id="projeto_em_perda"
                     checked={formData.projeto_em_perda}
                     onCheckedChange={(checked) => updateFormData('projeto_em_perda', checked)}
                   />
-                  <Label htmlFor="projeto_em_perda">Projeto em Perda?</Label>
+                  <Label htmlFor="projeto_em_perda">Projeto em Perda</Label>
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="timeline" className="mt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <TabsContent value="timeline" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data_inicio">Data Início</Label>
                   <Input
                     id="data_inicio"
                     type="date"
-                    value={formData.data_inicio}
+                    value={formData.data_inicio || ''}
                     onChange={(e) => updateFormData('data_inicio', e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="go_live_previsto">Go-live (Previsão)</Label>
+                  <Label htmlFor="go_live_previsto">Go Live Previsto</Label>
                   <Input
                     id="go_live_previsto"
                     type="date"
-                    value={formData.go_live_previsto}
+                    value={formData.go_live_previsto || ''}
                     onChange={(e) => updateFormData('go_live_previsto', e.target.value)}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="duracao_pos_producao">Duração Pós-produção (em meses)</Label>
+                  <Label htmlFor="duracao_pos_producao">Duração Pós Produção (meses)</Label>
                   <Input
                     id="duracao_pos_producao"
                     type="number"
                     value={formData.duracao_pos_producao}
-                    onChange={(e) => updateFormData('duracao_pos_producao', parseInt(e.target.value) || 0)}
+                    onChange={(e) => updateFormData('duracao_pos_producao', Number(e.target.value))}
                   />
                 </div>
                 <div>
@@ -474,20 +441,20 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   <Input
                     id="encerramento"
                     type="date"
-                    value={formData.encerramento}
+                    value={formData.encerramento || ''}
                     onChange={(e) => updateFormData('encerramento', e.target.value)}
                   />
                 </div>
               </div>
             </TabsContent>
 
-            <TabsContent value="outros" className="mt-6">
+            <TabsContent value="outros" className="space-y-4">
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="escopo">Escopo</Label>
                   <Textarea
                     id="escopo"
-                    value={formData.escopo}
+                    value={formData.escopo || ''}
                     onChange={(e) => updateFormData('escopo', e.target.value)}
                     rows={4}
                   />
@@ -496,50 +463,46 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   <Label htmlFor="objetivo">Objetivo</Label>
                   <Textarea
                     id="objetivo"
-                    value={formData.objetivo}
+                    value={formData.objetivo || ''}
                     onChange={(e) => updateFormData('objetivo', e.target.value)}
                     rows={4}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="observacoes">Observação</Label>
+                  <Label htmlFor="observacoes">Observações</Label>
                   <Textarea
                     id="observacoes"
-                    value={formData.observacoes}
+                    value={formData.observacoes || ''}
                     onChange={(e) => updateFormData('observacoes', e.target.value)}
                     rows={4}
                   />
                 </div>
               </div>
             </TabsContent>
-          </Tabs>
 
-          <div className="flex justify-end gap-2 mt-6 pt-6 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate(-1)}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex items-center gap-2"
-            >
-              <Save className="h-4 w-4" />
-              {isSubmitting ? "Salvando..." : "Salvar TAP"}
-            </Button>
-          </div>
+            <TabsContent value="anexos" className="space-y-4">
+              <TAPDocuments 
+                tapId={createdTAP?.id} 
+                projectId={folderId || ''} 
+              />
+            </TabsContent>
+
+            <div className="flex gap-2 pt-4">
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Salvando...' : 'Salvar TAP'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+                Cancelar
+              </Button>
+            </div>
+          </Tabs>
         </CardContent>
       </Card>
-
-      {/* Summary Dialog */}
-      {createdTAP && (
+      
+      {showSummary && createdTAP && (
         <TAPSummaryDialog
-          open={summaryDialogOpen}
-          onOpenChange={setSummaryDialogOpen}
+          isOpen={showSummary}
+          onClose={() => setShowSummary(false)}
           tapData={createdTAP}
           onComplete={handleSummaryComplete}
         />

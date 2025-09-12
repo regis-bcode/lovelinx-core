@@ -208,8 +208,6 @@ export type Database = {
           escopo: string | null
           esn: string
           folder_id: string | null
-          gerente_escritorio: string | null
-          gerente_portfolio: string | null
           gerente_projeto: string | null
           go_live_previsto: string | null
           gpp: string
@@ -252,8 +250,6 @@ export type Database = {
           escopo?: string | null
           esn: string
           folder_id?: string | null
-          gerente_escritorio?: string | null
-          gerente_portfolio?: string | null
           gerente_projeto?: string | null
           go_live_previsto?: string | null
           gpp: string
@@ -296,8 +292,6 @@ export type Database = {
           escopo?: string | null
           esn?: string
           folder_id?: string | null
-          gerente_escritorio?: string | null
-          gerente_portfolio?: string | null
           gerente_projeto?: string | null
           go_live_previsto?: string | null
           gpp?: string
@@ -404,8 +398,6 @@ export type Database = {
           encerramento: string | null
           escopo: string | null
           esn: string
-          gerente_escritorio: string
-          gerente_portfolio: string
           gerente_projeto: string
           go_live_previsto: string | null
           gpp: string
@@ -446,8 +438,6 @@ export type Database = {
           encerramento?: string | null
           escopo?: string | null
           esn: string
-          gerente_escritorio: string
-          gerente_portfolio: string
           gerente_projeto: string
           go_live_previsto?: string | null
           gpp: string
@@ -488,8 +478,6 @@ export type Database = {
           encerramento?: string | null
           escopo?: string | null
           esn?: string
-          gerente_escritorio?: string
-          gerente_portfolio?: string
           gerente_projeto?: string
           go_live_previsto?: string | null
           gpp?: string
@@ -524,6 +512,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tap_documents: {
+        Row: {
+          created_at: string
+          document_name: string
+          file_name: string
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          original_name: string
+          project_id: string
+          tap_id: string
+          updated_at: string
+          upload_date: string
+          uploaded_by_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_name: string
+          file_name: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          original_name: string
+          project_id: string
+          tap_id: string
+          updated_at?: string
+          upload_date?: string
+          uploaded_by_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          document_name?: string
+          file_name?: string
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          original_name?: string
+          project_id?: string
+          tap_id?: string
+          updated_at?: string
+          upload_date?: string
+          uploaded_by_name?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
