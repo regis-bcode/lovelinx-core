@@ -11,6 +11,55 @@ export function useProjects(folderId?: string) {
   useEffect(() => {
     if (user) {
       loadProjects();
+
+      // Real-time subscriptions para projects
+      let filter = `user_id=eq.${user.id}`;
+      if (folderId) {
+        filter += `.folder_id=eq.${folderId}`;
+      }
+
+      const channel = supabase
+        .channel('projects-realtime')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'projects', 
+          filter 
+        }, (payload) => {
+          const project = payload.new as Project;
+          const convertedProject: Project = {
+            ...project,
+            criticidade: project.criticidade as 'Baixa' | 'Média' | 'Alta' | 'Crítica'
+          };
+          setProjects((prev) => [convertedProject, ...prev.filter((p) => p.id !== convertedProject.id)]);
+        })
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'projects', 
+          filter 
+        }, (payload) => {
+          const project = payload.new as Project;
+          const convertedProject: Project = {
+            ...project,
+            criticidade: project.criticidade as 'Baixa' | 'Média' | 'Alta' | 'Crítica'
+          };
+          setProjects((prev) => prev.map((p) => (p.id === convertedProject.id ? convertedProject : p)));
+        })
+        .on('postgres_changes', { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'projects', 
+          filter 
+        }, (payload) => {
+          const project = payload.old as Project;
+          setProjects((prev) => prev.filter((p) => p.id !== project.id));
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, folderId]);
 

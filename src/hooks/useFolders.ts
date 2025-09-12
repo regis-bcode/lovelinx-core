@@ -9,6 +9,42 @@ export function useFolders(workspaceId?: string) {
   useEffect(() => {
     if (workspaceId) {
       loadFolders();
+
+      // Real-time subscriptions para folders
+      const channel = supabase
+        .channel('folders-realtime')
+        .on('postgres_changes', { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'folders', 
+          filter: `workspace_id=eq.${workspaceId}` 
+        }, (payload) => {
+          const folder = payload.new as Folder;
+          setFolders((prev) => [folder, ...prev.filter((f) => f.id !== folder.id)]);
+        })
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'folders', 
+          filter: `workspace_id=eq.${workspaceId}` 
+        }, (payload) => {
+          const folder = payload.new as Folder;
+          setFolders((prev) => prev.map((f) => (f.id === folder.id ? folder : f)));
+        })
+        .on('postgres_changes', { 
+          event: 'DELETE', 
+          schema: 'public', 
+          table: 'folders', 
+          filter: `workspace_id=eq.${workspaceId}` 
+        }, (payload) => {
+          const folder = payload.old as Folder;
+          setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     } else {
       setFolders([]);
       setLoading(false);

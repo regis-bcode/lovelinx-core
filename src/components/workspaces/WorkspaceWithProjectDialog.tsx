@@ -150,12 +150,13 @@ export function WorkspaceWithProjectDialog({ children, folderId, onProjectCreate
       setDialogOpen(false);
       resetForm();
       
+      // Always call onProjectCreated if available, and navigate if not
       if (onProjectCreated) {
         onProjectCreated();
-      } else {
-        // Navigate to the new project
-        navigate(`/projects-tap/${newProject.id}`);
       }
+      
+      // Navigate to the new project
+      navigate(`/projects-tap/${newProject.id}`);
     } catch (error) {
       console.error("Erro ao criar:", error);
       toast({
