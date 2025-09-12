@@ -6,7 +6,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
+import { SophisticatedTooltip } from "@/components/ui/sophisticated-tooltip";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditNameDialog } from "@/components/common/EditNameDialog";
@@ -51,25 +51,22 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
       {collapsed ? (
         <div className="space-y-1">
           {workspaces.slice(0, 3).map((workspace) => (
-            <Tooltip key={workspace.id}>
-              <TooltipTrigger asChild>
+            <SophisticatedTooltip
+              key={workspace.id}
+              content={workspace.nome}
+              description={workspace.descricao}
+              side="right"
+            >
+              <div
+                className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:scale-110"
+                onClick={() => navigate(`/workspaces/${workspace.id}`)}
+              >
                 <div
-                  className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                  onClick={() => navigate(`/workspaces/${workspace.id}`)}
-                >
-                  <div
-                    className="w-4 h-4 rounded-full"
-                    style={{ backgroundColor: workspace.cor }}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="z-50">
-                <p>{workspace.nome}</p>
-                {workspace.descricao && (
-                  <p className="text-xs text-muted-foreground mt-1">{workspace.descricao}</p>
-                )}
-              </TooltipContent>
-            </Tooltip>
+                  className="w-4 h-4 rounded-full shadow-sm"
+                  style={{ backgroundColor: workspace.cor }}
+                />
+              </div>
+            </SophisticatedTooltip>
           ))}
           {workspaces.length > 3 && (
             <Tooltip>
@@ -195,9 +192,16 @@ function WorkspaceItem({
       />
       <FolderKanban className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <span className="truncate" title={workspace.nome}>
-          {workspace.nome}
-        </span>
+        <SophisticatedTooltip 
+          content={workspace.nome}
+          description={workspace.descricao}
+          disabled={workspace.nome.length <= 20}
+          side="right"
+        >
+          <span className="truncate">
+            {workspace.nome}
+          </span>
+        </SophisticatedTooltip>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -419,9 +423,16 @@ function FolderItem({
       />
       <Folder className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <span className="truncate" title={folder.nome}>
-          {folder.nome}
-        </span>
+        <SophisticatedTooltip 
+          content={folder.nome}
+          description="Pasta de Trabalho"
+          disabled={folder.nome.length <= 20}
+          side="right"
+        >
+          <span className="truncate">
+            {folder.nome}
+          </span>
+        </SophisticatedTooltip>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -584,9 +595,16 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
     >
       <FileText className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <span className="truncate" title={project.nome_projeto}>
-          {project.nome_projeto}
-        </span>
+        <SophisticatedTooltip 
+          content={project.nome_projeto}
+          description={`Cliente: ${project.cod_cliente || 'N/A'}`}
+          disabled={project.nome_projeto.length <= 20}
+          side="right"
+        >
+          <span className="truncate">
+            {project.nome_projeto}
+          </span>
+        </SophisticatedTooltip>
       )}
       <div className="ml-auto flex gap-1">
         <Button
