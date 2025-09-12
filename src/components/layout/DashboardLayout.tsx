@@ -13,7 +13,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AppSidebar />
         
         <div className="flex flex-col flex-1">
-          <header className="h-12 flex items-center border-b bg-background/80 backdrop-blur-sm px-4">
+          <header className="h-14 flex items-center border-b bg-background/80 backdrop-blur-sm px-4">
             <AppHeader />
           </header>
           
