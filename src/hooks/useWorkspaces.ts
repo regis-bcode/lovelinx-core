@@ -13,7 +13,7 @@ export function useWorkspaces() {
     loadWorkspaces();
 
     const channel = supabase
-      .channel('workspaces-realtime')
+      .channel(`workspaces-realtime-${user.id}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'workspaces', filter: `user_id=eq.${user.id}` }, (payload) => {
         const w = payload.new as Workspace;
         if (w.ativo) {

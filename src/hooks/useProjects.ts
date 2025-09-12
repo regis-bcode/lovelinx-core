@@ -13,13 +13,10 @@ export function useProjects(folderId?: string) {
       loadProjects();
 
       // Real-time subscriptions para projects
-      let filter = `user_id=eq.${user.id}`;
-      if (folderId) {
-        filter += `.folder_id=eq.${folderId}`;
-      }
+      const filter = `user_id=eq.${user.id}`;
 
       const channel = supabase
-        .channel('projects-realtime')
+        .channel(`projects-realtime-${user.id}${folderId ? '-' + folderId : ''}`)
         .on('postgres_changes', { 
           event: 'INSERT', 
           schema: 'public', 
@@ -31,6 +28,7 @@ export function useProjects(folderId?: string) {
             ...project,
             criticidade: project.criticidade as 'Baixa' | 'Média' | 'Alta' | 'Crítica'
           };
+          if (folderId && convertedProject.folder_id !== folderId) return;
           setProjects((prev) => [convertedProject, ...prev.filter((p) => p.id !== convertedProject.id)]);
         })
         .on('postgres_changes', { 
@@ -44,6 +42,7 @@ export function useProjects(folderId?: string) {
             ...project,
             criticidade: project.criticidade as 'Baixa' | 'Média' | 'Alta' | 'Crítica'
           };
+          if (folderId && convertedProject.folder_id !== folderId) return;
           setProjects((prev) => prev.map((p) => (p.id === convertedProject.id ? convertedProject : p)));
         })
         .on('postgres_changes', { 

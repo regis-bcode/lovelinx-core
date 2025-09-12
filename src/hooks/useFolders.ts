@@ -12,7 +12,7 @@ export function useFolders(workspaceId?: string) {
 
       // Real-time subscriptions para folders
       const channel = supabase
-        .channel('folders-realtime')
+        .channel(`folders-realtime-${workspaceId}`)
         .on('postgres_changes', { 
           event: 'INSERT', 
           schema: 'public', 
