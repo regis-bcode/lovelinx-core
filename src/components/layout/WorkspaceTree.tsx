@@ -195,9 +195,9 @@ function WorkspaceItem({
       />
       <FolderKanban className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <EnhancedTooltip content={workspace.nome} disabled={workspace.nome.length <= 20}>
-          <span className="truncate">{workspace.nome}</span>
-        </EnhancedTooltip>
+        <span className="truncate" title={workspace.nome}>
+          {workspace.nome}
+        </span>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -419,9 +419,9 @@ function FolderItem({
       />
       <Folder className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <EnhancedTooltip content={folder.nome} disabled={folder.nome.length <= 20}>
-          <span className="truncate">{folder.nome}</span>
-        </EnhancedTooltip>
+        <span className="truncate" title={folder.nome}>
+          {folder.nome}
+        </span>
       )}
       <div className="ml-auto flex gap-1">
         <Button
@@ -584,9 +584,9 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
     >
       <FileText className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
-        <EnhancedTooltip content={project.nome_projeto} disabled={project.nome_projeto.length <= 20}>
-          <span className="truncate">{project.nome_projeto}</span>
-        </EnhancedTooltip>
+        <span className="truncate" title={project.nome_projeto}>
+          {project.nome_projeto}
+        </span>
       )}
       <div className="ml-auto flex gap-1">
         <Button

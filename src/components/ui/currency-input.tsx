@@ -31,7 +31,10 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
     }
 
     const parseCurrency = (value: string): string => {
-      const numericValue = value.replace(/[^\d,]/g, '').replace(',', '.')
+      // Remove tudo exceto números e vírgulas/pontos
+      const numericValue = value.replace(/[^\d,.]/g, '')
+        .replace(/\./g, '') // Remove pontos de milhares
+        .replace(',', '.') // Converte vírgula decimal para ponto
       return numericValue || '0'
     }
 
@@ -40,13 +43,17 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
       const numericValue = parseCurrency(inputValue)
       const floatValue = parseFloat(numericValue)
       
-      if (!isNaN(floatValue)) {
+      // Aceita valores até 999.999.999.999,99 (quase 1 trilhão)
+      if (!isNaN(floatValue) && floatValue <= 999999999999.99) {
         const formatted = formatCurrency(floatValue)
         setDisplayValue(formatted)
         onChange?.(numericValue)
-      } else {
+      } else if (isNaN(floatValue)) {
         setDisplayValue('')
         onChange?.('0')
+      } else {
+        // Se valor é muito alto, mantém o valor anterior
+        return
       }
     }
 

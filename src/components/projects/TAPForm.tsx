@@ -11,11 +11,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { PercentageInput } from '@/components/ui/percentage-input';
 import { CreatableSelect } from '@/components/ui/creatable-select';
+import { DatePicker } from '@/components/ui/date-picker';
 import { TAPFormData } from '@/types/tap';
 import { useTAP } from '@/hooks/useTAP';
 import { useToast } from '@/hooks/use-toast';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
+import { format } from 'date-fns';
 
 interface TAPFormProps {
   folderId?: string | null;
@@ -36,7 +38,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
   const [formData, setFormData] = useState<TAPFormData>({
     project_id: '',
-    data: new Date().toISOString().split('T')[0],
+    data: format(new Date(), "yyyy-MM-dd"), // Data padrão: hoje
     nome_projeto: '',
     cod_cliente: '',
     gpp: '',
@@ -139,7 +141,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         <CardContent>
           <Tabs defaultValue="identificacao" className="space-y-4">
             <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="identificacao">Identificação</TabsTrigger>
+              <TabsTrigger value="identificacao">Novo TAP (Termo de Abertura do Projeto)</TabsTrigger>
               <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
               <TabsTrigger value="outros">Outros</TabsTrigger>
@@ -150,11 +152,10 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data">Data *</Label>
-                  <Input
-                    id="data"
-                    type="date"
+                  <DatePicker
                     value={formData.data}
-                    onChange={(e) => updateFormData('data', e.target.value)}
+                    onChange={(value) => updateFormData('data', value)}
+                    placeholder="Selecione a data"
                   />
                 </div>
                 <div>
@@ -411,20 +412,18 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data_inicio">Data Início</Label>
-                  <Input
-                    id="data_inicio"
-                    type="date"
+                  <DatePicker
                     value={formData.data_inicio || ''}
-                    onChange={(e) => updateFormData('data_inicio', e.target.value)}
+                    onChange={(value) => updateFormData('data_inicio', value)}
+                    placeholder="Selecione a data de início"
                   />
                 </div>
                 <div>
                   <Label htmlFor="go_live_previsto">Go Live Previsto</Label>
-                  <Input
-                    id="go_live_previsto"
-                    type="date"
+                  <DatePicker
                     value={formData.go_live_previsto || ''}
-                    onChange={(e) => updateFormData('go_live_previsto', e.target.value)}
+                    onChange={(value) => updateFormData('go_live_previsto', value)}
+                    placeholder="Selecione a data do Go Live"
                   />
                 </div>
                 <div>
@@ -438,11 +437,10 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                 </div>
                 <div>
                   <Label htmlFor="encerramento">Encerramento</Label>
-                  <Input
-                    id="encerramento"
-                    type="date"
+                  <DatePicker
                     value={formData.encerramento || ''}
-                    onChange={(e) => updateFormData('encerramento', e.target.value)}
+                    onChange={(value) => updateFormData('encerramento', value)}
+                    placeholder="Selecione a data de encerramento"
                   />
                 </div>
               </div>
