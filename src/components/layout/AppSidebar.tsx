@@ -66,36 +66,41 @@ export function AppSidebar() {
 
   const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
-    isActive ? "bg-muted text-primary font-medium" : "hover:bg-muted/50";
+    isActive ? "bg-accent text-accent-foreground" : "hover:bg-accent/50";
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-r">
       {/* Header com logo */}
-      <div className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex h-14 items-center border-b px-4">
+        <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-primary-foreground font-bold text-sm">PM</span>
           </div>
           {state !== "collapsed" && (
-            <span className="font-semibold text-sm bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            <span className="font-semibold text-sm bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent truncate">
               Project Manager
             </span>
           )}
         </div>
       </div>
 
-      <SidebarContent>
+      <SidebarContent className="px-2 py-2">
         {/* Navegação Principal */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Navegação</SidebarGroupLabel>
+        <SidebarGroup className="py-2">
+          <SidebarGroupLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Navegação
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {navigation.slice(0, 2).map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild 
+                    className="w-full justify-start gap-3 px-3 py-2.5 h-auto"
+                  >
                     <NavLink to={item.url} end className={getNavCls}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -105,24 +110,31 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Meus Workspaces */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Meus Workspaces</SidebarGroupLabel>
+        <SidebarGroup className="py-2">
+          <SidebarGroupLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Meus Workspaces
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <WorkspaceTree collapsed={state === "collapsed"} />
           </SidebarGroupContent>
         </SidebarGroup>
 
         {/* Ferramentas */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+        <SidebarGroup className="py-2">
+          <SidebarGroupLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Ferramentas
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {navigation.slice(2).map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild 
+                    className="w-full justify-start gap-3 px-3 py-2.5 h-auto"
+                  >
                     <NavLink to={item.url} end className={getNavCls}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -132,16 +144,21 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Configurações */}
-        <SidebarGroup>
-          <SidebarGroupLabel>Configurações</SidebarGroupLabel>
+        <SidebarGroup className="py-2">
+          <SidebarGroupLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Configurações
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {settingsNav.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton 
+                    asChild 
+                    className="w-full justify-start gap-3 px-3 py-2.5 h-auto"
+                  >
                     <NavLink to={item.url} end className={getNavCls}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
+                      <item.icon className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{item.title}</span>
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
