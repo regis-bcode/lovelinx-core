@@ -163,11 +163,11 @@ export default function Login() {
                     variant="secondary"
                     className="w-full"
                     onClick={async () => {
-                      setEmail("admin@projectos.com");
-                      setPassword("123456");
+                      setEmail("admin@admin");
+                      setPassword("admin");
                       setIsLoading(true);
                       try {
-                        await login("admin@projectos.com", "123456");
+                        await login("admin@admin", "admin");
                       } finally {
                         setIsLoading(false);
                       }

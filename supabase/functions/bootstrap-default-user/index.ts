@@ -13,8 +13,8 @@ serve(async (req: Request) => {
 
   try {
     const { email, password } = await req.json().catch(() => ({
-      email: "admin@projectos.com",
-      password: "123456",
+      email: "admin@admin",
+      password: "admin",
     }));
 
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
