@@ -47,14 +47,14 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
           data: editData.data || new Date().toISOString().split('T')[0],
           cod_cliente: editData.cod_cliente || '',
           nome_projeto: editData.nome_projeto || project?.nome_projeto || '',
-          gerente_portfolio: editData.gerente_portfolio || '',
+          gpp: editData.gpp || '',
           produto: editData.produto || '',
           arquiteto: editData.arquiteto || '',
-          criticidade_totvs: editData.criticidade_totvs || 'Média' as const,
+          criticidade_totvs: editData.criticidade_totvs || 'Média',
           coordenador: editData.coordenador || '',
           gerente_projeto: editData.gerente_projeto || '',
           esn: editData.esn || '',
-          criticidade_cliente: editData.criticidade_cliente || 'Baixo' as const,
+          criticidade_cliente: editData.criticidade_cliente || 'Baixo',
           // Valores financeiros padrão
           valor_projeto: Number(editData.valor_projeto) || 0,
           margem_venda_percent: Number(editData.margem_venda_percent) || 0,
@@ -208,18 +208,18 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
                  <p>{(tapData as any).cliente || '-'}</p>
                )}
              </div>
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Gerente de Portfólio</label>
-                  {isEditing ? (
-                    <Input
-                      value={editData.gerente_portfolio || ''}
-                      onChange={(e) => handleFieldChange('gerente_portfolio', e.target.value)}
-                      placeholder="Gerente de portfólio"
-                    />
-                  ) : (
-                    <p>{tapData.gerente_portfolio}</p>
-                  )}
-                </div>
+                 <div>
+                   <label className="text-sm font-medium text-muted-foreground">GPP</label>
+                   {isEditing ? (
+                     <Input
+                       value={editData.gpp || ''}
+                       onChange={(e) => handleFieldChange('gpp', e.target.value)}
+                       placeholder="GPP"
+                     />
+                   ) : (
+                     <p>{tapData.gpp}</p>
+                   )}
+                 </div>
              <div>
                <label className="text-sm font-medium text-muted-foreground">Coordenador do Projeto (CP)</label>
                {isEditing ? (

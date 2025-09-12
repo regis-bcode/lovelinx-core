@@ -74,8 +74,8 @@ export function TAPSummaryDialog({
                   <p className="font-medium">{tapData.cod_cliente}</p>
                 </div>
                 <div>
-                  <span className="text-sm text-muted-foreground">Gerente de Portfólio:</span>
-                  <p className="font-medium">{tapData.gerente_portfolio}</p>
+                  <span className="text-sm text-muted-foreground">GPP:</span>
+                  <p className="font-medium">{tapData.gpp}</p>
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Produto:</span>

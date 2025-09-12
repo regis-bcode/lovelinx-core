@@ -39,7 +39,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     data: new Date().toISOString().split('T')[0],
     nome_projeto: '',
     cod_cliente: '',
-    gerente_portfolio: '', // GPP agora é Gerente de Portfólio
+    gpp: '',
     produto: '',
     arquiteto: '',
     criticidade_totvs: 'Baixa',
@@ -83,10 +83,10 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     e.preventDefault();
     
     // Validação básica
-    if (!formData.nome_projeto || !formData.cod_cliente || !formData.gerente_portfolio) {
+    if (!formData.nome_projeto || !formData.cod_cliente || !formData.gpp) {
       toast({
         title: "Erro",
-        description: "Preencha os campos obrigatórios: Nome do Projeto, Código do Cliente e Gerente de Portfólio.",
+        description: "Preencha os campos obrigatórios: Nome do Projeto, Código do Cliente e GPP.",
         variant: "destructive",
       });
       return;
@@ -174,11 +174,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gerente_portfolio">Gerente de Portfólio *</Label>
+                  <Label htmlFor="gpp">GPP *</Label>
                   <Input
-                    id="gerente_portfolio"
-                    value={formData.gerente_portfolio}
-                    onChange={(e) => updateFormData('gerente_portfolio', e.target.value)}
+                    id="gpp"
+                    value={formData.gpp}
+                    onChange={(e) => updateFormData('gpp', e.target.value)}
                   />
                 </div>
                 <div>

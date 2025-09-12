@@ -48,9 +48,6 @@ export function TAPDocuments({ tapId, projectId }: TAPDocumentsProps) {
         project_id: projectId,
         file: selectedFile,
         document_name: documentName.trim(),
-        user_id: '', // será preenchido no hook
-        uploaded_by_name: '', // será preenchido no hook
-        file_name: '', // será preenchido no hook
         original_name: selectedFile.name,
         file_size: selectedFile.size,
         mime_type: selectedFile.type

@@ -7,14 +7,14 @@ export interface TAP {
   data: string;
   nome_projeto: string;
   cod_cliente: string;
-  gerente_portfolio: string; // GPP agora é Gerente de Portfólio
+  gpp: string;
   produto: string;
   arquiteto: string;
-  criticidade_totvs: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  criticidade_totvs: string;
   coordenador: string;
   gerente_projeto: string;
   esn: string;
-  criticidade_cliente: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  criticidade_cliente: string;
   drive?: string;
   
   // Timeline
@@ -59,14 +59,14 @@ export interface TAPBasicData {
   data: string;
   nome_projeto: string;
   cod_cliente: string;
-  gerente_portfolio: string; // GPP agora é Gerente de Portfólio
+  gpp: string;
   produto: string;
   arquiteto: string;
-  criticidade_totvs: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  criticidade_totvs: string;
   coordenador: string;
   gerente_projeto: string;
   esn: string;
-  criticidade_cliente: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+  criticidade_cliente: string;
 }
 
 // Tipos para documentos anexados na TAP
