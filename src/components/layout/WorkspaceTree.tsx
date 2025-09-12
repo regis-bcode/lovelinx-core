@@ -6,6 +6,7 @@ import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { EnhancedTooltip } from "@/components/ui/enhanced-tooltip";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditNameDialog } from "@/components/common/EditNameDialog";
@@ -193,7 +194,11 @@ function WorkspaceItem({
         style={{ backgroundColor: workspace.cor }}
       />
       <FolderKanban className="h-4 w-4 text-muted-foreground" />
-      {!collapsed && <span className="truncate">{workspace.nome}</span>}
+      {!collapsed && (
+        <EnhancedTooltip content={workspace.nome} disabled={workspace.nome.length <= 20}>
+          <span className="truncate">{workspace.nome}</span>
+        </EnhancedTooltip>
+      )}
       <div className="ml-auto flex gap-1">
         <Button
           variant="ghost"
@@ -413,7 +418,11 @@ function FolderItem({
         style={{ backgroundColor: folder.cor }}
       />
       <Folder className="h-4 w-4 text-muted-foreground" />
-      {!collapsed && <span className="truncate">{folder.nome}</span>}
+      {!collapsed && (
+        <EnhancedTooltip content={folder.nome} disabled={folder.nome.length <= 20}>
+          <span className="truncate">{folder.nome}</span>
+        </EnhancedTooltip>
+      )}
       <div className="ml-auto flex gap-1">
         <Button
           variant="ghost"
@@ -574,7 +583,11 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
       onClick={() => navigate(`/projects-tap/${project.id}`)}
     >
       <FileText className="h-4 w-4 text-muted-foreground" />
-      {!collapsed && <span className="truncate">{project.nome_projeto}</span>}
+      {!collapsed && (
+        <EnhancedTooltip content={project.nome_projeto} disabled={project.nome_projeto.length <= 20}>
+          <span className="truncate">{project.nome_projeto}</span>
+        </EnhancedTooltip>
+      )}
       <div className="ml-auto flex gap-1">
         <Button
           variant="ghost"

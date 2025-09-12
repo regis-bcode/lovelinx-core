@@ -71,8 +71,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      {/* Header com logo e trigger */}
-      <div className="flex h-14 items-center justify-between border-b px-4">
+      {/* Header com logo */}
+      <div className="flex h-14 items-center border-b px-4">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-primary-foreground font-bold text-sm">PM</span>
@@ -83,15 +83,17 @@ export function AppSidebar() {
             </span>
           )}
         </div>
-        <SidebarTrigger className="h-6 w-6" />
       </div>
 
       <SidebarContent className="px-2 py-2">
         {/* Navegação Principal */}
         <SidebarGroup className="py-2">
-          <SidebarGroupLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-            Navegação
-          </SidebarGroupLabel>
+          <div className="flex items-center justify-between px-2 py-1.5">
+            <SidebarGroupLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Navegação
+            </SidebarGroupLabel>
+            <SidebarTrigger className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {navigation.slice(0, 2).map((item) => (
