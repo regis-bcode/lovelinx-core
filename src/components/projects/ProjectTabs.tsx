@@ -85,7 +85,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
 
   return (
     <Card className="w-full shadow-lg border-0 bg-card/50 backdrop-blur-sm">
-      <Tabs defaultValue="tasks" className="w-full">
+      <Tabs defaultValue="tap" className="w-full">
         <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto p-2 bg-muted/30 rounded-xl border border-border/40">
           {tabs.map((tab) => (
             <TabsTrigger
