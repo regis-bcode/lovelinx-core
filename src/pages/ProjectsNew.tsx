@@ -110,7 +110,7 @@ export default function ProjectsNew() {
           </Button>
           <div>
             <h1 className="text-3xl font-bold text-foreground">
-              {isEditing ? "Editar TAP" : "Novo TAP (Termo de Abertura do Projeto)"}
+              {isEditing ? "Editar TAP" : "TAP"}
             </h1>
             <p className="text-muted-foreground">
               {isEditing 

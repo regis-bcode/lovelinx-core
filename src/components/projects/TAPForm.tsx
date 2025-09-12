@@ -18,6 +18,8 @@ import { useToast } from '@/hooks/use-toast';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { format } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpCircle } from 'lucide-react';
 
 interface TAPFormProps {
   folderId?: string | null;
@@ -136,17 +138,79 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     <form onSubmit={handleSubmit}>
       <Card>
         <CardHeader>
-          <CardTitle>Novo TAP (Termo de Abertura do Projeto)</CardTitle>
+          <CardTitle>TAP</CardTitle>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="identificacao" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="identificacao">Novo TAP (Termo de Abertura do Projeto)</TabsTrigger>
-              <TabsTrigger value="financeiro">Financeiro</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="outros">Outros</TabsTrigger>
-              <TabsTrigger value="anexos">Anexos</TabsTrigger>
-            </TabsList>
+            <TooltipProvider>
+              <TabsList className="flex w-full flex-wrap gap-2 overflow-x-auto">
+                <TabsTrigger value="identificacao">
+                  <span className="flex items-center gap-1">
+                    TAP
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Informações de identificação do projeto</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="financeiro">
+                  <span className="flex items-center gap-1">
+                    Financeiro
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Valores, margens, MRR e investimentos</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="timeline">
+                  <span className="flex items-center gap-1">
+                    Timeline
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Datas: início, go live e encerramento</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="outros">
+                  <span className="flex items-center gap-1">
+                    Outros
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Campos adicionais e observações</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TabsTrigger>
+                <TabsTrigger value="anexos">
+                  <span className="flex items-center gap-1">
+                    Anexos
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Envie documentos relacionados ao projeto</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TabsTrigger>
+              </TabsList>
+            </TooltipProvider>
 
             <TabsContent value="identificacao" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
