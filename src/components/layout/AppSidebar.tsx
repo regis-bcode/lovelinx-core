@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Calendar, Home, Settings, Users, FileText, BarChart, FolderKanban } from "lucide-react"
+import { Calendar, Home, Settings, Users, FileText, BarChart, FolderKanban, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 
 import {
@@ -11,8 +11,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Button } from "@/components/ui/button"
 import { WorkspaceTree } from "./WorkspaceTree"
 
 const navigation = [
@@ -62,13 +65,50 @@ const settingsNav = [
 ]
 
 export function AppSidebar() {
-  const { state } = useSidebar()
+  const { state, toggleSidebar } = useSidebar()
   const location = useLocation()
   const isCollapsed = state === "collapsed"
 
   return (
-    <Sidebar className="border-r">
-      <SidebarContent>
+    <Sidebar className="border-r h-full flex flex-col" collapsible="icon">
+      <SidebarHeader className="border-b px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className={`flex items-center gap-2 transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}>
+            <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="text-primary-foreground font-bold text-sm">PM</span>
+            </div>
+            {!isCollapsed && (
+              <span className="font-semibold text-sm bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                Project Manager
+              </span>
+            )}
+          </div>
+          {!isCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="h-8 w-8 hover:bg-accent/50"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          )}
+          {isCollapsed && (
+            <div className="absolute right-2 top-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleSidebar}
+                className="h-8 w-8 hover:bg-accent/50"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </SidebarHeader>
+      
+      <SidebarContent className="flex-1 overflow-y-auto">
         <SidebarGroup>
           <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -95,17 +135,19 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Workspace Tree */}
-        {!isCollapsed && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Meus Workspaces</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <WorkspaceTree collapsed={isCollapsed} />
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        <SidebarGroup>
+          <SidebarGroupLabel>
+            {!isCollapsed ? "Meus Workspaces" : "WS"}
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <WorkspaceTree collapsed={isCollapsed} />
+          </SidebarGroupContent>
+        </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {!isCollapsed ? "Ferramentas" : "T"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navigation.slice(2).map((item) => (
@@ -130,7 +172,9 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Configurações</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            {!isCollapsed ? "Configurações" : "C"}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {settingsNav.map((item) => (
@@ -154,6 +198,33 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      
+      <SidebarFooter className="border-t p-2">
+        {isCollapsed ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleSidebar}
+            className="w-full h-10 hover:bg-accent/50"
+            title="Expandir sidebar"
+          >
+            <PanelLeftOpen className="h-4 w-4" />
+          </Button>
+        ) : (
+          <div className="flex items-center justify-between px-2">
+            <span className="text-xs text-muted-foreground">Arraste a borda para redimensionar</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="h-8 w-8 hover:bg-accent/50"
+              title="Recolher sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </SidebarFooter>
     </Sidebar>
   )
 }

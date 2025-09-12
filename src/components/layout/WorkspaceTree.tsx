@@ -42,7 +42,32 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
     setExpandedFolders(newExpanded);
   };
 
-  if (loadingWorkspaces || collapsed) return null;
+  if (loadingWorkspaces) return null;
+  
+  if (collapsed) {
+    return (
+      <div className="space-y-1">
+        {workspaces.slice(0, 3).map((workspace) => (
+          <div
+            key={workspace.id}
+            className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+            onClick={() => navigate(`/workspaces/${workspace.id}`)}
+            title={workspace.nome}
+          >
+            <div
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: workspace.cor }}
+            />
+          </div>
+        ))}
+        {workspaces.length > 3 && (
+          <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+            +{workspaces.length - 3}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">
