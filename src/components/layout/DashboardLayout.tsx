@@ -19,10 +19,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           <ResizableHandle withHandle className="w-1 bg-border hover:bg-accent-foreground/20 transition-colors" />
           
           <ResizablePanel defaultSize={80} className="flex flex-col">
-            <header className="h-12 flex items-center border-b bg-background/80 backdrop-blur-sm px-4">
-              <SidebarTrigger className="mr-4" />
-              <AppHeader />
-            </header>
+          <header className="h-12 flex items-center border-b bg-background/80 backdrop-blur-sm px-4">
+            <AppHeader />
+          </header>
             
             <main className="flex-1 overflow-y-auto bg-gradient-to-b from-background to-muted/5">
               <div className="container mx-auto p-6 max-w-7xl">

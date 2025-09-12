@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar"
 import { WorkspaceTree } from "./WorkspaceTree"
@@ -70,8 +71,8 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r">
-      {/* Header com logo */}
-      <div className="flex h-14 items-center border-b px-4">
+      {/* Header com logo e trigger */}
+      <div className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-8 h-8 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-primary-foreground font-bold text-sm">PM</span>
@@ -82,6 +83,7 @@ export function AppSidebar() {
             </span>
           )}
         </div>
+        <SidebarTrigger className="h-6 w-6" />
       </div>
 
       <SidebarContent className="px-2 py-2">
