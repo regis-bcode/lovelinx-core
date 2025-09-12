@@ -5,6 +5,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditNameDialog } from "@/components/common/EditNameDialog";
@@ -48,22 +49,38 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
     return (
       <div className="space-y-1">
         {workspaces.slice(0, 3).map((workspace) => (
-          <div
-            key={workspace.id}
-            className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-            onClick={() => navigate(`/workspaces/${workspace.id}`)}
-            title={workspace.nome}
-          >
-            <div
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: workspace.cor }}
-            />
-          </div>
+          <Tooltip key={workspace.id}>
+            <TooltipTrigger asChild>
+              <div
+                className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                onClick={() => navigate(`/workspaces/${workspace.id}`)}
+              >
+                <div
+                  className="w-4 h-4 rounded-full"
+                  style={{ backgroundColor: workspace.cor }}
+                />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="z-50">
+              <p>{workspace.nome}</p>
+              {workspace.descricao && (
+                <p className="text-xs text-muted-foreground mt-1">{workspace.descricao}</p>
+              )}
+            </TooltipContent>
+          </Tooltip>
         ))}
         {workspaces.length > 3 && (
-          <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
-            +{workspaces.length - 3}
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+                +{workspaces.length - 3}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right" className="z-50">
+              <p>Mais {workspaces.length - 3} workspaces</p>
+              <p className="text-xs text-muted-foreground">Expanda para ver todos</p>
+            </TooltipContent>
+          </Tooltip>
         )}
       </div>
     );
@@ -81,6 +98,7 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
           onToggleFolder={toggleFolder}
           currentPath={location.pathname}
           navigate={navigate}
+          collapsed={collapsed}
         />
       ))}
     </div>
@@ -95,6 +113,7 @@ interface WorkspaceItemProps {
   onToggleFolder: (folderId: string) => void;
   currentPath: string;
   navigate: (path: string) => void;
+  collapsed?: boolean;
 }
 
 function WorkspaceItem({
@@ -104,7 +123,8 @@ function WorkspaceItem({
   expandedFolders,
   onToggleFolder,
   currentPath,
-  navigate
+  navigate,
+  collapsed = false
 }: WorkspaceItemProps) {
   const { folders, createFolder, refreshFolders } = useFolders(workspace.id);
   const { deleteWorkspace, updateWorkspace } = useWorkspaces();
@@ -223,6 +243,7 @@ function WorkspaceItem({
           onToggle={() => onToggleFolder(folder.id)}
           currentPath={currentPath}
           navigate={navigate}
+          collapsed={collapsed}
         />
       ))}
 
@@ -267,6 +288,7 @@ interface FolderItemProps {
   onToggle: () => void;
   currentPath: string;
   navigate: (path: string) => void;
+  collapsed?: boolean;
 }
 
 function FolderItem({
@@ -275,7 +297,8 @@ function FolderItem({
   isExpanded,
   onToggle,
   currentPath,
-  navigate
+  navigate,
+  collapsed = false
 }: FolderItemProps) {
   const { projects, refreshProjects, deleteProject, updateProject } = useProjects(folder.id);
   const { deleteFolder, updateFolder } = useFolders(workspaceId);
@@ -416,6 +439,7 @@ function FolderItem({
           navigate={navigate}
           onDelete={handleDeleteProject}
           onUpdate={updateProject}
+          collapsed={collapsed}
         />
       ))}
 
@@ -467,9 +491,10 @@ interface ProjectItemProps {
   navigate: (path: string) => void;
   onDelete: (e: React.MouseEvent, projectId: string) => void;
   onUpdate: (id: string, data: any) => Promise<any>;
+  collapsed?: boolean;
 }
 
-function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate }: ProjectItemProps) {
+function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, collapsed = false }: ProjectItemProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
