@@ -5,7 +5,7 @@ import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditNameDialog } from "@/components/common/EditNameDialog";
@@ -45,63 +45,63 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
 
   if (loadingWorkspaces) return null;
   
-  if (collapsed) {
-    return (
-      <div className="space-y-1">
-        {workspaces.slice(0, 3).map((workspace) => (
-          <Tooltip key={workspace.id}>
-            <TooltipTrigger asChild>
-              <div
-                className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
-                onClick={() => navigate(`/workspaces/${workspace.id}`)}
-              >
-                <div
-                  className="w-4 h-4 rounded-full"
-                  style={{ backgroundColor: workspace.cor }}
-                />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="z-50">
-              <p>{workspace.nome}</p>
-              {workspace.descricao && (
-                <p className="text-xs text-muted-foreground mt-1">{workspace.descricao}</p>
-              )}
-            </TooltipContent>
-          </Tooltip>
-        ))}
-        {workspaces.length > 3 && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
-                +{workspaces.length - 3}
-              </div>
-            </TooltipTrigger>
-            <TooltipContent side="right" className="z-50">
-              <p>Mais {workspaces.length - 3} workspaces</p>
-              <p className="text-xs text-muted-foreground">Expanda para ver todos</p>
-            </TooltipContent>
-          </Tooltip>
-        )}
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-1">
-      {workspaces.map((workspace) => (
-        <WorkspaceItem
-          key={workspace.id}
-          workspace={workspace}
-          isExpanded={expandedWorkspaces.has(workspace.id)}
-          onToggle={() => toggleWorkspace(workspace.id)}
-          expandedFolders={expandedFolders}
-          onToggleFolder={toggleFolder}
-          currentPath={location.pathname}
-          navigate={navigate}
-          collapsed={collapsed}
-        />
-      ))}
-    </div>
+    <TooltipProvider>
+      {collapsed ? (
+        <div className="space-y-1">
+          {workspaces.slice(0, 3).map((workspace) => (
+            <Tooltip key={workspace.id}>
+              <TooltipTrigger asChild>
+                <div
+                  className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                  onClick={() => navigate(`/workspaces/${workspace.id}`)}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full"
+                    style={{ backgroundColor: workspace.cor }}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="z-50">
+                <p>{workspace.nome}</p>
+                {workspace.descricao && (
+                  <p className="text-xs text-muted-foreground mt-1">{workspace.descricao}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+          {workspaces.length > 3 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+                  +{workspaces.length - 3}
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="z-50">
+                <p>Mais {workspaces.length - 3} workspaces</p>
+                <p className="text-xs text-muted-foreground">Expanda para ver todos</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          {workspaces.map((workspace) => (
+            <WorkspaceItem
+              key={workspace.id}
+              workspace={workspace}
+              isExpanded={expandedWorkspaces.has(workspace.id)}
+              onToggle={() => toggleWorkspace(workspace.id)}
+              expandedFolders={expandedFolders}
+              onToggleFolder={toggleFolder}
+              currentPath={location.pathname}
+              navigate={navigate}
+              collapsed={collapsed}
+            />
+          ))}
+        </div>
+      )}
+    </TooltipProvider>
   );
 }
 
@@ -173,65 +173,88 @@ function WorkspaceItem({
     }
   };
 
+  const workspaceContent = (
+    <div
+      className={cn(
+        "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+        isActive && "bg-muted text-primary font-medium"
+      )}
+      onClick={onToggle}
+    >
+      {folders.length > 0 && (
+        isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )
+      )}
+      <div
+        className="w-3 h-3 rounded-full flex-shrink-0"
+        style={{ backgroundColor: workspace.cor }}
+      />
+      <FolderKanban className="h-4 w-4 text-muted-foreground" />
+      {!collapsed && <span className="truncate">{workspace.nome}</span>}
+      <div className="ml-auto flex gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/workspaces/${workspace.id}/folders`);
+          }}
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditDialogOpen(true);
+          }}
+        >
+          <Edit2 className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteDialogOpen(true);
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-1">
       {/* Workspace Item */}
-      <div
-        className={cn(
-          "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
-          isActive && "bg-muted text-primary font-medium"
-        )}
-        onClick={onToggle}
-      >
-        {folders.length > 0 && (
-          isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )
-        )}
-        <div
-          className="w-3 h-3 rounded-full flex-shrink-0"
-          style={{ backgroundColor: workspace.cor }}
-        />
-        <FolderKanban className="h-4 w-4 text-muted-foreground" />
-        <span className="truncate">{workspace.nome}</span>
-        <div className="ml-auto flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/workspaces/${workspace.id}/folders`);
-            }}
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditDialogOpen(true);
-            }}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteDialogOpen(true);
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
+      {collapsed ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {workspaceContent}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="z-50 max-w-xs">
+            <div>
+              <p className="font-semibold">{workspace.nome}</p>
+              {workspace.descricao && (
+                <p className="text-xs text-muted-foreground mt-1">{workspace.descricao}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                {folders.length} pasta{folders.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        workspaceContent
+      )}
 
       {/* Folders */}
       {isExpanded && folders.map((folder) => (
@@ -370,65 +393,88 @@ function FolderItem({
     }
   };
 
+  const folderContent = (
+    <div
+      className={cn(
+        "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+        isActive && "bg-muted text-primary font-medium"
+      )}
+      onClick={onToggle}
+    >
+      {folderProjects.length > 0 && (
+        isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )
+      )}
+      <div
+        className="w-3 h-3 rounded-full flex-shrink-0"
+        style={{ backgroundColor: folder.cor }}
+      />
+      <Folder className="h-4 w-4 text-muted-foreground" />
+      {!collapsed && <span className="truncate">{folder.nome}</span>}
+      <div className="ml-auto flex gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/workspaces/${workspaceId}/folders/${folder.id}/projects`);
+          }}
+        >
+          <Plus className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditDialogOpen(true);
+          }}
+        >
+          <Edit2 className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteDialogOpen(true);
+          }}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="ml-4 space-y-1">
       {/* Folder Item */}
-      <div
-        className={cn(
-          "group flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
-          isActive && "bg-muted text-primary font-medium"
-        )}
-        onClick={onToggle}
-      >
-        {folderProjects.length > 0 && (
-          isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          )
-        )}
-        <div
-          className="w-3 h-3 rounded-full flex-shrink-0"
-          style={{ backgroundColor: folder.cor }}
-        />
-        <Folder className="h-4 w-4 text-muted-foreground" />
-        <span className="truncate">{folder.nome}</span>
-        <div className="ml-auto flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/workspaces/${workspaceId}/folders/${folder.id}/projects`);
-            }}
-          >
-            <Plus className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditDialogOpen(true);
-            }}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeleteDialogOpen(true);
-            }}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
+      {collapsed ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {folderContent}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="z-50 max-w-xs">
+            <div>
+              <p className="font-semibold">{folder.nome}</p>
+              {folder.descricao && (
+                <p className="text-xs text-muted-foreground mt-1">{folder.descricao}</p>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">
+                {folderProjects.length} projeto{folderProjects.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        folderContent
+      )}
 
       {/* Projects */}
       {isExpanded && folderProjects.map((project) => (
@@ -519,39 +565,65 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
     }
   };
 
+  const projectContent = (
+    <div
+      className={cn(
+        "group ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+        currentPath.includes(`/projects-tap/${project.id}`) && "bg-muted text-primary font-medium"
+      )}
+      onClick={() => navigate(`/projects-tap/${project.id}`)}
+    >
+      <FileText className="h-4 w-4 text-muted-foreground" />
+      {!collapsed && <span className="truncate">{project.nome_projeto}</span>}
+      <div className="ml-auto flex gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditDialogOpen(true);
+          }}
+        >
+          <Edit2 className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+          onClick={(e) => onDelete(e, project.id)}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <>
-      <div
-        className={cn(
-          "group ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
-          currentPath.includes(`/projects-tap/${project.id}`) && "bg-muted text-primary font-medium"
-        )}
-        onClick={() => navigate(`/projects-tap/${project.id}`)}
-      >
-        <FileText className="h-4 w-4 text-muted-foreground" />
-        <span className="truncate">{project.nome_projeto}</span>
-        <div className="ml-auto flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-            onClick={(e) => {
-              e.stopPropagation();
-              setEditDialogOpen(true);
-            }}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={(e) => onDelete(e, project.id)}
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        </div>
-      </div>
+      {collapsed ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {projectContent}
+          </TooltipTrigger>
+          <TooltipContent side="right" className="z-50 max-w-xs">
+            <div>
+              <p className="font-semibold">{project.nome_projeto}</p>
+              {project.cliente && (
+                <p className="text-xs text-muted-foreground mt-1">Cliente: {project.cliente}</p>
+              )}
+              {project.gpp && (
+                <p className="text-xs text-muted-foreground">GPP: {project.gpp}</p>
+              )}
+              {project.criticidade && (
+                <p className="text-xs text-muted-foreground">Criticidade: {project.criticidade}</p>
+              )}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        projectContent
+      )}
 
       {/* Edit Name Dialog */}
       <EditNameDialog
