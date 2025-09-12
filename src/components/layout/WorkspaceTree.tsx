@@ -1,16 +1,13 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus, Trash2, Edit2 } from "lucide-react";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { WorkspaceWithProjectDialog } from "@/components/workspaces/WorkspaceWithProjectDialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { EditNameDialog } from "@/components/common/EditNameDialog";
 import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceTreeProps {
@@ -85,36 +82,49 @@ function WorkspaceItem({
   navigate
 }: WorkspaceItemProps) {
   const { folders, createFolder, refreshFolders } = useFolders(workspace.id);
-  const { deleteWorkspace } = useWorkspaces();
+  const { deleteWorkspace, updateWorkspace } = useWorkspaces();
   const { toast } = useToast();
-  const [folderOpen, setFolderOpen] = useState(false);
-  const [folderForm, setFolderForm] = useState<{ nome: string; descricao: string | null; cor: string; workspace_id: string }>({
-    nome: "",
-    descricao: "",
-    cor: workspace.cor,
-    workspace_id: workspace.id,
-  });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   const isActive = currentPath.includes(`/workspaces/${workspace.id}`);
 
-  const handleDeleteWorkspace = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm("Tem certeza que deseja excluir este workspace?")) {
-      try {
-        const success = await deleteWorkspace(workspace.id);
-        if (success) {
-          toast({
-            title: "Workspace excluído",
-            description: "O workspace foi excluído com sucesso.",
-          });
-        }
-      } catch (error: any) {
+  const handleDeleteWorkspace = async () => {
+    try {
+      const success = await deleteWorkspace(workspace.id);
+      if (success) {
         toast({
-          title: "Erro ao excluir",
-          description: error.message || "Erro ao excluir o workspace.",
-          variant: "destructive",
+          title: "Workspace excluído",
+          description: "O workspace foi excluído com sucesso.",
         });
       }
+    } catch (error: any) {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message || "Erro ao excluir o workspace.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditWorkspace = async (newName: string) => {
+    try {
+      const success = await updateWorkspace(workspace.id, { nome: newName });
+      if (success) {
+        toast({
+          title: "Workspace atualizado",
+          description: "O nome do workspace foi atualizado com sucesso.",
+        });
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message || "Erro ao atualizar o workspace.",
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
@@ -156,8 +166,22 @@ function WorkspaceItem({
           <Button
             variant="ghost"
             size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditDialogOpen(true);
+            }}
+          >
+            <Edit2 className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={handleDeleteWorkspace}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteDialogOpen(true);
+            }}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -176,6 +200,37 @@ function WorkspaceItem({
           navigate={navigate}
         />
       ))}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o workspace "{workspace.nome}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteWorkspace}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Name Dialog */}
+      <EditNameDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        title="Editar Nome do Workspace"
+        description="Digite o novo nome para o workspace."
+        currentName={workspace.nome}
+        onSave={handleEditWorkspace}
+      />
     </div>
   );
 }
@@ -197,33 +252,52 @@ function FolderItem({
   currentPath,
   navigate
 }: FolderItemProps) {
-  const { projects, refreshProjects, deleteProject } = useProjects(folder.id);
-  const { deleteFolder } = useFolders(workspaceId);
+  const { projects, refreshProjects, deleteProject, updateProject } = useProjects(folder.id);
+  const { deleteFolder, updateFolder } = useFolders(workspaceId);
   const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   
   // Projetos já filtrados pelo folderId no hook
   const folderProjects = projects;
 
   const isActive = currentPath.includes(`/folders/${folder.id}`);
 
-  const handleDeleteFolder = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (confirm("Tem certeza que deseja excluir esta pasta?")) {
-      try {
-        const success = await deleteFolder(folder.id);
-        if (success) {
-          toast({
-            title: "Pasta excluída",
-            description: "A pasta foi excluída com sucesso.",
-          });
-        }
-      } catch (error: any) {
+  const handleDeleteFolder = async () => {
+    try {
+      setDeleteError(null);
+      const success = await deleteFolder(folder.id);
+      if (success) {
         toast({
-          title: "Erro ao excluir",
-          description: error.message || "Erro ao excluir a pasta.",
-          variant: "destructive",
+          title: "Pasta excluída",
+          description: "A pasta foi excluída com sucesso.",
         });
+        setDeleteDialogOpen(false);
       }
+    } catch (error: any) {
+      setDeleteError(error.message || "Erro ao excluir a pasta.");
+    }
+  };
+
+  const handleEditFolder = async (newName: string) => {
+    try {
+      const success = await updateFolder(folder.id, { nome: newName });
+      if (success) {
+        toast({
+          title: "Pasta atualizada",
+          description: "O nome da pasta foi atualizado com sucesso.",
+        });
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message || "Erro ao atualizar a pasta.",
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
@@ -286,8 +360,22 @@ function FolderItem({
           <Button
             variant="ghost"
             size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditDialogOpen(true);
+            }}
+          >
+            <Edit2 className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={handleDeleteFolder}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDeleteDialogOpen(true);
+            }}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -296,26 +384,134 @@ function FolderItem({
 
       {/* Projects */}
       {isExpanded && folderProjects.map((project) => (
-        <div
+        <ProjectItem
           key={project.id}
-          className={cn(
-            "group ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
-            currentPath.includes(`/projects-tap/${project.id}`) && "bg-muted text-primary font-medium"
-          )}
-          onClick={() => navigate(`/projects-tap/${project.id}`)}
-        >
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="truncate">{project.nome_projeto}</span>
+          project={project}
+          currentPath={currentPath}
+          navigate={navigate}
+          onDelete={handleDeleteProject}
+          onUpdate={updateProject}
+        />
+      ))}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteError ? (
+                <span className="text-destructive">{deleteError}</span>
+              ) : (
+                `Tem certeza que deseja excluir a pasta "${folder.nome}"? Esta ação não pode ser desfeita.`
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteError(null)}>
+              Cancelar
+            </AlertDialogCancel>
+            {!deleteError && (
+              <AlertDialogAction
+                onClick={handleDeleteFolder}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Excluir
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Edit Name Dialog */}
+      <EditNameDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        title="Editar Nome da Pasta"
+        description="Digite o novo nome para a pasta."
+        currentName={folder.nome}
+        onSave={handleEditFolder}
+      />
+    </div>
+  );
+}
+
+interface ProjectItemProps {
+  project: any;
+  currentPath: string;
+  navigate: (path: string) => void;
+  onDelete: (e: React.MouseEvent, projectId: string) => void;
+  onUpdate: (id: string, data: any) => Promise<any>;
+}
+
+function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate }: ProjectItemProps) {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const handleEditProject = async (newName: string) => {
+    try {
+      const success = await onUpdate(project.id, { nome_projeto: newName });
+      if (success) {
+        toast({
+          title: "Projeto atualizado",
+          description: "O nome do projeto foi atualizado com sucesso.",
+        });
+        return true;
+      }
+      return false;
+    } catch (error: any) {
+      toast({
+        title: "Erro ao atualizar",
+        description: error.message || "Erro ao atualizar o projeto.",
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  return (
+    <>
+      <div
+        className={cn(
+          "group ml-4 flex items-center gap-2 px-2 py-1.5 text-sm rounded-md cursor-pointer hover:bg-muted/50 transition-colors",
+          currentPath.includes(`/projects-tap/${project.id}`) && "bg-muted text-primary font-medium"
+        )}
+        onClick={() => navigate(`/projects-tap/${project.id}`)}
+      >
+        <FileText className="h-4 w-4 text-muted-foreground" />
+        <span className="truncate">{project.nome_projeto}</span>
+        <div className="ml-auto flex gap-1">
           <Button
             variant="ghost"
             size="sm"
-            className="ml-auto h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
-            onClick={(e) => handleDeleteProject(e, project.id)}
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditDialogOpen(true);
+            }}
+          >
+            <Edit2 className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive"
+            onClick={(e) => onDelete(e, project.id)}
           >
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
-      ))}
-    </div>
+      </div>
+
+      {/* Edit Name Dialog */}
+      <EditNameDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        title="Editar Nome do Projeto"
+        description="Digite o novo nome para o projeto."
+        currentName={project.nome_projeto}
+        onSave={handleEditProject}
+      />
+    </>
   );
 }

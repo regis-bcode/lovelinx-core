@@ -12,6 +12,7 @@ import { Calendar, DollarSign, FileText, Target, Save } from "lucide-react";
 import { useTAP } from "@/hooks/useTAP";
 import { TAPFormData } from "@/types/tap";
 import { useToast } from "@/hooks/use-toast";
+import { TAPSummaryDialog } from "@/components/common/TAPSummaryDialog";
 
 interface TAPFormProps {
   folderId?: string | null;
@@ -23,6 +24,8 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const { createTAP } = useTAP();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [summaryDialogOpen, setSummaryDialogOpen] = useState(false);
+  const [createdTAP, setCreatedTAP] = useState<any>(null);
 
   const [formData, setFormData] = useState<Partial<TAPFormData>>({
     // Identificação
@@ -111,16 +114,8 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
       const newTAP = await createTAP(tapData);
       
       if (newTAP) {
-        toast({
-          title: "Sucesso",
-          description: "TAP criada com sucesso!",
-        });
-        
-        if (onSuccess) {
-          onSuccess(newTAP.id);
-        } else {
-          navigate(`/projects-tap/${newTAP.id}`);
-        }
+        setCreatedTAP(newTAP);
+        setSummaryDialogOpen(true);
       }
     } catch (error) {
       console.error('Erro ao criar TAP:', error);
@@ -131,6 +126,14 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSummaryComplete = () => {
+    if (onSuccess && createdTAP) {
+      onSuccess(createdTAP.id);
+    } else if (createdTAP) {
+      navigate(`/projects-tap/${createdTAP.id}`);
     }
   };
 
@@ -531,6 +534,16 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Summary Dialog */}
+      {createdTAP && (
+        <TAPSummaryDialog
+          open={summaryDialogOpen}
+          onOpenChange={setSummaryDialogOpen}
+          tapData={createdTAP}
+          onComplete={handleSummaryComplete}
+        />
+      )}
     </form>
   );
 }
