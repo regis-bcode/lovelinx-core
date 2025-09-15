@@ -15,6 +15,7 @@ import { TAPFormData } from '@/types/tap';
 import { useTAP } from '@/hooks/useTAP';
 import { useToast } from '@/hooks/use-toast';
 import { useTAPDocuments } from '@/hooks/useTAPDocuments';
+import { useTAPOptions } from '@/hooks/useTAPOptions';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { Upload, FileText, X } from 'lucide-react';
@@ -31,13 +32,25 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const { uploadDocument } = useTAPDocuments();
   const { toast } = useToast();
   
-  // Estados para as listas editáveis
-  const [coordenadorOptions, setCoordenadorOptions] = useState<string[]>(['Coordenador 1', 'Coordenador 2']);
-  const [produtoOptions, setProdutoOptions] = useState<string[]>(['Produto A', 'Produto B']);
-  const [esnOptions, setEsnOptions] = useState<string[]>(['ESN 1', 'ESN 2']);
-  const [arquitetoOptions, setArquitetoOptions] = useState<string[]>(['Arquiteto 1', 'Arquiteto 2']);
-  const [gerenteProjetoOptions, setGerenteProjetoOptions] = useState<string[]>(['Gerente A', 'Gerente B']);
-  const [gppOptions, setGppOptions] = useState<string[]>(['GPP 1', 'GPP 2']);
+  // Hook para gerenciar as opções das listas suspensas
+  const {
+    gppOptions,
+    produtoOptions,
+    arquitetoOptions,
+    coordenadorOptions,
+    gerenteProjetoOptions,
+    esnOptions,
+    loading: optionsLoading,
+    addOption,
+  } = useTAPOptions();
+  
+  // Estados para as listas editáveis - agora removidos, usando o hook useTAPOptions
+  // const [coordenadorOptions, setCoordenadorOptions] = useState<string[]>(['Coordenador 1', 'Coordenador 2']);
+  // const [produtoOptions, setProdutoOptions] = useState<string[]>(['Produto A', 'Produto B']);
+  // const [esnOptions, setEsnOptions] = useState<string[]>(['ESN 1', 'ESN 2']);
+  // const [arquitetoOptions, setArquitetoOptions] = useState<string[]>(['Arquiteto 1', 'Arquiteto 2']);
+  // const [gerenteProjetoOptions, setGerenteProjetoOptions] = useState<string[]>(['Gerente A', 'Gerente B']);
+  // const [gppOptions, setGppOptions] = useState<string[]>(['GPP 1', 'GPP 2']);
 
   const [formData, setFormData] = useState<TAPFormData>({
     project_id: '',
@@ -235,9 +248,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={gppOptions}
                     placeholder="Selecione ou digite um GPP"
                     emptyMessage="Nenhum GPP encontrado"
-                    onCreate={(value) => {
-                      setGppOptions(prev => [...prev, value]);
-                      updateFormData('gpp', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('gpp', value);
+                      if (success) {
+                        updateFormData('gpp', value);
+                      }
                     }}
                   />
                 </div>
@@ -249,9 +264,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={produtoOptions}
                     placeholder="Selecione ou digite um produto"
                     emptyMessage="Nenhum produto encontrado"
-                    onCreate={(value) => {
-                      setProdutoOptions(prev => [...prev, value]);
-                      updateFormData('produto', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('produto', value);
+                      if (success) {
+                        updateFormData('produto', value);
+                      }
                     }}
                   />
                 </div>
@@ -263,9 +280,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={arquitetoOptions}
                     placeholder="Selecione ou digite um arquiteto"
                     emptyMessage="Nenhum arquiteto encontrado"
-                    onCreate={(value) => {
-                      setArquitetoOptions(prev => [...prev, value]);
-                      updateFormData('arquiteto', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('arquiteto', value);
+                      if (success) {
+                        updateFormData('arquiteto', value);
+                      }
                     }}
                   />
                 </div>
@@ -291,9 +310,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={coordenadorOptions}
                     placeholder="Selecione ou digite um coordenador"
                     emptyMessage="Nenhum coordenador encontrado"
-                    onCreate={(value) => {
-                      setCoordenadorOptions(prev => [...prev, value]);
-                      updateFormData('coordenador', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('coordenador', value);
+                      if (success) {
+                        updateFormData('coordenador', value);
+                      }
                     }}
                   />
                 </div>
@@ -305,9 +326,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={gerenteProjetoOptions}
                     placeholder="Selecione ou digite um gerente"
                     emptyMessage="Nenhum gerente encontrado"
-                    onCreate={(value) => {
-                      setGerenteProjetoOptions(prev => [...prev, value]);
-                      updateFormData('gerente_projeto', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('gerente_projeto', value);
+                      if (success) {
+                        updateFormData('gerente_projeto', value);
+                      }
                     }}
                   />
                 </div>
@@ -319,9 +342,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     options={esnOptions}
                     placeholder="Selecione ou digite um ESN"
                     emptyMessage="Nenhum ESN encontrado"
-                    onCreate={(value) => {
-                      setEsnOptions(prev => [...prev, value]);
-                      updateFormData('esn', value);
+                    onCreate={async (value) => {
+                      const success = await addOption('esn', value);
+                      if (success) {
+                        updateFormData('esn', value);
+                      }
                     }}
                   />
                 </div>
