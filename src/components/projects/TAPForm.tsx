@@ -625,7 +625,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                       <div className="space-y-2 max-h-40 overflow-y-auto">
                         {pendingFiles.map((file, index) => (
                           <div
-                            key={index}
+                            key={`${file.name}-${file.size}-${index}`}
                             className="flex items-center justify-between p-2 border rounded-lg bg-muted/30"
                           >
                             <div className="flex items-center gap-2 flex-1">
