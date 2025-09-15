@@ -14,8 +14,10 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { TAPFormData } from '@/types/tap';
 import { useTAP } from '@/hooks/useTAP';
 import { useToast } from '@/hooks/use-toast';
+import { useTAPDocuments } from '@/hooks/useTAPDocuments';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
+import { Upload, FileText, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface TAPFormProps {
@@ -26,6 +28,7 @@ interface TAPFormProps {
 export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const navigate = useNavigate();
   const { createTAP } = useTAP();
+  const { uploadDocument } = useTAPDocuments();
   const { toast } = useToast();
   
   // Estados para as listas editáveis
@@ -76,6 +79,8 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [createdTAP, setCreatedTAP] = useState<any>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [fileNames, setFileNames] = useState<string[]>([]);
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -110,6 +115,42 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
       
       if (newTAP) {
         setCreatedTAP(newTAP);
+        
+        // Upload arquivos pendentes se houver
+        if (pendingFiles.length > 0) {
+          try {
+            for (let i = 0; i < pendingFiles.length; i++) {
+              const file = pendingFiles[i];
+              const fileName = fileNames[i] || file.name.split('.')[0];
+              
+              await uploadDocument({
+                tap_id: newTAP.id,
+                project_id: newTAP.project_id,
+                file: file,
+                document_name: fileName,
+                original_name: file.name,
+                file_size: file.size,
+                mime_type: file.type
+              });
+            }
+            
+            toast({
+              title: "Sucesso",
+              description: `TAP criada com sucesso! ${pendingFiles.length} arquivo(s) anexado(s).`,
+            });
+            
+            // Limpar arquivos pendentes
+            setPendingFiles([]);
+            setFileNames([]);
+          } catch (error) {
+            toast({
+              title: "Atenção",
+              description: "TAP criada, mas houve erro ao anexar alguns arquivos.",
+              variant: "destructive",
+            });
+          }
+        }
+        
         setShowSummary(true);
       }
     } catch (error) {
@@ -130,6 +171,20 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     } else if (createdTAP) {
       navigate(`/projects-tap/${createdTAP.id}`);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setPendingFiles(prev => [...prev, ...files]);
+      const names = files.map(file => file.name.split('.')[0]);
+      setFileNames(prev => [...prev, ...names]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
+    setFileNames(prev => prev.filter((_, i) => i !== index));
   };
 
   return (
@@ -518,13 +573,74 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             
             <div>
               {!createdTAP ? (
-                <div className="text-center p-8 bg-muted/50 rounded-lg">
-                  <p className="text-muted-foreground">
-                    Para enviar anexos, é necessário salvar a TAP primeiro.
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Preencha os campos obrigatórios e clique em "Salvar TAP" para habilitar os anexos.
-                  </p>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png"
+                      className="hidden"
+                      id="file-upload-input"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => document.getElementById('file-upload-input')?.click()}
+                      className="w-full"
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Selecionar Arquivos para Anexar
+                    </Button>
+                  </div>
+                  
+                  {pendingFiles.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Arquivos Selecionados ({pendingFiles.length})</h4>
+                      <div className="space-y-2 max-h-40 overflow-y-auto">
+                        {pendingFiles.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-2 border rounded-lg bg-muted/30"
+                          >
+                            <div className="flex items-center gap-2 flex-1">
+                              <FileText className="h-4 w-4 text-muted-foreground" />
+                              <div>
+                                <div className="text-sm font-medium">{file.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </div>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFile(index)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="text-xs text-muted-foreground p-2 bg-blue-50 dark:bg-blue-950/30 rounded border-l-2 border-blue-500">
+                        💡 Os arquivos serão anexados automaticamente após salvar a TAP
+                      </div>
+                    </div>
+                  )}
+                  
+                  {pendingFiles.length === 0 && (
+                    <div className="text-center p-6 bg-muted/50 rounded-lg border-2 border-dashed">
+                      <FileText className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-muted-foreground text-sm">
+                        Selecione arquivos para anexar à TAP
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Formatos aceitos: PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, JPEG, PNG
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <TAPDocuments 
