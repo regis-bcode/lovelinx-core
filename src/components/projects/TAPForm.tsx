@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyInput } from '@/components/ui/currency-input';
@@ -18,8 +17,6 @@ import { useToast } from '@/hooks/use-toast';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { format } from 'date-fns';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { HelpCircle } from 'lucide-react';
 
 interface TAPFormProps {
   folderId?: string | null;
@@ -78,7 +75,6 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [createdTAP, setCreatedTAP] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<string>('identificacao');
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -141,79 +137,15 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         <CardHeader>
           <CardTitle>TAP</CardTitle>
         </CardHeader>
-        <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TooltipProvider>
-              <TabsList className="flex w-full gap-2 h-auto items-start overflow-x-auto flex-nowrap">
-                <TabsTrigger value="identificacao" className="shrink-0">
-                  <span className="flex items-center gap-1">
-                    TAP
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Informações de identificação do projeto</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="financeiro" className="shrink-0">
-                  <span className="flex items-center gap-1">
-                    Financeiro
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Valores, margens, MRR e investimentos</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="timeline" className="shrink-0">
-                  <span className="flex items-center gap-1">
-                    Timeline
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Datas: início, go live e encerramento</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="outros" className="shrink-0">
-                  <span className="flex items-center gap-1">
-                    Outros
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Campos adicionais e observações</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
-                </TabsTrigger>
-                <TabsTrigger value="anexos" className="shrink-0">
-                  <span className="flex items-center gap-1">
-                    Anexos
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="inline-flex"><HelpCircle className="h-3.5 w-3.5 text-muted-foreground" /></span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Envie documentos relacionados ao projeto</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </span>
-                </TabsTrigger>
-              </TabsList>
-            </TooltipProvider>
-
-            <TabsContent value="identificacao" className="space-y-4">
+        <CardContent className="space-y-8">
+          {/* Seção: TAP */}
+          <div className="space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="text-lg font-semibold text-foreground">TAP</h3>
+              <p className="text-sm text-muted-foreground">Informações de identificação do projeto</p>
+            </div>
+            
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data">Data *</Label>
@@ -354,9 +286,17 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          </div>
 
-            <TabsContent value="financeiro" className="space-y-4">
+          {/* Seção: Financeiro */}
+          <div className="space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="text-lg font-semibold text-foreground">Financeiro</h3>
+              <p className="text-sm text-muted-foreground">Valores, margens, MRR e investimentos</p>
+            </div>
+            
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="valor_projeto">Valor do Projeto</Label>
@@ -471,9 +411,17 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   <Label htmlFor="projeto_em_perda">Projeto em Perda</Label>
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          </div>
 
-            <TabsContent value="timeline" className="space-y-4">
+          {/* Seção: Timeline */}
+          <div className="space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="text-lg font-semibold text-foreground">Timeline</h3>
+              <p className="text-sm text-muted-foreground">Datas: início, go live e encerramento</p>
+            </div>
+            
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data_inicio">Data Início</Label>
@@ -510,46 +458,60 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          </div>
 
-            <TabsContent value="outros" className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="escopo">Escopo</Label>
-                  <Textarea
-                    id="escopo"
-                    value={formData.escopo || ''}
-                    onChange={(e) => updateFormData('escopo', e.target.value)}
-                    placeholder="Descreva o escopo do projeto"
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="objetivo">Objetivo</Label>
-                  <Textarea
-                    id="objetivo"
-                    value={formData.objetivo || ''}
-                    onChange={(e) => updateFormData('objetivo', e.target.value)}
-                    placeholder="Descreva o objetivo do projeto"
-                    rows={4}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="observacoes">Observações</Label>
-                  <Textarea
-                    id="observacoes"
-                    value={formData.observacoes || ''}
-                    onChange={(e) => updateFormData('observacoes', e.target.value)}
-                    placeholder="Adicione observações importantes"
-                    rows={4}
-                  />
-                </div>
+          {/* Seção: Outros */}
+          <div className="space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="text-lg font-semibold text-foreground">Outros</h3>
+              <p className="text-sm text-muted-foreground">Campos adicionais e observações</p>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="escopo">Escopo</Label>
+                <Textarea
+                  id="escopo"
+                  value={formData.escopo || ''}
+                  onChange={(e) => updateFormData('escopo', e.target.value)}
+                  placeholder="Descreva o escopo do projeto"
+                  rows={4}
+                />
               </div>
-            </TabsContent>
+              <div>
+                <Label htmlFor="objetivo">Objetivo</Label>
+                <Textarea
+                  id="objetivo"
+                  value={formData.objetivo || ''}
+                  onChange={(e) => updateFormData('objetivo', e.target.value)}
+                  placeholder="Descreva o objetivo do projeto"
+                  rows={4}
+                />
+              </div>
+              <div>
+                <Label htmlFor="observacoes">Observações</Label>
+                <Textarea
+                  id="observacoes"
+                  value={formData.observacoes || ''}
+                  onChange={(e) => updateFormData('observacoes', e.target.value)}
+                  placeholder="Adicione observações importantes"
+                  rows={4}
+                />
+              </div>
+            </div>
+          </div>
 
-            <TabsContent value="anexos" className="space-y-4">
+          {/* Seção: Anexos */}
+          <div className="space-y-4">
+            <div className="border-b pb-2">
+              <h3 className="text-lg font-semibold text-foreground">Anexos</h3>
+              <p className="text-sm text-muted-foreground">Envie documentos relacionados ao projeto</p>
+            </div>
+            
+            <div>
               {!createdTAP ? (
-                <div className="text-center p-8">
+                <div className="text-center p-8 bg-muted/50 rounded-lg">
                   <p className="text-muted-foreground">
                     Para enviar anexos, é necessário salvar a TAP primeiro.
                   </p>
@@ -563,17 +525,17 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   projectId={createdTAP.project_id} 
                 />
               )}
-            </TabsContent>
-
-            <div className="flex gap-2 pt-4">
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Salvando...' : 'Salvar TAP'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => navigate(-1)}>
-                Cancelar
-              </Button>
             </div>
-          </Tabs>
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Salvando...' : 'Salvar TAP'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+              Cancelar
+            </Button>
+          </div>
         </CardContent>
       </Card>
       
