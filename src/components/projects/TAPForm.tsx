@@ -142,7 +142,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
           <CardTitle>TAP</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <Tabs value={activeTab} onValueChange={(v) => { console.log('TAB_CHANGE', v); setActiveTab(v); }} className="space-y-4">
             <TooltipProvider>
               <TabsList className="flex w-full gap-2 h-auto items-start overflow-x-auto flex-nowrap">
                 <TabsTrigger value="identificacao" className="shrink-0">
@@ -357,6 +357,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             </TabsContent>
 
             <TabsContent value="financeiro" className="space-y-4">
+              {(() => { console.log('RENDER_TAB_financeiro'); return null })()}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="valor_projeto">Valor do Projeto</Label>
@@ -474,6 +475,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             </TabsContent>
 
             <TabsContent value="timeline" className="space-y-4">
+              {(() => { console.log('RENDER_TAB_timeline'); return null })()}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data_inicio">Data Início</Label>
@@ -512,6 +514,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             </TabsContent>
 
             <TabsContent value="outros" className="space-y-4">
+              {(() => { console.log('RENDER_TAB_outros'); return null })()}
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="escopo">Escopo</Label>
@@ -544,9 +547,10 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             </TabsContent>
 
             <TabsContent value="anexos" className="space-y-4">
+              {(() => { console.log('RENDER_TAB_anexos'); return null })()}
               <TAPDocuments 
                 tapId={createdTAP?.id} 
-                projectId={folderId || ''} 
+                projectId={createdTAP?.project_id || ''} 
               />
             </TabsContent>
 
