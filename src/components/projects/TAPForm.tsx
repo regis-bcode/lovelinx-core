@@ -34,6 +34,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [esnOptions, setEsnOptions] = useState<string[]>(['ESN 1', 'ESN 2']);
   const [arquitetoOptions, setArquitetoOptions] = useState<string[]>(['Arquiteto 1', 'Arquiteto 2']);
   const [gerenteProjetoOptions, setGerenteProjetoOptions] = useState<string[]>(['Gerente A', 'Gerente B']);
+  const [gppOptions, setGppOptions] = useState<string[]>(['GPP 1', 'GPP 2']);
 
   const [formData, setFormData] = useState<TAPFormData>({
     project_id: '',
@@ -140,9 +141,9 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         <CardContent className="space-y-8">
           {/* Seção: TAP */}
           <div className="space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="text-lg font-semibold text-foreground">TAP</h3>
-              <p className="text-sm text-muted-foreground">Informações de identificação do projeto</p>
+            <div className="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 dark:bg-blue-950/30 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-300">TAP</h3>
+              <p className="text-sm text-blue-600 dark:text-blue-400">Informações de identificação do projeto</p>
             </div>
             
             <div className="space-y-4">
@@ -172,11 +173,17 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gpp">GPP *</Label>
-                  <Input
-                    id="gpp"
+                  <Label htmlFor="gpp">GPP (Gerente de Portólio de Projetos) *</Label>
+                  <CreatableSelect
                     value={formData.gpp}
-                    onChange={(e) => updateFormData('gpp', e.target.value)}
+                    onValueChange={(value) => updateFormData('gpp', value)}
+                    options={gppOptions}
+                    placeholder="Selecione ou digite um GPP"
+                    emptyMessage="Nenhum GPP encontrado"
+                    onCreate={(value) => {
+                      setGppOptions(prev => [...prev, value]);
+                      updateFormData('gpp', value);
+                    }}
                   />
                 </div>
                 <div>
@@ -291,9 +298,9 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
           {/* Seção: Financeiro */}
           <div className="space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="text-lg font-semibold text-foreground">Financeiro</h3>
-              <p className="text-sm text-muted-foreground">Valores, margens, MRR e investimentos</p>
+            <div className="border-l-4 border-green-500 pl-4 py-2 bg-green-50 dark:bg-green-950/30 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-green-700 dark:text-green-300">Financeiro</h3>
+              <p className="text-sm text-green-600 dark:text-green-400">Valores, margens, MRR e investimentos</p>
             </div>
             
             <div className="space-y-4">
@@ -416,9 +423,9 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
           {/* Seção: Timeline */}
           <div className="space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="text-lg font-semibold text-foreground">Timeline</h3>
-              <p className="text-sm text-muted-foreground">Datas: início, go live e encerramento</p>
+            <div className="border-l-4 border-purple-500 pl-4 py-2 bg-purple-50 dark:bg-purple-950/30 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300">Timeline</h3>
+              <p className="text-sm text-purple-600 dark:text-purple-400">Datas: início, go live e encerramento</p>
             </div>
             
             <div className="space-y-4">
@@ -463,9 +470,9 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
           {/* Seção: Outros */}
           <div className="space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="text-lg font-semibold text-foreground">Outros</h3>
-              <p className="text-sm text-muted-foreground">Campos adicionais e observações</p>
+            <div className="border-l-4 border-orange-500 pl-4 py-2 bg-orange-50 dark:bg-orange-950/30 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-orange-700 dark:text-orange-300">Outros</h3>
+              <p className="text-sm text-orange-600 dark:text-orange-400">Campos adicionais e observações</p>
             </div>
             
             <div className="space-y-4">
@@ -504,9 +511,9 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
           {/* Seção: Anexos */}
           <div className="space-y-4">
-            <div className="border-b pb-2">
-              <h3 className="text-lg font-semibold text-foreground">Anexos</h3>
-              <p className="text-sm text-muted-foreground">Envie documentos relacionados ao projeto</p>
+            <div className="border-l-4 border-red-500 pl-4 py-2 bg-red-50 dark:bg-red-950/30 rounded-r-lg">
+              <h3 className="text-lg font-semibold text-red-700 dark:text-red-300">Anexos</h3>
+              <p className="text-sm text-red-600 dark:text-red-400">Envie documentos relacionados ao projeto</p>
             </div>
             
             <div>
