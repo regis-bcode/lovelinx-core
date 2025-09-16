@@ -37,6 +37,11 @@ const navigation = [
     icon: Users,
   },
   {
+    title: "Usuários",
+    url: "/users", 
+    icon: Users,
+  },
+  {
     title: "Relatórios",
     url: "/reports",
     icon: BarChart,
@@ -54,11 +59,6 @@ const navigation = [
 ]
 
 const settingsNav = [
-  {
-    title: "Usuários",
-    url: "/users",
-    icon: Users,
-  },
   {
     title: "Configurações",
     url: "/settings",
