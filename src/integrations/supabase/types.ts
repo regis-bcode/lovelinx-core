@@ -770,6 +770,51 @@ export type Database = {
         }
         Relationships: []
       }
+      users: {
+        Row: {
+          ativo: boolean
+          cpf: string
+          created_at: string
+          email: string
+          id: string
+          nome_completo: string
+          observacoes: string | null
+          telefone: string
+          tipo_perfil: Database["public"]["Enums"]["profile_type"]
+          tipo_usuario: Database["public"]["Enums"]["user_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          cpf: string
+          created_at?: string
+          email: string
+          id?: string
+          nome_completo: string
+          observacoes?: string | null
+          telefone: string
+          tipo_perfil: Database["public"]["Enums"]["profile_type"]
+          tipo_usuario: Database["public"]["Enums"]["user_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          cpf?: string
+          created_at?: string
+          email?: string
+          id?: string
+          nome_completo?: string
+          observacoes?: string | null
+          telefone?: string
+          tipo_perfil?: Database["public"]["Enums"]["profile_type"]
+          tipo_usuario?: Database["public"]["Enums"]["user_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspaces: {
         Row: {
           ativo: boolean
@@ -811,7 +856,16 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      profile_type: "visualizador" | "editor" | "administrador"
+      user_type:
+        | "cliente"
+        | "analista"
+        | "gerente_projetos"
+        | "gerente_portfolio"
+        | "coordenador_consultoria"
+        | "gerente_cliente"
+        | "arquiteto"
+        | "sponsor"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -938,6 +992,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      profile_type: ["visualizador", "editor", "administrador"],
+      user_type: [
+        "cliente",
+        "analista",
+        "gerente_projetos",
+        "gerente_portfolio",
+        "coordenador_consultoria",
+        "gerente_cliente",
+        "arquiteto",
+        "sponsor",
+      ],
+    },
   },
 } as const

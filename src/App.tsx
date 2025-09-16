@@ -11,6 +11,7 @@ import FolderProjects from "./pages/FolderProjects";
 import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
+import Users from "./pages/Users";
 import NotFound from "./pages/NotFound";
 
 
@@ -140,6 +141,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <div className="p-6">Documents page - Em desenvolvimento</div>
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/users" 
+        element={
+          <ProtectedRoute>
+            <Users />
           </ProtectedRoute>
         } 
       />

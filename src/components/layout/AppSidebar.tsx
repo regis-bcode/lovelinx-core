@@ -55,6 +55,11 @@ const navigation = [
 
 const settingsNav = [
   {
+    title: "Usuários",
+    url: "/users",
+    icon: Users,
+  },
+  {
     title: "Configurações",
     url: "/settings",
     icon: Settings,
