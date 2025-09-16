@@ -101,16 +101,6 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validação básica
-    if (!formData.nome_projeto || !formData.cod_cliente || !formData.gpp) {
-      toast({
-        title: "Erro",
-        description: "Preencha os campos obrigatórios: Nome do Projeto, Código do Cliente e GPP.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setSubmitting(true);
     
@@ -217,7 +207,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="data">Data *</Label>
+                  <Label htmlFor="data">Data</Label>
                   <DatePicker
                     value={formData.data}
                     onChange={(value) => updateFormData('data', value)}
@@ -225,7 +215,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="nome_projeto">Nome do Projeto *</Label>
+                  <Label htmlFor="nome_projeto">Nome do Projeto</Label>
                   <Input
                     id="nome_projeto"
                     value={formData.nome_projeto}
@@ -233,7 +223,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="cod_cliente">Código do Cliente *</Label>
+                  <Label htmlFor="cod_cliente">Código do Cliente</Label>
                   <Input
                     id="cod_cliente"
                     value={formData.cod_cliente}
@@ -241,7 +231,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gpp">GPP (Gerente de Portólio de Projetos) *</Label>
+                  <Label htmlFor="gpp">GPP (Gerente de Portólio de Projetos)</Label>
                   <CreatableSelect
                     value={formData.gpp}
                     onValueChange={(value) => updateFormData('gpp', value)}
@@ -257,7 +247,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="produto">Produto *</Label>
+                  <Label htmlFor="produto">Produto</Label>
                   <CreatableSelect
                     value={formData.produto}
                     onValueChange={(value) => updateFormData('produto', value)}
@@ -273,7 +263,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="arquiteto">Arquiteto *</Label>
+                  <Label htmlFor="arquiteto">Arquiteto</Label>
                   <CreatableSelect
                     value={formData.arquiteto}
                     onValueChange={(value) => updateFormData('arquiteto', value)}
@@ -289,7 +279,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="criticidade_totvs">Criticidade TOTVS *</Label>
+                  <Label htmlFor="criticidade_totvs">Criticidade TOTVS</Label>
                   <Select value={formData.criticidade_totvs} onValueChange={(value) => updateFormData('criticidade_totvs', value as any)}>
                     <SelectTrigger>
                       <SelectValue />
@@ -303,7 +293,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="coordenador">Coordenador do Projeto (CP) *</Label>
+                  <Label htmlFor="coordenador">Coordenador do Projeto (CP)</Label>
                   <CreatableSelect
                     value={formData.coordenador}
                     onValueChange={(value) => updateFormData('coordenador', value)}
@@ -319,7 +309,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gerente_projeto">Gerente do Projeto/Consultoria *</Label>
+                  <Label htmlFor="gerente_projeto">Gerente do Projeto/Consultoria</Label>
                   <CreatableSelect
                     value={formData.gerente_projeto}
                     onValueChange={(value) => updateFormData('gerente_projeto', value)}
@@ -335,7 +325,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="esn">ESN *</Label>
+                  <Label htmlFor="esn">ESN</Label>
                   <CreatableSelect
                     value={formData.esn}
                     onValueChange={(value) => updateFormData('esn', value)}
@@ -351,7 +341,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="criticidade_cliente">Criticidade Cliente *</Label>
+                  <Label htmlFor="criticidade_cliente">Criticidade Cliente</Label>
                   <Select value={formData.criticidade_cliente} onValueChange={(value) => updateFormData('criticidade_cliente', value as any)}>
                     <SelectTrigger>
                       <SelectValue />
