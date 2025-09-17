@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      clients: {
+        Row: {
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
+          cod_int_cli: string
+          cpf: string | null
+          created_at: string
+          email: string | null
+          endereco: string | null
+          estado: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          pais: string | null
+          razao_social: string | null
+          status: string
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          cod_int_cli: string
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          pais?: string | null
+          razao_social?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
+          cod_int_cli?: string
+          cpf?: string | null
+          created_at?: string
+          email?: string | null
+          endereco?: string | null
+          estado?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          pais?: string | null
+          razao_social?: string | null
+          status?: string
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       communication_plan: {
         Row: {
           aprovadores: string | null

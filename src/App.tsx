@@ -12,6 +12,7 @@ import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
 import Users from "./pages/Users";
+import Clients from "./pages/Clients";
 import NotFound from "./pages/NotFound";
 
 
@@ -153,6 +154,14 @@ function AppRoutes() {
         } 
       />
       <Route 
+        path="/clients" 
+        element={
+          <ProtectedRoute>
+            <Clients />
+          </ProtectedRoute>
+        } 
+      />
+      <Route
         path="/settings" 
         element={
           <ProtectedRoute>
