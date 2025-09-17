@@ -25,6 +25,12 @@ export interface User {
   tipo_perfil: ProfileType;
   ativo: boolean;
   observacoes?: string;
+  client_id?: string;
+  client?: {
+    id: string;
+    nome: string;
+    cod_int_cli: string;
+  };
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +42,7 @@ export interface CreateUserData {
   telefone: string;
   tipo_usuario: UserType;
   tipo_perfil: ProfileType;
+  client_id?: string;
   observacoes?: string;
 }
 
@@ -52,7 +59,14 @@ export const useUsers = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("users")
-        .select("*")
+        .select(`
+          *,
+          client:clients(
+            id,
+            nome,
+            cod_int_cli
+          )
+        `)
         .order("nome_completo");
       
       if (error) throw error;

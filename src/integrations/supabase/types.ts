@@ -836,6 +836,7 @@ export type Database = {
       users: {
         Row: {
           ativo: boolean
+          client_id: string | null
           cpf: string
           created_at: string
           email: string
@@ -850,6 +851,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          client_id?: string | null
           cpf: string
           created_at?: string
           email: string
@@ -864,6 +866,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          client_id?: string | null
           cpf?: string
           created_at?: string
           email?: string
@@ -876,7 +879,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "users_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspaces: {
         Row: {

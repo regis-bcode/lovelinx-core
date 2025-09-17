@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useUsers, CreateUserData, UserType, ProfileType } from "@/hooks/useUsers";
 import { useToast } from "@/hooks/use-toast";
+import { ClientSelectWithCreate } from "@/components/users/ClientSelectWithCreate";
 
 const userTypeLabels: Record<UserType, string> = {
   cliente: "Cliente",
@@ -43,6 +44,7 @@ export default function Users() {
     telefone: "",
     tipo_usuario: "cliente",
     tipo_perfil: "visualizador",
+    client_id: undefined,
     observacoes: ""
   });
 
@@ -88,6 +90,7 @@ export default function Users() {
       telefone: "",
       tipo_usuario: "cliente",
       tipo_perfil: "visualizador",
+      client_id: undefined,
       observacoes: ""
     });
     setEditingUser(null);
@@ -102,6 +105,7 @@ export default function Users() {
       telefone: user.telefone,
       tipo_usuario: user.tipo_usuario,
       tipo_perfil: user.tipo_perfil,
+      client_id: user.client_id,
       observacoes: user.observacoes || ""
     });
     setIsDialogOpen(true);
@@ -236,6 +240,14 @@ export default function Users() {
               </div>
 
               <div className="space-y-2">
+                <Label>Cliente</Label>
+                <ClientSelectWithCreate
+                  value={formData.client_id}
+                  onChange={(value) => setFormData({ ...formData, client_id: value })}
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="observacoes">Observações</Label>
                 <Textarea
                   id="observacoes"
@@ -277,6 +289,7 @@ export default function Users() {
                   <TableHead>CPF</TableHead>
                   <TableHead>E-mail</TableHead>
                   <TableHead>Telefone</TableHead>
+                  <TableHead>Cliente</TableHead>
                   <TableHead>Tipo Usuário</TableHead>
                   <TableHead>Perfil</TableHead>
                   <TableHead>Status</TableHead>
@@ -290,6 +303,16 @@ export default function Users() {
                     <TableCell>{user.cpf}</TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell>{user.telefone}</TableCell>
+                    <TableCell>
+                      {user.client ? (
+                        <div>
+                          <div className="font-medium">{user.client.cod_int_cli}</div>
+                          <div className="text-sm text-muted-foreground">{user.client.nome}</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell>{userTypeLabels[user.tipo_usuario]}</TableCell>
                     <TableCell>
                       <Badge variant={user.tipo_perfil === 'administrador' ? 'default' : 'secondary'}>
@@ -345,7 +368,7 @@ export default function Users() {
                 ))}
                 {users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-6">
+                    <TableCell colSpan={9} className="text-center py-6">
                       Nenhum usuário cadastrado
                     </TableCell>
                   </TableRow>
