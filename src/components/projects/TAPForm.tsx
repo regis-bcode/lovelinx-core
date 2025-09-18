@@ -17,9 +17,11 @@ import { useToast } from '@/hooks/use-toast';
 import { useTAPDocuments } from '@/hooks/useTAPDocuments';
 import { useTAPOptions } from '@/hooks/useTAPOptions';
 import { useClients } from '@/hooks/useClients';
+import { useUsers } from '@/hooks/useUsers';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
+import { UserSelectWithCreate } from '@/components/users/UserSelectWithCreate';
 import { Upload, FileText, X } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -34,6 +36,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const { uploadDocument } = useTAPDocuments();
   const { toast } = useToast();
   const { clients } = useClients();
+  const { users } = useUsers();
   
   // Hook para gerenciar as opções das listas suspensas
   const {
@@ -98,6 +101,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>();
+  const [selectedGPPId, setSelectedGPPId] = useState<string | undefined>();
+  const [selectedArquitetoId, setSelectedArquitetoId] = useState<string | undefined>();
+  const [selectedCoordenadorId, setSelectedCoordenadorId] = useState<string | undefined>();
+  const [selectedGerenteId, setSelectedGerenteId] = useState<string | undefined>();
+  const [selectedESNId, setSelectedESNId] = useState<string | undefined>();
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -206,6 +214,18 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     }
   };
 
+  const handleUserSelect = (field: keyof TAPFormData, setSelected: (id?: string) => void, userId?: string) => {
+    setSelected(userId);
+    if (userId) {
+      const selectedUser = users?.find(user => user.id === userId);
+      if (selectedUser) {
+        updateFormData(field, selectedUser.nome_completo);
+      }
+    } else {
+      updateFormData(field, '');
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       <Card>
@@ -255,19 +275,13 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="gpp">GPP (Gerente de Portólio de Projetos)</Label>
-                  <CreatableSelect
-                    value={formData.gpp}
-                    onValueChange={(value) => updateFormData('gpp', value)}
-                    options={gppOptions}
-                    placeholder="Selecione ou digite um GPP"
-                    emptyMessage="Nenhum GPP encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('gpp', value);
-                      if (success) {
-                        updateFormData('gpp', value);
-                      }
-                    }}
+                  <Label htmlFor="gpp">GPP (Gerente de Portfólio de Projetos)</Label>
+                  <UserSelectWithCreate
+                    value={selectedGPPId}
+                    onChange={(userId) => handleUserSelect('gpp', setSelectedGPPId, userId)}
+                    placeholder="Selecione um Gerente de Portfólio"
+                    userType="gerente_portfolio"
+                    label="Gerente de Portfólio"
                   />
                 </div>
                 <div>
@@ -288,18 +302,12 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                 </div>
                 <div>
                   <Label htmlFor="arquiteto">Arquiteto</Label>
-                  <CreatableSelect
-                    value={formData.arquiteto}
-                    onValueChange={(value) => updateFormData('arquiteto', value)}
-                    options={arquitetoOptions}
-                    placeholder="Selecione ou digite um arquiteto"
-                    emptyMessage="Nenhum arquiteto encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('arquiteto', value);
-                      if (success) {
-                        updateFormData('arquiteto', value);
-                      }
-                    }}
+                  <UserSelectWithCreate
+                    value={selectedArquitetoId}
+                    onChange={(userId) => handleUserSelect('arquiteto', setSelectedArquitetoId, userId)}
+                    placeholder="Selecione um Arquiteto"
+                    userType="arquiteto"
+                    label="Arquiteto"
                   />
                 </div>
                 <div>
@@ -318,50 +326,32 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                 </div>
                 <div>
                   <Label htmlFor="coordenador">Coordenador do Projeto (CP)</Label>
-                  <CreatableSelect
-                    value={formData.coordenador}
-                    onValueChange={(value) => updateFormData('coordenador', value)}
-                    options={coordenadorOptions}
-                    placeholder="Selecione ou digite um coordenador"
-                    emptyMessage="Nenhum coordenador encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('coordenador', value);
-                      if (success) {
-                        updateFormData('coordenador', value);
-                      }
-                    }}
+                  <UserSelectWithCreate
+                    value={selectedCoordenadorId}
+                    onChange={(userId) => handleUserSelect('coordenador', setSelectedCoordenadorId, userId)}
+                    placeholder="Selecione um Coordenador"
+                    userType="coordenador_consultoria"
+                    label="Coordenador"
                   />
                 </div>
                 <div>
                   <Label htmlFor="gerente_projeto">Gerente do Projeto/Consultoria</Label>
-                  <CreatableSelect
-                    value={formData.gerente_projeto}
-                    onValueChange={(value) => updateFormData('gerente_projeto', value)}
-                    options={gerenteProjetoOptions}
-                    placeholder="Selecione ou digite um gerente"
-                    emptyMessage="Nenhum gerente encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('gerente_projeto', value);
-                      if (success) {
-                        updateFormData('gerente_projeto', value);
-                      }
-                    }}
+                  <UserSelectWithCreate
+                    value={selectedGerenteId}
+                    onChange={(userId) => handleUserSelect('gerente_projeto', setSelectedGerenteId, userId)}
+                    placeholder="Selecione um Gerente"
+                    userType="gerente_projetos"
+                    label="Gerente de Projetos"
                   />
                 </div>
                 <div>
                   <Label htmlFor="esn">ESN</Label>
-                  <CreatableSelect
-                    value={formData.esn}
-                    onValueChange={(value) => updateFormData('esn', value)}
-                    options={esnOptions}
-                    placeholder="Selecione ou digite um ESN"
-                    emptyMessage="Nenhum ESN encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('esn', value);
-                      if (success) {
-                        updateFormData('esn', value);
-                      }
-                    }}
+                  <UserSelectWithCreate
+                    value={selectedESNId}
+                    onChange={(userId) => handleUserSelect('esn', setSelectedESNId, userId)}
+                    placeholder="Selecione um ESN"
+                    userType="analista"
+                    label="ESN"
                   />
                 </div>
                 <div>
