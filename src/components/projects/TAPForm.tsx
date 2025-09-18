@@ -16,8 +16,10 @@ import { useTAP } from '@/hooks/useTAP';
 import { useToast } from '@/hooks/use-toast';
 import { useTAPDocuments } from '@/hooks/useTAPDocuments';
 import { useTAPOptions } from '@/hooks/useTAPOptions';
+import { useClients } from '@/hooks/useClients';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
+import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
 import { Upload, FileText, X } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,6 +33,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const { createTAP } = useTAP();
   const { uploadDocument } = useTAPDocuments();
   const { toast } = useToast();
+  const { clients } = useClients();
   
   // Hook para gerenciar as opções das listas suspensas
   const {
@@ -94,6 +97,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [createdTAP, setCreatedTAP] = useState<any>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | undefined>();
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -190,6 +194,18 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     setFileNames(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleClientSelect = (clientId?: string) => {
+    setSelectedClientId(clientId);
+    if (clientId) {
+      const selectedClient = clients.find(client => client.id === clientId);
+      if (selectedClient) {
+        updateFormData('cod_cliente', selectedClient.cod_int_cli);
+      }
+    } else {
+      updateFormData('cod_cliente', '');
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit}>
       <Card>
@@ -223,11 +239,19 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
+                  <Label htmlFor="cliente">Cliente</Label>
+                  <ClientSelectWithCreate
+                    value={selectedClientId}
+                    onChange={handleClientSelect}
+                  />
+                </div>
+                <div>
                   <Label htmlFor="cod_cliente">Código do Cliente</Label>
                   <Input
                     id="cod_cliente"
                     value={formData.cod_cliente}
                     onChange={(e) => updateFormData('cod_cliente', e.target.value)}
+                    placeholder="Preenchido automaticamente ao selecionar cliente"
                   />
                 </div>
                 <div>
