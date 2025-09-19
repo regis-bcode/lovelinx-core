@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { PercentageInput } from '@/components/ui/percentage-input';
-import { CreatableSelect } from '@/components/ui/creatable-select';
+import { ProductSelectWithCreate } from '@/components/products/ProductSelectWithCreate';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TAPFormData } from '@/types/tap';
 import { useTAP } from '@/hooks/useTAP';
@@ -105,7 +105,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [selectedArquitetoId, setSelectedArquitetoId] = useState<string | undefined>();
   const [selectedCoordenadorId, setSelectedCoordenadorId] = useState<string | undefined>();
   const [selectedGerenteId, setSelectedGerenteId] = useState<string | undefined>();
-  const [selectedESNId, setSelectedESNId] = useState<string | undefined>();
+  const [selectedVendedorId, setSelectedVendedorId] = useState<string | undefined>();
 
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -286,18 +286,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                 </div>
                 <div>
                   <Label htmlFor="produto">Produto</Label>
-                  <CreatableSelect
+                  <ProductSelectWithCreate
                     value={formData.produto}
-                    onValueChange={(value) => updateFormData('produto', value)}
-                    options={produtoOptions}
-                    placeholder="Selecione ou digite um produto"
-                    emptyMessage="Nenhum produto encontrado"
-                    onCreate={async (value) => {
-                      const success = await addOption('produto', value);
-                      if (success) {
-                        updateFormData('produto', value);
-                      }
-                    }}
+                    onChange={(value) => updateFormData('produto', value || '')}
+                    placeholder="Selecione ou adicione um produto"
+                    label="Produto"
                   />
                 </div>
                 <div>
@@ -345,13 +338,13 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="esn">ESN</Label>
+                  <Label htmlFor="esn">Vendedor</Label>
                   <UserSelectWithCreate
-                    value={selectedESNId}
-                    onChange={(userId) => handleUserSelect('esn', setSelectedESNId, userId)}
-                    placeholder="Selecione um ESN"
-                    userType="analista"
-                    label="ESN"
+                    value={selectedVendedorId}
+                    onChange={(userId) => handleUserSelect('esn', setSelectedVendedorId, userId)}
+                    placeholder="Selecione um Vendedor"
+                    userType="vendedor"
+                    label="Vendedor"
                   />
                 </div>
                 <div>

@@ -13,6 +13,7 @@ import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
 import Users from "./pages/Users";
 import Clients from "./pages/Clients";
+import Products from "./pages/Products";
 import NotFound from "./pages/NotFound";
 
 
@@ -158,6 +159,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Clients />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/products" 
+        element={
+          <ProtectedRoute>
+            <Products />
           </ProtectedRoute>
         } 
       />

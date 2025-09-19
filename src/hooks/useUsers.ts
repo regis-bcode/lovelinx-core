@@ -10,7 +10,8 @@ export type UserType =
   | 'coordenador_consultoria'
   | 'gerente_cliente'
   | 'arquiteto'
-  | 'sponsor';
+  | 'sponsor'
+  | 'vendedor';
 
 export type ProfileType = 'visualizador' | 'editor' | 'administrador';
 
@@ -84,6 +85,7 @@ export const useUsers = () => {
         .insert({
           ...userData,
           user_id: user.id,
+          tipo_usuario: userData.tipo_usuario as any, // Casting temporário
         })
         .select()
         .single();
@@ -110,9 +112,14 @@ export const useUsers = () => {
 
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CreateUserData> }) => {
+      const updateData: any = { ...updates };
+      if (updateData.tipo_usuario) {
+        updateData.tipo_usuario = updateData.tipo_usuario as any; // Casting temporário
+      }
+      
       const { data, error } = await supabase
         .from("users")
-        .update(updates)
+        .update(updateData)
         .eq("id", id)
         .select()
         .single();

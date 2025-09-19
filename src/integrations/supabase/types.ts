@@ -222,6 +222,36 @@ export type Database = {
           },
         ]
       }
+      products: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string
+          id: string
+          id_produto: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          id?: string
+          id_produto: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          id?: string
+          id_produto?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -833,6 +863,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_types: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       users: {
         Row: {
           ativo: boolean
@@ -848,6 +905,7 @@ export type Database = {
           tipo_usuario: Database["public"]["Enums"]["user_type"]
           updated_at: string
           user_id: string
+          user_type_id: string | null
         }
         Insert: {
           ativo?: boolean
@@ -863,6 +921,7 @@ export type Database = {
           tipo_usuario: Database["public"]["Enums"]["user_type"]
           updated_at?: string
           user_id: string
+          user_type_id?: string | null
         }
         Update: {
           ativo?: boolean
@@ -878,6 +937,7 @@ export type Database = {
           tipo_usuario?: Database["public"]["Enums"]["user_type"]
           updated_at?: string
           user_id?: string
+          user_type_id?: string | null
         }
         Relationships: [
           {
@@ -885,6 +945,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "users_user_type_id_fkey"
+            columns: ["user_type_id"]
+            isOneToOne: false
+            referencedRelation: "user_types"
             referencedColumns: ["id"]
           },
         ]

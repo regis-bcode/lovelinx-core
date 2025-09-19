@@ -6,7 +6,8 @@ export type UserType =
   | 'coordenador_consultoria'
   | 'gerente_cliente'
   | 'arquiteto'
-  | 'sponsor';
+  | 'sponsor'
+  | 'vendedor';
 
 export type ProfileType = 'visualizador' | 'editor' | 'administrador';
 
@@ -43,7 +44,8 @@ export const userTypeLabels: Record<UserType, string> = {
   coordenador_consultoria: "Coordenador do Projeto (Consultoria)",
   gerente_cliente: "Gerente do Projeto (Cliente)",
   arquiteto: "Arquiteto",
-  sponsor: "Sponsor"
+  sponsor: "Sponsor",
+  vendedor: "Vendedor"
 };
 
 export const profileTypeLabels: Record<ProfileType, string> = {

@@ -22,7 +22,8 @@ const userTypeLabels: Record<UserType, string> = {
   coordenador_consultoria: "Coordenador do Projeto (Consultoria)",
   gerente_cliente: "Gerente do Projeto (Cliente)",
   arquiteto: "Arquiteto",
-  sponsor: "Sponsor"
+  sponsor: "Sponsor",
+  vendedor: "Vendedor"
 };
 
 const profileTypeLabels: Record<ProfileType, string> = {
