@@ -9,7 +9,7 @@ export interface TAP {
   cod_cliente: string;
   gpp: string;
   produto: string;
-  servico: string;
+  servico?: string;
   arquiteto: string;
   criticidade_totvs: string;
   coordenador: string;
@@ -62,7 +62,7 @@ export interface TAPBasicData {
   cod_cliente: string;
   gpp: string;
   produto: string;
-  servico: string;
+  servico?: string;
   arquiteto: string;
   criticidade_totvs: string;
   coordenador: string;

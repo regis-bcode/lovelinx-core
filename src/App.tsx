@@ -14,6 +14,7 @@ import ProjectDetails from "./pages/ProjectDetails";
 import Users from "./pages/Users";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
+import Services from "./pages/Services";
 import NotFound from "./pages/NotFound";
 
 

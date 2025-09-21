@@ -553,6 +553,7 @@ export type Database = {
           projeto_em_perda: boolean | null
           psa_planejado: number | null
           receita_atual: number | null
+          servico: string | null
           updated_at: string
           user_id: string
           valor_projeto: number | null
@@ -593,6 +594,7 @@ export type Database = {
           projeto_em_perda?: boolean | null
           psa_planejado?: number | null
           receita_atual?: number | null
+          servico?: string | null
           updated_at?: string
           user_id: string
           valor_projeto?: number | null
@@ -633,6 +635,7 @@ export type Database = {
           projeto_em_perda?: boolean | null
           psa_planejado?: number | null
           receita_atual?: number | null
+          servico?: string | null
           updated_at?: string
           user_id?: string
           valor_projeto?: number | null

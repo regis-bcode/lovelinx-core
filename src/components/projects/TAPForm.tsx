@@ -286,17 +286,26 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     label="Gerente de Portfólio"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="produto">Produto</Label>
-                  <ProductSelectWithCreate
-                    value={formData.produto}
-                    onChange={(value) => updateFormData('produto', value || '')}
-                    placeholder="Selecione ou adicione um produto"
-                    label="Produto"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="arquiteto">Arquiteto</Label>
+                 <div>
+                   <Label htmlFor="produto">Produto</Label>
+                   <ProductSelectWithCreate
+                     value={formData.produto}
+                     onChange={(value) => updateFormData('produto', value || '')}
+                     placeholder="Selecione ou adicione um produto"
+                     label="Produto"
+                   />
+                 </div>
+                 <div>
+                   <Label htmlFor="servico">Serviço</Label>
+                   <ServiceSelectWithCreate
+                     value={formData.servico || ''}
+                     onChange={(value) => updateFormData('servico', value || '')}
+                     placeholder="Selecione um serviço"
+                     label="Serviço"
+                   />
+                 </div>
+                 <div>
+                   <Label htmlFor="arquiteto">Arquiteto</Label>
                   <UserSelectWithCreate
                     value={selectedArquitetoId}
                     onChange={(userId) => handleUserSelect('arquiteto', setSelectedArquitetoId, userId)}

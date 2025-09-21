@@ -54,6 +54,7 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
           coordenador: editData.coordenador || '',
           gerente_projeto: editData.gerente_projeto || '',
           esn: editData.esn || '',
+          servico: editData.servico || '',
           criticidade_cliente: editData.criticidade_cliente || 'Baixo',
           // Valores financeiros padrão
           valor_projeto: Number(editData.valor_projeto) || 0,
