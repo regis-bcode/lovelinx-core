@@ -170,6 +170,14 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/services" 
+        element={
+          <ProtectedRoute>
+            <Services />
+          </ProtectedRoute>
+        } 
+      />
       <Route
         path="/settings" 
         element={

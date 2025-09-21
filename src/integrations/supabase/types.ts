@@ -419,6 +419,47 @@ export type Database = {
           },
         ]
       }
+      services: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string
+          id: string
+          id_produto: string
+          id_servico: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao: string
+          id?: string
+          id_produto: string
+          id_servico: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string
+          id?: string
+          id_produto?: string
+          id_servico?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_services_produto"
+            columns: ["id_produto"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stakeholders: {
         Row: {
           cargo: string

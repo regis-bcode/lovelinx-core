@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { PercentageInput } from '@/components/ui/percentage-input';
 import { ProductSelectWithCreate } from '@/components/products/ProductSelectWithCreate';
+import { ServiceSelectWithCreate } from '@/components/services/ServiceSelectWithCreate';
 import { DatePicker } from '@/components/ui/date-picker';
 import { TAPFormData } from '@/types/tap';
 import { useTAP } from '@/hooks/useTAP';
@@ -65,6 +66,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     cod_cliente: '',
     gpp: '',
     produto: '',
+    servico: '',
     arquiteto: '',
     criticidade_totvs: 'Baixa',
     coordenador: '',

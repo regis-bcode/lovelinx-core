@@ -52,6 +52,11 @@ const navigation = [
     icon: Package,
   },
   {
+    title: "Serviços",
+    url: "/services", 
+    icon: Package,
+  },
+  {
     title: "Relatórios",
     url: "/reports",
     icon: BarChart,
