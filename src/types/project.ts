@@ -14,6 +14,7 @@ export interface Project {
   esn: string;
   arquiteto: string;
   criticidade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
+  status?: string;
   drive?: string;
   
   // Financeiro

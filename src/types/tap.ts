@@ -18,6 +18,9 @@ export interface TAP {
   criticidade_cliente: string;
   drive?: string;
   
+  // Status do Projeto
+  status?: string;
+  
   // Timeline
   data_inicio?: string;
   go_live_previsto?: string;

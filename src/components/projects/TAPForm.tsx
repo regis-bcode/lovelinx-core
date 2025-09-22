@@ -19,6 +19,7 @@ import { useTAPDocuments } from '@/hooks/useTAPDocuments';
 import { useTAPOptions } from '@/hooks/useTAPOptions';
 import { useClients } from '@/hooks/useClients';
 import { useUsers } from '@/hooks/useUsers';
+import { useStatus } from '@/hooks/useStatus';
 import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
@@ -38,6 +39,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const { toast } = useToast();
   const { clients } = useClients();
   const { users } = useUsers();
+  const { statuses } = useStatus();
   
   // Hook para gerenciar as opções das listas suspensas
   const {
@@ -71,6 +73,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     criticidade_totvs: 'Baixa',
     coordenador: '',
     gerente_projeto: '',
+    status: '',
     esn: '',
     criticidade_cliente: 'Baixo',
     drive: '',
@@ -373,13 +376,30 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="drive">Drive</Label>
-                  <Input
-                    id="drive"
-                    value={formData.drive || ''}
-                    onChange={(e) => updateFormData('drive', e.target.value)}
-                  />
+                  <Label htmlFor="status">Status do Projeto</Label>
+                  <Select value={formData.status || ''} onValueChange={(value) => updateFormData('status', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statuses
+                        .filter(status => status.ativo && status.tipo_aplicacao.includes('projeto'))
+                        .map((status) => (
+                          <SelectItem key={status.id} value={status.nome}>
+                            {status.nome}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
+                 <div>
+                   <Label htmlFor="drive">Drive</Label>
+                   <Input
+                     id="drive"
+                     value={formData.drive || ''}
+                     onChange={(e) => updateFormData('drive', e.target.value)}
+                   />
+                 </div>
               </div>
             </div>
           </div>
