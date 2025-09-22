@@ -15,6 +15,7 @@ import Users from "./pages/Users";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import Services from "./pages/Services";
+import Status from "./pages/Status";
 import NotFound from "./pages/NotFound";
 
 
@@ -179,8 +180,16 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/status" 
+        element={
+          <ProtectedRoute>
+            <Status />
+          </ProtectedRoute>
+        } 
+      />
       <Route
-        path="/settings" 
+        path="/settings"
         element={
           <ProtectedRoute>
             <div className="p-6">Settings page - Em desenvolvimento</div>

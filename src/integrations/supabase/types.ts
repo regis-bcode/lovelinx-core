@@ -516,6 +516,36 @@ export type Database = {
           },
         ]
       }
+      status: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          tipo_aplicacao: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          tipo_aplicacao?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          tipo_aplicacao?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tap: {
         Row: {
           arquiteto: string
