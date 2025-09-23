@@ -130,10 +130,12 @@ export function useTAP(projectId?: string) {
 
       // Agora criar a TAP com o ID do projeto criado
       console.log('[useTAP] Inserting TAP row');
+      const { status: _tapStatus, ...tapPayload } = tapData as any;
+
       const { data, error } = await supabase
         .from('tap')
         .insert({
-          ...tapData,
+          ...tapPayload,
           project_id: newProject.id,
           user_id: user.id,
         })
