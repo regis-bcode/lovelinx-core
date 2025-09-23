@@ -20,7 +20,7 @@ import { useTAPOptions } from '@/hooks/useTAPOptions';
 import { useClients } from '@/hooks/useClients';
 import { useUsers } from '@/hooks/useUsers';
 import { useStatus } from '@/hooks/useStatus';
-import { TAPSummaryDialog } from '@/components/common/TAPSummaryDialog';
+import { TAPSuccessDialog } from '@/components/projects/TAPSuccessDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
 import { UserSelectWithCreate } from '@/components/users/UserSelectWithCreate';
@@ -122,16 +122,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     setSubmitting(true);
     
     try {
-      // Primeiro criar o projeto básico
-      const tempProjectId = crypto.randomUUID();
-      
-      // Criar TAP com o ID do projeto
-      const tapData = {
-        ...formData,
-        project_id: tempProjectId,
-      };
-
-      const newTAP = await createTAP(tapData);
+      const newTAP = await createTAP(formData, folderId);
       
       if (newTAP) {
         setCreatedTAP(newTAP);
@@ -169,15 +160,26 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
               variant: "destructive",
             });
           }
+        } else {
+          toast({
+            title: "Sucesso",
+            description: "TAP criada com sucesso!",
+          });
         }
         
         setShowSummary(true);
+      } else {
+        toast({
+          title: "Erro",
+          description: "Erro ao criar TAP. Verifique os campos obrigatórios e tente novamente.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Erro ao criar TAP:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar TAP.",
+        description: "Erro ao criar TAP. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -384,8 +386,8 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
                     <SelectContent>
                       {statuses
                         .filter(status => status.ativo && status.tipo_aplicacao.includes('projeto'))
-                        .map((status) => (
-                          <SelectItem key={status.id} value={status.nome}>
+                        .map((status, index) => (
+                          <SelectItem key={`${status.id}-${status.nome}-${index}`} value={status.nome}>
                             {status.nome}
                           </SelectItem>
                         ))}
@@ -716,7 +718,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
       </Card>
       
       {showSummary && createdTAP && (
-        <TAPSummaryDialog
+        <TAPSuccessDialog
           isOpen={showSummary}
           onClose={() => setShowSummary(false)}
           tapData={createdTAP}

@@ -66,7 +66,7 @@ export function useTAP(projectId?: string) {
     }
   };
 
-  const createTAP = async (tapData: TAPFormData): Promise<TAP | null> => {
+  const createTAP = async (tapData: TAPFormData, folderId?: string | null): Promise<TAP | null> => {
     if (!user?.id) {
       toast({
         title: "Erro",
@@ -79,7 +79,7 @@ export function useTAP(projectId?: string) {
     try {
       // Primeiro criar o projeto associado à TAP
       const projectData = {
-        folder_id: null, // Será definido se necessário
+        folder_id: folderId || null, // Usar o folderId passado como parâmetro
         data: tapData.data,
         cod_cliente: tapData.cod_cliente,
         nome_projeto: tapData.nome_projeto,
