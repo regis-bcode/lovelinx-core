@@ -122,6 +122,23 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
     setSubmitting(true);
     
     try {
+      console.log('[TAPForm] Submitting TAP', { formData, folderId });
+
+      // Validação mínima para campos obrigatórios do Projeto
+      const required: Array<keyof TAPFormData> = [
+        'data','nome_projeto','cod_cliente','gpp','produto','arquiteto','coordenador','esn'
+      ];
+      const missing = required.filter((f) => !String((formData as any)[f] || '').trim());
+      if (missing.length > 0) {
+        toast({
+          title: 'Campos obrigatórios faltando',
+          description: 'Preencha: ' + missing.join(', '),
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const newTAP = await createTAP(formData, folderId);
       
       if (newTAP) {

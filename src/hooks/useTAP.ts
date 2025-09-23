@@ -113,9 +113,11 @@ export function useTAP(projectId?: string) {
         escopo: tapData.escopo,
         objetivo: tapData.objetivo,
         observacao: tapData.observacoes,
-      };
+      } as const;
 
-      const newProject = await createProject(projectData);
+      console.log('[useTAP] Creating project with data', projectData);
+      const newProject = await createProject(projectData as any);
+      console.log('[useTAP] Project create response', newProject);
       
       if (!newProject) {
         toast({
@@ -127,6 +129,7 @@ export function useTAP(projectId?: string) {
       }
 
       // Agora criar a TAP com o ID do projeto criado
+      console.log('[useTAP] Inserting TAP row');
       const { data, error } = await supabase
         .from('tap')
         .insert({
@@ -136,6 +139,7 @@ export function useTAP(projectId?: string) {
         })
         .select()
         .single();
+      console.log('[useTAP] TAP insert response', { data, error });
 
       if (error) {
         console.error('Erro ao criar TAP:', error);
