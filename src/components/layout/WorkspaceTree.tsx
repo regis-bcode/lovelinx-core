@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus, Trash2, Edit2 } from "lucide-react";
+import { ChevronDown, ChevronRight, FolderKanban, Folder, FileText, Plus, Trash2, Edit2, Briefcase } from "lucide-react";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
 import { useFolders } from "@/hooks/useFolders";
 import { useProjects } from "@/hooks/useProjects";
@@ -598,7 +598,7 @@ function ProjectItem({ project, currentPath, navigate, onDelete, onUpdate, colla
       )}
       onClick={() => navigate(`/projects-tap/${project.id}`)}
     >
-      <FileText className="h-4 w-4 text-muted-foreground" />
+      <Briefcase className="h-4 w-4 text-muted-foreground" />
       {!collapsed && (
         <div>
           <SophisticatedTooltip 
