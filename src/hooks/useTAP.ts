@@ -132,10 +132,40 @@ export function useTAP(projectId?: string) {
       console.log('[useTAP] Inserting TAP row');
       const { status: _tapStatus, ...tapPayload } = tapData as any;
 
+      // Normalize numeric, boolean and date fields to avoid "invalid input syntax" on Supabase
+      const toNum = (v: any) => (v === '' || v === null || v === undefined ? undefined : Number(v));
+      const toInt = (v: any) => (v === '' || v === null || v === undefined ? undefined : parseInt(v, 10));
+      const toDate = (v: any) => (v === '' || v === null || v === undefined ? undefined : v);
+
+      const sanitizedTap = {
+        ...tapPayload,
+        valor_projeto: toNum(tapPayload.valor_projeto),
+        receita_atual: toNum(tapPayload.receita_atual),
+        margem_venda_percent: toNum(tapPayload.margem_venda_percent),
+        margem_atual_percent: toNum(tapPayload.margem_atual_percent),
+        margem_venda_valor: toNum(tapPayload.margem_venda_valor),
+        margem_atual_valor: toNum(tapPayload.margem_atual_valor),
+        mrr: toNum(tapPayload.mrr),
+        investimento_perdas: toNum(tapPayload.investimento_perdas),
+        mrr_total: toNum(tapPayload.mrr_total),
+        investimento_comercial: toNum(tapPayload.investimento_comercial),
+        psa_planejado: toNum(tapPayload.psa_planejado),
+        investimento_erro_produto: toNum(tapPayload.investimento_erro_produto),
+        diferenca_psa_projeto: toNum(tapPayload.diferenca_psa_projeto),
+        duracao_pos_producao: toInt(tapPayload.duracao_pos_producao),
+        projeto_em_perda: !!tapPayload.projeto_em_perda,
+        data: toDate(tapPayload.data),
+        data_inicio: toDate(tapPayload.data_inicio),
+        go_live_previsto: toDate(tapPayload.go_live_previsto),
+        encerramento: toDate(tapPayload.encerramento),
+      };
+
+      console.log('[useTAP] TAP payload (sanitized)', sanitizedTap);
+
       const { data, error } = await supabase
         .from('tap')
         .insert({
-          ...tapPayload,
+          ...sanitizedTap,
           project_id: newProject.id,
           user_id: user.id,
         })
@@ -146,8 +176,8 @@ export function useTAP(projectId?: string) {
       if (error) {
         console.error('Erro ao criar TAP:', error);
         toast({
-          title: "Erro",
-          description: "Erro ao criar TAP.",
+          title: "Erro ao criar TAP",
+          description: (error as any)?.message || "Falha ao criar TAP.",
           variant: "destructive",
         });
         return null;
