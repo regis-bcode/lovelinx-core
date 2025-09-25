@@ -26,7 +26,7 @@ export function TAPSuccessDialog({ isOpen, onClose, tapData, onComplete }: TAPSu
             <CheckCircle className="h-16 w-16 text-green-500" />
           </div>
           <DialogTitle className="text-2xl text-green-700 dark:text-green-400">
-            TAP Criada com Sucesso!
+            Projeto gravado com sucesso!
           </DialogTitle>
         </DialogHeader>
         
@@ -39,18 +39,17 @@ export function TAPSuccessDialog({ isOpen, onClose, tapData, onComplete }: TAPSu
               <p><strong>Cliente:</strong> {tapData.cod_cliente}</p>
               <p><strong>GPP:</strong> {tapData.gpp}</p>
               <p><strong>Produto:</strong> {tapData.produto}</p>
-              <p><strong>Status:</strong> {tapData.status}</p>
             </div>
           </div>
           
           <div className="text-center text-sm text-muted-foreground">
-            A TAP foi salva com sucesso no banco de dados e está disponível no sistema.
+            O projeto e a TAP foram salvos com sucesso e já aparecem na tela de Projetos.
           </div>
         </div>
 
         <DialogFooter className="sm:justify-center">
           <Button onClick={onComplete} className="bg-green-600 hover:bg-green-700">
-            Continuar
+            Ver na tela de Projetos
           </Button>
         </DialogFooter>
       </DialogContent>

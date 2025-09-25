@@ -205,10 +205,11 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   };
 
   const handleSummaryComplete = () => {
+    setShowSummary(false);
     if (onSuccess && createdTAP) {
       onSuccess(createdTAP.id);
-    } else if (createdTAP) {
-      navigate(`/projects-tap/${createdTAP.id}`);
+    } else {
+      navigate('/projects');
     }
   };
 

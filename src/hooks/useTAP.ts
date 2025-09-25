@@ -78,9 +78,14 @@ export function useTAP(projectId?: string) {
 
     try {
       // Primeiro criar o projeto associado à TAP
+      // Sanitize valores para evitar erros de casting no Postgres ('' -> NULL)
+      const toNumP = (v: any) => (v === '' || v === null || v === undefined ? undefined : Number(v));
+      const toIntP = (v: any) => (v === '' || v === null || v === undefined ? undefined : parseInt(v, 10));
+      const toDateP = (v: any) => (v === '' || v === null || v === undefined ? undefined : v);
+
       const projectData = {
         folder_id: folderId || null, // Usar o folderId passado como parâmetro
-        data: tapData.data,
+        data: toDateP(tapData.data)!, // obrigatório
         cod_cliente: tapData.cod_cliente,
         nome_projeto: tapData.nome_projeto,
         cliente: tapData.cod_cliente, // Usando cod_cliente como nome do cliente por enquanto
@@ -90,29 +95,29 @@ export function useTAP(projectId?: string) {
         esn: tapData.esn,
         arquiteto: tapData.arquiteto,
         criticidade: tapData.criticidade_totvs as 'Baixa' | 'Média' | 'Alta' | 'Crítica',
-        status: tapData.status,
-        drive: tapData.drive,
-        valor_projeto: tapData.valor_projeto || 0,
-        receita_atual: tapData.receita_atual || 0,
-        margem_venda_percent: tapData.margem_venda_percent || 0,
-        margem_atual_percent: tapData.margem_atual_percent || 0,
-        margem_venda_reais: tapData.margem_venda_valor || 0,
-        margem_atual_reais: tapData.margem_atual_valor || 0,
-        mrr: tapData.mrr || 0,
-        investimento_perdas: tapData.investimento_perdas || 0,
-        mrr_total: tapData.mrr_total || 0,
-        investimento_comercial: tapData.investimento_comercial || 0,
-        psa_planejado: tapData.psa_planejado || 0,
-        investimento_erro_produto: tapData.investimento_erro_produto || 0,
-        diferenca_psa_projeto: tapData.diferenca_psa_projeto || 0,
-        projeto_em_perda: tapData.projeto_em_perda || false,
-        data_inicio: tapData.data_inicio,
-        go_live_previsto: tapData.go_live_previsto,
-        duracao_pos_producao: tapData.duracao_pos_producao || 0,
-        encerramento: tapData.encerramento,
-        escopo: tapData.escopo,
-        objetivo: tapData.objetivo,
-        observacao: tapData.observacoes,
+        status: tapData.status || undefined,
+        drive: tapData.drive || undefined,
+        valor_projeto: toNumP(tapData.valor_projeto),
+        receita_atual: toNumP(tapData.receita_atual),
+        margem_venda_percent: toNumP(tapData.margem_venda_percent),
+        margem_atual_percent: toNumP(tapData.margem_atual_percent),
+        margem_venda_reais: toNumP(tapData.margem_venda_valor),
+        margem_atual_reais: toNumP(tapData.margem_atual_valor),
+        mrr: toNumP(tapData.mrr),
+        investimento_perdas: toNumP(tapData.investimento_perdas),
+        mrr_total: toNumP(tapData.mrr_total),
+        investimento_comercial: toNumP(tapData.investimento_comercial),
+        psa_planejado: toNumP(tapData.psa_planejado),
+        investimento_erro_produto: toNumP(tapData.investimento_erro_produto),
+        diferenca_psa_projeto: toNumP(tapData.diferenca_psa_projeto),
+        projeto_em_perda: !!tapData.projeto_em_perda,
+        data_inicio: toDateP(tapData.data_inicio),
+        go_live_previsto: toDateP(tapData.go_live_previsto),
+        duracao_pos_producao: toIntP(tapData.duracao_pos_producao),
+        encerramento: toDateP(tapData.encerramento),
+        escopo: tapData.escopo || undefined,
+        objetivo: tapData.objetivo || undefined,
+        observacao: tapData.observacoes || undefined,
       } as const;
 
       console.log('[useTAP] Creating project with data', projectData);
