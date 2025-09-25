@@ -142,11 +142,11 @@ export default function ProjectsNew() {
         )}
 
         {/* Project Form Tabs */}
-        {isEditing && id ? (
-          <ProjectTabs projectId={id} />
-        ) : (
-          <TAPForm folderId={folderId} />
-        )}
+        <TAPForm 
+          folderId={folderId} 
+          projectId={isEditing ? id : undefined}
+          isEditing={isEditing}
+        />
       </div>
     </DashboardLayout>
   );

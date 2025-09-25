@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { useTAPOptions } from '@/hooks/useTAPOptions';
 import { useClients } from '@/hooks/useClients';
 import { useUsers } from '@/hooks/useUsers';
 import { useStatus } from '@/hooks/useStatus';
+import { useProjects } from '@/hooks/useProjects';
 import { TAPSuccessDialog } from '@/components/projects/TAPSuccessDialog';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
@@ -29,17 +30,20 @@ import { format } from 'date-fns';
 
 interface TAPFormProps {
   folderId?: string | null;
+  projectId?: string;
+  isEditing?: boolean;
   onSuccess?: (tapId: string) => void;
 }
 
-export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
+export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: TAPFormProps) {
   const navigate = useNavigate();
-  const { createTAP } = useTAP();
+  const { tap, createTAP, updateTAP } = useTAP(projectId);
   const { uploadDocument } = useTAPDocuments();
   const { toast } = useToast();
   const { clients } = useClients();
   const { users } = useUsers();
   const { statuses } = useStatus();
+  const { getProject } = useProjects();
   
   // Hook para gerenciar as opções das listas suspensas
   const {
@@ -112,17 +116,83 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
   const [selectedGerenteId, setSelectedGerenteId] = useState<string | undefined>();
   const [selectedVendedorId, setSelectedVendedorId] = useState<string | undefined>();
 
+  // Carregar dados existentes quando em modo de edição
+  useEffect(() => {
+    if (isEditing && projectId && tap) {
+      console.log('[TAPForm] Loading existing TAP data', tap);
+      const project = getProject(projectId);
+      
+      // Pré-popular formulário com dados da TAP e projeto
+      setFormData({
+        project_id: tap.project_id,
+        data: tap.data,
+        nome_projeto: tap.nome_projeto,
+        cod_cliente: tap.cod_cliente,
+        gpp: tap.gpp,
+        produto: tap.produto,
+        servico: tap.servico || '',
+        arquiteto: tap.arquiteto,
+        criticidade_totvs: tap.criticidade_totvs,
+        coordenador: tap.coordenador,
+        gerente_projeto: tap.gerente_projeto,
+        esn: tap.esn,
+        criticidade_cliente: tap.criticidade_cliente,
+        drive: tap.drive || '',
+        status: project?.status || '',
+        data_inicio: tap.data_inicio || '',
+        go_live_previsto: tap.go_live_previsto || '',
+        duracao_pos_producao: tap.duracao_pos_producao || 0,
+        encerramento: tap.encerramento || '',
+        escopo: tap.escopo || '',
+        objetivo: tap.objetivo || '',
+        observacoes: tap.observacoes || '',
+        valor_projeto: tap.valor_projeto || 0,
+        margem_venda_percent: tap.margem_venda_percent || 0,
+        margem_venda_valor: tap.margem_venda_valor || 0,
+        mrr: tap.mrr || 0,
+        mrr_total: tap.mrr_total || 0,
+        psa_planejado: tap.psa_planejado || 0,
+        diferenca_psa_projeto: tap.diferenca_psa_projeto || 0,
+        receita_atual: tap.receita_atual || 0,
+        margem_atual_percent: tap.margem_atual_percent || 0,
+        margem_atual_valor: tap.margem_atual_valor || 0,
+        investimento_perdas: tap.investimento_perdas || 0,
+        investimento_comercial: tap.investimento_comercial || 0,
+        investimento_erro_produto: tap.investimento_erro_produto || 0,
+        projeto_em_perda: tap.projeto_em_perda || false,
+      });
+
+      // Pré-selecionar valores nos componentes de seleção
+      const cliente = clients.find(c => c.cod_int_cli === tap.cod_cliente);
+      if (cliente) setSelectedClientId(cliente.id);
+      
+      const gppUser = users?.find(u => u.nome_completo === tap.gpp);
+      if (gppUser) setSelectedGPPId(gppUser.id);
+      
+      const arquitetoUser = users?.find(u => u.nome_completo === tap.arquiteto);
+      if (arquitetoUser) setSelectedArquitetoId(arquitetoUser.id);
+      
+      const coordenadorUser = users?.find(u => u.nome_completo === tap.coordenador);
+      if (coordenadorUser) setSelectedCoordenadorId(coordenadorUser.id);
+      
+      const gerenteUser = users?.find(u => u.nome_completo === tap.gerente_projeto);
+      if (gerenteUser) setSelectedGerenteId(gerenteUser.id);
+      
+      const vendedorUser = users?.find(u => u.nome_completo === tap.esn);
+      if (vendedorUser) setSelectedVendedorId(vendedorUser.id);
+    }
+  }, [isEditing, projectId, tap, getProject, clients, users]);
+
   const updateFormData = (field: keyof TAPFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     setSubmitting(true);
     
     try {
-      console.log('[TAPForm] Submitting TAP', { formData, folderId });
+      console.log('[TAPForm] Submitting TAP', { formData, folderId, isEditing, projectId });
 
       // Validação mínima para campos obrigatórios do Projeto
       const required: Array<keyof TAPFormData> = [
@@ -139,64 +209,77 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
         return;
       }
 
-      const newTAP = await createTAP(formData, folderId);
-      
-      if (newTAP) {
-        setCreatedTAP(newTAP);
-        
-        // Upload arquivos pendentes se houver
-        if (pendingFiles.length > 0) {
-          try {
-            for (let i = 0; i < pendingFiles.length; i++) {
-              const file = pendingFiles[i];
-              const fileName = fileNames[i] || file.name.split('.')[0];
-              
-              await uploadDocument({
-                tap_id: newTAP.id,
-                project_id: newTAP.project_id,
-                file: file,
-                document_name: fileName,
-                original_name: file.name,
-                file_size: file.size,
-                mime_type: file.type
-              });
-            }
-            
-            toast({
-              title: "Sucesso",
-              description: `TAP criada com sucesso! ${pendingFiles.length} arquivo(s) anexado(s).`,
-            });
-            
-            // Limpar arquivos pendentes
-            setPendingFiles([]);
-            setFileNames([]);
-          } catch (error) {
-            toast({
-              title: "Atenção",
-              description: "TAP criada, mas houve erro ao anexar alguns arquivos.",
-              variant: "destructive",
-            });
-          }
-        } else {
+      if (isEditing && tap) {
+        // Modo de edição - atualizar TAP existente
+        const updatedTAP = await updateTAP(tap.id, formData);
+        if (updatedTAP) {
           toast({
             title: "Sucesso",
-            description: "TAP criada com sucesso!",
+            description: "TAP atualizada com sucesso!",
+          });
+          navigate(`/projects-tap/${projectId}`);
+        }
+      } else {
+        // Modo de criação - criar nova TAP
+        const newTAP = await createTAP(formData, folderId);
+        
+        if (newTAP) {
+          setCreatedTAP(newTAP);
+          
+          // Upload arquivos pendentes se houver
+          if (pendingFiles.length > 0) {
+            try {
+              for (let i = 0; i < pendingFiles.length; i++) {
+                const file = pendingFiles[i];
+                const fileName = fileNames[i] || file.name.split('.')[0];
+                
+                await uploadDocument({
+                  tap_id: newTAP.id,
+                  project_id: newTAP.project_id,
+                  file: file,
+                  document_name: fileName,
+                  original_name: file.name,
+                  file_size: file.size,
+                  mime_type: file.type
+                });
+              }
+              
+              toast({
+                title: "Sucesso",
+                description: `TAP criada com sucesso! ${pendingFiles.length} arquivo(s) anexado(s).`,
+              });
+              
+              // Limpar arquivos pendentes
+              setPendingFiles([]);
+              setFileNames([]);
+            } catch (error) {
+              toast({
+                title: "Atenção",
+                description: "TAP criada, mas houve erro ao anexar alguns arquivos.",
+                variant: "destructive",
+              });
+            }
+          } else {
+            toast({
+              title: "Sucesso",
+              description: "TAP criada com sucesso!",
+            });
+          }
+          
+          setShowSummary(true);
+        } else {
+          toast({
+            title: "Erro",
+            description: "Erro ao criar TAP. Verifique os campos obrigatórios e tente novamente.",
+            variant: "destructive",
           });
         }
-        
-        setShowSummary(true);
-      } else {
-        toast({
-          title: "Erro",
-          description: "Erro ao criar TAP. Verifique os campos obrigatórios e tente novamente.",
-          variant: "destructive",
-        });
       }
     } catch (error) {
-      console.error('Erro ao criar TAP:', error);
+      console.error('Erro ao processar TAP:', error);
       toast({
         title: "Erro",
-        description: "Erro ao criar TAP. Tente novamente.",
+        description: isEditing ? "Erro ao atualizar TAP. Tente novamente." : "Erro ao criar TAP. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -726,7 +809,7 @@ export function TAPForm({ folderId, onSuccess }: TAPFormProps) {
 
           <div className="flex gap-2 pt-4">
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Salvando...' : 'Salvar TAP'}
+              {submitting ? 'Salvando...' : (isEditing ? 'Atualizar TAP' : 'Salvar TAP')}
             </Button>
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancelar

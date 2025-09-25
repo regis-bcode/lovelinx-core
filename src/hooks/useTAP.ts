@@ -14,6 +14,14 @@ export function useTAP(projectId?: string) {
 
   useEffect(() => {
     if (!projectId || !user) return;
+    
+    // Verificar se projectId é um UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(projectId)) {
+      console.error('[useTAP] Invalid project ID format:', projectId);
+      return;
+    }
+    
     loadTAP();
 
     const channel = supabase
@@ -39,8 +47,21 @@ export function useTAP(projectId?: string) {
   const loadTAP = async () => {
     if (!projectId || !user) return;
     
+    // Verificar se projectId é um UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(projectId)) {
+      console.error('[useTAP] Invalid project ID format:', projectId);
+      toast({
+        title: "Erro",
+        description: "ID do projeto inválido.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
     try {
+      console.log('[useTAP] Loading TAP for project:', projectId);
       const { data, error } = await supabase
         .from('tap')
         .select('*')
@@ -58,6 +79,7 @@ export function useTAP(projectId?: string) {
         return;
       }
 
+      console.log('[useTAP] TAP loaded:', data);
       setTap(data);
     } catch (error) {
       console.error('Erro ao carregar TAP:', error);
