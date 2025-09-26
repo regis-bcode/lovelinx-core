@@ -22,6 +22,8 @@ import { useUsers } from '@/hooks/useUsers';
 import { useStatus } from '@/hooks/useStatus';
 import { useProjects } from '@/hooks/useProjects';
 import { TAPSuccessDialog } from '@/components/projects/TAPSuccessDialog';
+import { TAPEditSuccessDialog } from '@/components/projects/TAPEditSuccessDialog';
+import { GoLiveHistory } from '@/components/ui/go-live-history';
 import { TAPDocuments } from '@/components/projects/TAPDocuments';
 import { ClientSelectWithCreate } from '@/components/users/ClientSelectWithCreate';
 import { UserSelectWithCreate } from '@/components/users/UserSelectWithCreate';
@@ -106,7 +108,9 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
 
   const [submitting, setSubmitting] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [showEditSuccess, setShowEditSuccess] = useState(false);
   const [createdTAP, setCreatedTAP] = useState<any>(null);
+  const [editedTAP, setEditedTAP] = useState<any>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | undefined>();
@@ -115,11 +119,18 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
   const [selectedCoordenadorId, setSelectedCoordenadorId] = useState<string | undefined>();
   const [selectedGerenteId, setSelectedGerenteId] = useState<string | undefined>();
   const [selectedVendedorId, setSelectedVendedorId] = useState<string | undefined>();
+  const [previousGoLive, setPreviousGoLive] = useState<string>('');
 
   // Carregar dados existentes quando em modo de edição
   useEffect(() => {
     if (isEditing && projectId && tap) {
       console.log('[TAPForm] Loading existing TAP data', tap);
+      
+      // Capturar data anterior do Go-Live para histórico
+      if (tap.go_live_previsto) {
+        setPreviousGoLive(tap.go_live_previsto);
+      }
+      
       const project = getProject(projectId);
       
       // Pré-popular formulário com dados da TAP e projeto
@@ -213,11 +224,8 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
         // Modo de edição - atualizar TAP existente
         const updatedTAP = await updateTAP(tap.id, formData);
         if (updatedTAP) {
-          toast({
-            title: "Sucesso",
-            description: "TAP atualizada com sucesso!",
-          });
-          navigate(`/projects-tap/${projectId}`);
+          setEditedTAP(updatedTAP);
+          setShowEditSuccess(true);
         }
       } else {
         // Modo de criação - criar nova TAP
@@ -651,11 +659,19 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                 </div>
                 <div>
                   <Label htmlFor="go_live_previsto">Go Live Previsto</Label>
-                  <DatePicker
-                    value={formData.go_live_previsto || ''}
-                    onChange={(value) => updateFormData('go_live_previsto', value)}
-                    placeholder="Selecione a data do Go Live"
-                  />
+                  <div className="space-y-2">
+                    <DatePicker
+                      value={formData.go_live_previsto || ''}
+                      onChange={(value) => updateFormData('go_live_previsto', value)}
+                      placeholder="Selecione a data do Go Live"
+                    />
+                    {isEditing && previousGoLive && (
+                      <GoLiveHistory 
+                        currentDate={formData.go_live_previsto} 
+                        previousDate={previousGoLive}
+                      />
+                    )}
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="duracao_pos_producao">Duração Pós Produção (meses)</Label>
@@ -824,6 +840,18 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
           onClose={() => setShowSummary(false)}
           tapData={createdTAP}
           onComplete={handleSummaryComplete}
+        />
+      )}
+      
+      {showEditSuccess && editedTAP && (
+        <TAPEditSuccessDialog
+          open={showEditSuccess}
+          onOpenChange={setShowEditSuccess}
+          tapData={editedTAP}
+          onContinue={() => {
+            setShowEditSuccess(false);
+            navigate('/projects');
+          }}
         />
       )}
     </form>
