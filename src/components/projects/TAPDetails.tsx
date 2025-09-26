@@ -8,8 +8,11 @@ import { useTAP } from "@/hooks/useTAP";
 import { useProjects } from "@/hooks/useProjects";
 import { Calendar, DollarSign, FileText, Target, Edit, Save, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { TAP } from "@/types/tap";
+import { TAPEditSuccessDialog } from "@/components/projects/TAPEditSuccessDialog";
+import { GoLiveHistory } from "@/components/ui/go-live-history";
 
 interface TAPDetailsProps {
   projectId: string;
@@ -27,6 +30,21 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(tapData || {});
+  const [showEditSuccess, setShowEditSuccess] = useState(false);
+  const [editedTAP, setEditedTAP] = useState<TAP | null>(null);
+  const [previousGoLive, setPreviousGoLive] = useState<string>('');
+
+  // Sincroniza os dados de edição quando a TAP/projeto carregar
+  useEffect(() => {
+    setEditData(tapData || {});
+  }, [tapData]);
+
+  // Guarda a data anterior de go-live para o histórico
+  useEffect(() => {
+    if (tap?.go_live_previsto) {
+      setPreviousGoLive(tap.go_live_previsto);
+    }
+  }, [tap]);
 
   if (loading) {
     return (
@@ -39,7 +57,11 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
   const handleSave = async () => {
     try {
       if (tap) {
-        await updateTAP(tap.id, editData);
+        const updated = await updateTAP(tap.id, editData);
+        if (updated) {
+          setEditedTAP(updated);
+          setShowEditSuccess(true);
+        }
       } else {
         // Criar TAP com dados básicos necessários
         const basicTAPData = {
@@ -80,13 +102,17 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
           escopo: editData.escopo || undefined,
           objetivo: editData.objetivo || undefined,
           observacoes: editData.observacoes || undefined,
-        };
-        await createTAP(basicTAPData);
+        } as any;
+        const created = await createTAP(basicTAPData);
+        if (created) {
+          setEditedTAP(created as TAP);
+          setShowEditSuccess(true);
+        }
       }
       setIsEditing(false);
       toast({
         title: "Sucesso",
-        description: "TAP salvo com sucesso!",
+        description: "TAP salva com sucesso!",
       });
     } catch (error) {
       toast({
@@ -107,7 +133,7 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
   };
 
   if (!tapData && !isEditing) {
-    return (
+  return (
       <Card>
         <CardContent className="py-8">
           <div className="text-center text-muted-foreground">
@@ -124,7 +150,7 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
     );
   }
 
-  return (
+  return (<>
     <Card className="w-full">
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
@@ -583,11 +609,16 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
              <div>
                <label className="text-sm font-medium text-muted-foreground">Go-live (Previsão)</label>
                {isEditing ? (
-                 <Input
-                   type="date"
-                   value={editData.go_live_previsto || ''}
-                   onChange={(e) => handleFieldChange('go_live_previsto', e.target.value)}
-                 />
+                 <div className="space-y-2">
+                   <Input
+                     type="date"
+                     value={editData.go_live_previsto || ''}
+                     onChange={(e) => handleFieldChange('go_live_previsto', e.target.value)}
+                   />
+                   {previousGoLive && (
+                     <GoLiveHistory currentDate={editData.go_live_previsto} previousDate={previousGoLive} />
+                   )}
+                 </div>
                ) : (
                  <p>{tapData.go_live_previsto ? new Date(tapData.go_live_previsto).toLocaleDateString('pt-BR') : '-'}</p>
                )}
