@@ -11,19 +11,63 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { CheckCircle2 } from "lucide-react";
 import { TAP } from "@/types/tap";
 
+interface ChangeItem { label: string; old: any; new: any; group?: string }
+
 interface TAPEditSuccessDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tapData: TAP | null;
+  tapData?: TAP | null;
   onContinue: () => void;
+  changes?: ChangeItem[];
 }
 
 export function TAPEditSuccessDialog({ 
   open, 
   onOpenChange, 
   tapData,
-  onContinue 
+  onContinue,
+  changes
 }: TAPEditSuccessDialogProps) {
+  if (changes && changes.length > 0) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-success" />
+              Alterações salvas com sucesso
+            </DialogTitle>
+            <DialogDescription>
+              Veja abaixo somente os campos alterados na TAP e Projeto.
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh]">
+            <div className="space-y-4">
+              {changes.map((c, idx) => (
+                <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-2 border-b pb-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Campo</label>
+                    <p className="font-medium">{c.group ? `${c.group} • ${c.label}` : c.label}</p>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">De → Para</label>
+                    <p className="font-medium">
+                      <span className="line-through text-destructive/80 mr-2">{String(c.old ?? '-')}</span>
+                      <span>{String(c.new ?? '-')}</span>
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+          <div className="flex justify-end pt-4">
+            <Button onClick={onContinue} className="min-w-[120px]">Continuar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   if (!tapData) return null;
 
   return (
