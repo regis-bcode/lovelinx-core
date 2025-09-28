@@ -57,7 +57,44 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
   const handleSave = async () => {
     try {
       if (tap) {
-        const updated = await updateTAP(tap.id, editData);
+        const payload = {
+          data: editData.data,
+          nome_projeto: editData.nome_projeto,
+          cod_cliente: editData.cod_cliente,
+          gpp: editData.gpp,
+          produto: editData.produto,
+          servico: editData.servico,
+          arquiteto: editData.arquiteto,
+          criticidade_totvs: editData.criticidade_totvs || editData.criticidade,
+          coordenador: editData.coordenador,
+          gerente_projeto: editData.gerente_projeto,
+          esn: editData.esn,
+          criticidade_cliente: editData.criticidade_cliente,
+          drive: editData.drive,
+          status: editData.status,
+          data_inicio: editData.data_inicio,
+          go_live_previsto: editData.go_live_previsto,
+          duracao_pos_producao: Number(editData.duracao_pos_producao) || 0,
+          encerramento: editData.encerramento,
+          escopo: editData.escopo,
+          objetivo: editData.objetivo,
+          observacoes: editData.observacoes || editData.observacao,
+          valor_projeto: Number(editData.valor_projeto) || 0,
+          margem_venda_percent: Number(editData.margem_venda_percent) || 0,
+          margem_venda_valor: Number(editData.margem_venda_valor) || 0,
+          mrr: Number(editData.mrr) || 0,
+          mrr_total: Number(editData.mrr_total) || 0,
+          psa_planejado: Number(editData.psa_planejado) || 0,
+          diferenca_psa_projeto: Number(editData.diferenca_psa_projeto) || 0,
+          receita_atual: Number(editData.receita_atual) || 0,
+          margem_atual_percent: Number(editData.margem_atual_percent) || 0,
+          margem_atual_valor: Number(editData.margem_atual_valor) || 0,
+          investimento_perdas: Number(editData.investimento_perdas) || 0,
+          investimento_comercial: Number(editData.investimento_comercial) || 0,
+          investimento_erro_produto: Number(editData.investimento_erro_produto) || 0,
+          projeto_em_perda: !!editData.projeto_em_perda,
+        } as any;
+        const updated = await updateTAP(tap.id, payload);
         if (updated) {
           setEditedTAP(updated);
           setShowEditSuccess(true);
@@ -701,5 +738,7 @@ export function TAPDetails({ projectId }: TAPDetailsProps) {
         </div>
       </CardContent>
     </Card>
-  );
+    <TAPEditSuccessDialog open={showEditSuccess} onOpenChange={setShowEditSuccess} tapData={editedTAP} onContinue={() => setShowEditSuccess(false)} />
+  </>
+);
 }
