@@ -38,26 +38,31 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
       const numericValue = value.replace(/[^\d,.]/g, '')
         .replace(/\./g, '') // Remove pontos de milhares
         .replace(',', '.') // Converte vírgula decimal para ponto
-      return numericValue || '0'
+      return numericValue // pode ser string vazia para permitir limpeza
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value
-      const numericValue = parseCurrency(inputValue)
-      const floatValue = parseFloat(numericValue)
-      
-      // Aceita valores até 999.999.999,99
-      if (!isNaN(floatValue) && floatValue <= 999999999.99) {
-        const formatted = formatCurrency(floatValue)
-        setDisplayValue(formatted)
-        onChange?.(numericValue)
-      } else if (isNaN(floatValue)) {
+      if (inputValue.trim() === '') {
         setDisplayValue('')
-        onChange?.('0')
-      } else {
-        // Se valor é muito alto, mantém o valor anterior
+        onChange?.('')
         return
       }
+      const numericStr = parseCurrency(inputValue)
+      const floatValue = parseFloat(numericStr)
+      if (isNaN(floatValue)) {
+        // Permite digitação parcial sem forçar 0
+        setDisplayValue(inputValue)
+        onChange?.('')
+        return
+      }
+      // Aceita valores até 999.999.999,99
+      if (floatValue <= 999999999.99) {
+        const formatted = formatCurrency(floatValue)
+        setDisplayValue(formatted)
+        onChange?.(numericStr)
+      }
+      // Se ultrapassar o limite, ignora a alteração
     }
 
     return (

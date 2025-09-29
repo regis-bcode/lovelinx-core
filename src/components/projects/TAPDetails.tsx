@@ -474,8 +474,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Valor do Projeto</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.valor_projeto || 0}
-                   onChange={(v) => handleFieldChange('valor_projeto', parseFloat(v || '0'))}
+                   value={editData.valor_projeto || ''}
+                   onChange={(v) => handleFieldChange('valor_projeto', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -486,8 +486,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Receita Atual</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.receita_atual || 0}
-                   onChange={(v) => handleFieldChange('receita_atual', parseFloat(v || '0'))}
+                   value={editData.receita_atual || ''}
+                   onChange={(v) => handleFieldChange('receita_atual', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -501,7 +501,7 @@ const { getProject, updateProject } = useProjects();
                    type="number"
                    step="0.01"
                    value={editData.margem_venda_percent || ''}
-                   onChange={(e) => handleFieldChange('margem_venda_percent', parseFloat(e.target.value || '0'))}
+                   onChange={(e) => handleFieldChange('margem_venda_percent', e.target.value === '' ? '' : parseFloat(e.target.value))}
                    placeholder="0.00"
                  />
                ) : (
@@ -515,7 +515,7 @@ const { getProject, updateProject } = useProjects();
                    type="number"
                    step="0.01"
                    value={editData.margem_atual_percent || ''}
-                   onChange={(e) => handleFieldChange('margem_atual_percent', parseFloat(e.target.value || '0'))}
+                   onChange={(e) => handleFieldChange('margem_atual_percent', e.target.value === '' ? '' : parseFloat(e.target.value))}
                    placeholder="0.00"
                  />
                ) : (
@@ -526,8 +526,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Margem da Venda (Valor Monetário)</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.margem_venda_valor || 0}
-                   onChange={(v) => handleFieldChange('margem_venda_valor', parseFloat(v || '0'))}
+                   value={editData.margem_venda_valor || ''}
+                   onChange={(v) => handleFieldChange('margem_venda_valor', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -538,8 +538,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Margem Atual (Valor Monetário)</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.margem_atual_valor || 0}
-                   onChange={(v) => handleFieldChange('margem_atual_valor', parseFloat(v || '0'))}
+                   value={editData.margem_atual_valor || ''}
+                   onChange={(v) => handleFieldChange('margem_atual_valor', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -550,8 +550,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">MRR - Recorrente Mensal</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.mrr || 0}
-                   onChange={(v) => handleFieldChange('mrr', parseFloat(v || '0'))}
+                   value={editData.mrr || ''}
+                   onChange={(v) => handleFieldChange('mrr', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -562,8 +562,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">MRR Total (Contratados R$)</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.mrr_total || 0}
-                   onChange={(v) => handleFieldChange('mrr_total', parseFloat(v || '0'))}
+                   value={editData.mrr_total || ''}
+                   onChange={(v) => handleFieldChange('mrr_total', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -574,8 +574,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">PSA Planejado</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.psa_planejado || 0}
-                   onChange={(v) => handleFieldChange('psa_planejado', parseFloat(v || '0'))}
+                   value={editData.psa_planejado || ''}
+                   onChange={(v) => handleFieldChange('psa_planejado', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -586,8 +586,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Investimento Comercial</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.investimento_comercial || 0}
-                   onChange={(v) => handleFieldChange('investimento_comercial', parseFloat(v || '0'))}
+                   value={editData.investimento_comercial || ''}
+                   onChange={(v) => handleFieldChange('investimento_comercial', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -598,8 +598,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Investimento Erro Produto</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.investimento_erro_produto || 0}
-                   onChange={(v) => handleFieldChange('investimento_erro_produto', parseFloat(v || '0'))}
+                   value={editData.investimento_erro_produto || ''}
+                   onChange={(v) => handleFieldChange('investimento_erro_produto', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -610,8 +610,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Investimento Perdas</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.investimento_perdas || 0}
-                   onChange={(v) => handleFieldChange('investimento_perdas', parseFloat(v || '0'))}
+                   value={editData.investimento_perdas || ''}
+                   onChange={(v) => handleFieldChange('investimento_perdas', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -622,8 +622,8 @@ const { getProject, updateProject } = useProjects();
                <label className="text-sm font-medium text-muted-foreground">Diferença PSA x Projeto</label>
                {isEditing ? (
                  <CurrencyInput
-                   value={editData.diferenca_psa_projeto || 0}
-                   onChange={(v) => handleFieldChange('diferenca_psa_projeto', parseFloat(v || '0'))}
+                   value={editData.diferenca_psa_projeto || ''}
+                   onChange={(v) => handleFieldChange('diferenca_psa_projeto', v === '' ? '' : parseFloat(v))}
                    placeholder="R$ 0,00"
                  />
                ) : (

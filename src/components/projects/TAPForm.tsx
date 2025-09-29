@@ -529,7 +529,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="valor_projeto"
                     value={formData.valor_projeto}
-                    onChange={(value) => updateFormData('valor_projeto', Number(value))}
+                    onChange={(value) => updateFormData('valor_projeto', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -545,7 +545,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="margem_venda_valor"
                     value={formData.margem_venda_valor}
-                    onChange={(value) => updateFormData('margem_venda_valor', Number(value))}
+                    onChange={(value) => updateFormData('margem_venda_valor', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -553,7 +553,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="mrr"
                     value={formData.mrr}
-                    onChange={(value) => updateFormData('mrr', Number(value))}
+                    onChange={(value) => updateFormData('mrr', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -561,7 +561,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="mrr_total"
                     value={formData.mrr_total}
-                    onChange={(value) => updateFormData('mrr_total', Number(value))}
+                    onChange={(value) => updateFormData('mrr_total', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -569,7 +569,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="psa_planejado"
                     value={formData.psa_planejado}
-                    onChange={(value) => updateFormData('psa_planejado', Number(value))}
+                    onChange={(value) => updateFormData('psa_planejado', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -577,7 +577,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="diferenca_psa_projeto"
                     value={formData.diferenca_psa_projeto}
-                    onChange={(value) => updateFormData('diferenca_psa_projeto', Number(value))}
+                    onChange={(value) => updateFormData('diferenca_psa_projeto', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -585,7 +585,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="receita_atual"
                     value={formData.receita_atual}
-                    onChange={(value) => updateFormData('receita_atual', Number(value))}
+                    onChange={(value) => updateFormData('receita_atual', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -601,7 +601,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="margem_atual_valor"
                     value={formData.margem_atual_valor}
-                    onChange={(value) => updateFormData('margem_atual_valor', Number(value))}
+                    onChange={(value) => updateFormData('margem_atual_valor', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -609,7 +609,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="investimento_perdas"
                     value={formData.investimento_perdas}
-                    onChange={(value) => updateFormData('investimento_perdas', Number(value))}
+                    onChange={(value) => updateFormData('investimento_perdas', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -617,7 +617,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="investimento_comercial"
                     value={formData.investimento_comercial}
-                    onChange={(value) => updateFormData('investimento_comercial', Number(value))}
+                    onChange={(value) => updateFormData('investimento_comercial', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div>
@@ -625,7 +625,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                   <CurrencyInput
                     id="investimento_erro_produto"
                     value={formData.investimento_erro_produto}
-                    onChange={(value) => updateFormData('investimento_erro_produto', Number(value))}
+                    onChange={(value) => updateFormData('investimento_erro_produto', value === '' ? '' : Number(value))}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
