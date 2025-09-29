@@ -43,8 +43,8 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
       const numericValue = parseCurrency(inputValue)
       const floatValue = parseFloat(numericValue)
       
-      // Aceita valores até 999.999.999.999,99 (quase 1 trilhão)
-      if (!isNaN(floatValue) && floatValue <= 999999999999.99) {
+      // Aceita valores até 999.999.999,99
+      if (!isNaN(floatValue) && floatValue <= 999999999.99) {
         const formatted = formatCurrency(floatValue)
         setDisplayValue(formatted)
         onChange?.(numericValue)

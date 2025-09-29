@@ -26,14 +26,15 @@ const { getProject, updateProject } = useProjects();
   const project = getProject(projectId);
   const { toast } = useToast();
 
-  // Use TAP data if available, otherwise use project data
-  const tapData = tap || project;
+  // Dados de visualização combinando Projeto (ex.: cliente) e TAP (sobrepõe)
+  const tapData = { ...(project || {}), ...(tap || {}) };
   const loading = tapLoading;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<any>(tapData || {});
   const [showEditSuccess, setShowEditSuccess] = useState(false);
   const [editedTAP, setEditedTAP] = useState<TAP | null>(null);
+  const [changes, setChanges] = useState<{ label: string; old: any; new: any; group?: string }[]>([]);
   const [previousGoLive, setPreviousGoLive] = useState<string>('');
 
   // Sincroniza os dados de edição quando a TAP/projeto carregar
@@ -145,11 +146,11 @@ const { getProject, updateProject } = useProjects();
       }
 
       // Montar diff
-      const changes: { label: string; old: any; new: any; group?: string }[] = [];
+      const newChanges: { label: string; old: any; new: any; group?: string }[] = [];
       const addChange = (label: string, oldVal: any, newVal: any, group?: string) => {
         const o = oldVal ?? '';
         const n = newVal ?? '';
-        if (String(o) !== String(n)) changes.push({ label, old: o, new: n, group });
+        if (String(o) !== String(n)) newChanges.push({ label, old: o, new: n, group });
       };
 
       const oldTap: any = tapData || {};
@@ -186,6 +187,8 @@ const { getProject, updateProject } = useProjects();
       addChange('Escopo', oldTap.escopo, newTap.escopo, 'TAP');
       addChange('Objetivo', oldTap.objetivo, newTap.objetivo, 'TAP');
       addChange('Observações', oldTap.observacoes || oldProj.observacao, newTap.observacoes || newProj.observacao, 'TAP');
+
+      setChanges(newChanges);
 
       setEditedTAP(updatedTap as TAP);
       setShowEditSuccess(true);
@@ -752,7 +755,7 @@ const { getProject, updateProject } = useProjects();
         </div>
       </CardContent>
     </Card>
-    <TAPEditSuccessDialog open={showEditSuccess} onOpenChange={setShowEditSuccess} tapData={editedTAP} changes={[]} onContinue={() => setShowEditSuccess(false)} />
+    <TAPEditSuccessDialog open={showEditSuccess} onOpenChange={setShowEditSuccess} tapData={editedTAP} changes={changes} onContinue={() => setShowEditSuccess(false)} />
   </>
 );
 }
