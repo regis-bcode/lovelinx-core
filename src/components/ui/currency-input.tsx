@@ -13,14 +13,17 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
 
     React.useEffect(() => {
       if (value !== undefined) {
-        const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) : value
-        if (!isNaN(numericValue) && numericValue !== 0) {
+        const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) : Number(value)
+        if (!isNaN(numericValue)) {
           setDisplayValue(formatCurrency(numericValue))
         } else {
           setDisplayValue('')
         }
+      } else {
+        setDisplayValue('')
       }
     }, [value])
+
 
     const formatCurrency = (value: number): string => {
       return new Intl.NumberFormat('pt-BR', {
