@@ -10,59 +10,107 @@ export interface CurrencyInputProps
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
   ({ className, value, onChange, ...props }, ref) => {
     const [displayValue, setDisplayValue] = React.useState('')
+    const [isFocused, setIsFocused] = React.useState(false)
 
+    // Sincroniza valor externo com display
     React.useEffect(() => {
-      if (value !== undefined) {
+      if (isFocused) return; // Não atualiza enquanto está editando
+      
+      if (value === '' || value === undefined || value === null) {
+        setDisplayValue('')
+      } else {
         const numericValue = typeof value === 'string' ? parseFloat(value.replace(/[^\d.-]/g, '')) : Number(value)
-        if (!isNaN(numericValue)) {
+        if (!isNaN(numericValue) && numericValue !== 0) {
           setDisplayValue(formatCurrency(numericValue))
+        } else if (numericValue === 0) {
+          setDisplayValue('R$ 0,00')
         } else {
           setDisplayValue('')
         }
-      } else {
-        setDisplayValue('')
       }
-    }, [value])
-
+    }, [value, isFocused])
 
     const formatCurrency = (value: number): string => {
       return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: 'BRL',
-        minimumFractionDigits: 2
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
       }).format(value)
     }
 
     const parseCurrency = (value: string): string => {
-      // Remove tudo exceto números e vírgulas/pontos
-      const numericValue = value.replace(/[^\d,.]/g, '')
+      // Remove tudo exceto números, vírgulas e pontos
+      const cleaned = value.replace(/[^\d,.]/g, '')
         .replace(/\./g, '') // Remove pontos de milhares
         .replace(',', '.') // Converte vírgula decimal para ponto
-      return numericValue // pode ser string vazia para permitir limpeza
+      return cleaned
     }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value
+      
+      // Permite campo vazio
       if (inputValue.trim() === '') {
         setDisplayValue('')
         onChange?.('')
         return
       }
+
+      // Permite entradas parciais durante digitação (ex: "12", "12.", "12,5")
+      setDisplayValue(inputValue)
+      
       const numericStr = parseCurrency(inputValue)
-      const floatValue = parseFloat(numericStr)
-      if (isNaN(floatValue)) {
-        // Permite digitação parcial sem forçar 0
-        setDisplayValue(inputValue)
+      
+      // Se não há número válido ainda (ex: apenas "R$"), não chama onChange
+      if (numericStr === '') {
         onChange?.('')
         return
       }
-      // Aceita valores até 999.999.999,99
-      if (floatValue <= 999999999.99) {
-        const formatted = formatCurrency(floatValue)
-        setDisplayValue(formatted)
+
+      const floatValue = parseFloat(numericStr)
+      
+      // Valida limite máximo
+      if (!isNaN(floatValue) && floatValue <= 999999999.99) {
         onChange?.(numericStr)
       }
-      // Se ultrapassar o limite, ignora a alteração
+    }
+
+    const handleFocus = () => {
+      setIsFocused(true)
+      // Remove formatação para edição mais fácil
+      if (displayValue && displayValue !== '') {
+        const numericStr = parseCurrency(displayValue)
+        if (numericStr) {
+          const floatValue = parseFloat(numericStr)
+          if (!isNaN(floatValue)) {
+            // Exibe número sem formatação para edição
+            setDisplayValue(floatValue.toString().replace('.', ','))
+          }
+        }
+      }
+    }
+
+    const handleBlur = () => {
+      setIsFocused(false)
+      
+      // Formata ao sair do campo
+      if (displayValue && displayValue.trim() !== '') {
+        const numericStr = parseCurrency(displayValue)
+        if (numericStr) {
+          const floatValue = parseFloat(numericStr)
+          if (!isNaN(floatValue)) {
+            setDisplayValue(formatCurrency(floatValue))
+            onChange?.(numericStr)
+          } else {
+            setDisplayValue('')
+            onChange?.('')
+          }
+        } else {
+          setDisplayValue('')
+          onChange?.('')
+        }
+      }
     }
 
     return (
@@ -74,6 +122,8 @@ const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
         )}
         value={displayValue}
         onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         ref={ref}
         {...props}
       />

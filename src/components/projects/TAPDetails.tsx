@@ -59,7 +59,7 @@ const { getProject, updateProject } = useProjects();
 
   const handleSave = async () => {
     try {
-      // Preparar payloads
+      // Preparar payloads com valores vazios convertidos para null
       const tapPayload = {
         data: editData.data,
         nome_projeto: editData.nome_projeto,
@@ -81,19 +81,19 @@ const { getProject, updateProject } = useProjects();
         escopo: editData.escopo,
         objetivo: editData.objetivo,
         observacoes: editData.observacoes || editData.observacao,
-        valor_projeto: Number(editData.valor_projeto) || 0,
+        valor_projeto: editData.valor_projeto === '' || !editData.valor_projeto ? null : Number(editData.valor_projeto),
         margem_venda_percent: Number(editData.margem_venda_percent) || 0,
-        margem_venda_valor: Number(editData.margem_venda_valor) || 0,
-        mrr: Number(editData.mrr) || 0,
-        mrr_total: Number(editData.mrr_total) || 0,
-        psa_planejado: Number(editData.psa_planejado) || 0,
-        diferenca_psa_projeto: Number(editData.diferenca_psa_projeto) || 0,
-        receita_atual: Number(editData.receita_atual) || 0,
+        margem_venda_valor: editData.margem_venda_valor === '' || !editData.margem_venda_valor ? null : Number(editData.margem_venda_valor),
+        mrr: editData.mrr === '' || !editData.mrr ? null : Number(editData.mrr),
+        mrr_total: editData.mrr_total === '' || !editData.mrr_total ? null : Number(editData.mrr_total),
+        psa_planejado: editData.psa_planejado === '' || !editData.psa_planejado ? null : Number(editData.psa_planejado),
+        diferenca_psa_projeto: editData.diferenca_psa_projeto === '' || !editData.diferenca_psa_projeto ? null : Number(editData.diferenca_psa_projeto),
+        receita_atual: editData.receita_atual === '' || !editData.receita_atual ? null : Number(editData.receita_atual),
         margem_atual_percent: Number(editData.margem_atual_percent) || 0,
-        margem_atual_valor: Number(editData.margem_atual_valor) || 0,
-        investimento_perdas: Number(editData.investimento_perdas) || 0,
-        investimento_comercial: Number(editData.investimento_comercial) || 0,
-        investimento_erro_produto: Number(editData.investimento_erro_produto) || 0,
+        margem_atual_valor: editData.margem_atual_valor === '' || !editData.margem_atual_valor ? null : Number(editData.margem_atual_valor),
+        investimento_perdas: editData.investimento_perdas === '' || !editData.investimento_perdas ? null : Number(editData.investimento_perdas),
+        investimento_comercial: editData.investimento_comercial === '' || !editData.investimento_comercial ? null : Number(editData.investimento_comercial),
+        investimento_erro_produto: editData.investimento_erro_produto === '' || !editData.investimento_erro_produto ? null : Number(editData.investimento_erro_produto),
         projeto_em_perda: !!editData.projeto_em_perda,
       } as any;
 
@@ -110,19 +110,19 @@ const { getProject, updateProject } = useProjects();
         criticidade: (editData.criticidade_totvs || editData.criticidade) as any,
         status: editData.status,
         drive: editData.drive,
-        valor_projeto: Number(editData.valor_projeto) || 0,
-        receita_atual: Number(editData.receita_atual) || 0,
+        valor_projeto: editData.valor_projeto === '' || !editData.valor_projeto ? null : Number(editData.valor_projeto),
+        receita_atual: editData.receita_atual === '' || !editData.receita_atual ? null : Number(editData.receita_atual),
         margem_venda_percent: Number(editData.margem_venda_percent) || 0,
         margem_atual_percent: Number(editData.margem_atual_percent) || 0,
-        margem_venda_reais: Number(editData.margem_venda_valor) || 0,
-        margem_atual_reais: Number(editData.margem_atual_valor) || 0,
-        mrr: Number(editData.mrr) || 0,
-        investimento_perdas: Number(editData.investimento_perdas) || 0,
-        mrr_total: Number(editData.mrr_total) || 0,
-        investimento_comercial: Number(editData.investimento_comercial) || 0,
-        psa_planejado: Number(editData.psa_planejado) || 0,
-        investimento_erro_produto: Number(editData.investimento_erro_produto) || 0,
-        diferenca_psa_projeto: Number(editData.diferenca_psa_projeto) || 0,
+        margem_venda_reais: editData.margem_venda_valor === '' || !editData.margem_venda_valor ? null : Number(editData.margem_venda_valor),
+        margem_atual_reais: editData.margem_atual_valor === '' || !editData.margem_atual_valor ? null : Number(editData.margem_atual_valor),
+        mrr: editData.mrr === '' || !editData.mrr ? null : Number(editData.mrr),
+        investimento_perdas: editData.investimento_perdas === '' || !editData.investimento_perdas ? null : Number(editData.investimento_perdas),
+        mrr_total: editData.mrr_total === '' || !editData.mrr_total ? null : Number(editData.mrr_total),
+        investimento_comercial: editData.investimento_comercial === '' || !editData.investimento_comercial ? null : Number(editData.investimento_comercial),
+        psa_planejado: editData.psa_planejado === '' || !editData.psa_planejado ? null : Number(editData.psa_planejado),
+        investimento_erro_produto: editData.investimento_erro_produto === '' || !editData.investimento_erro_produto ? null : Number(editData.investimento_erro_produto),
+        diferenca_psa_projeto: editData.diferenca_psa_projeto === '' || !editData.diferenca_psa_projeto ? null : Number(editData.diferenca_psa_projeto),
         projeto_em_perda: !!editData.projeto_em_perda,
         data_inicio: editData.data_inicio,
         go_live_previsto: editData.go_live_previsto,
@@ -475,7 +475,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.valor_projeto || ''}
-                   onChange={(v) => handleFieldChange('valor_projeto', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('valor_projeto', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -487,7 +487,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.receita_atual || ''}
-                   onChange={(v) => handleFieldChange('receita_atual', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('receita_atual', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -527,7 +527,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.margem_venda_valor || ''}
-                   onChange={(v) => handleFieldChange('margem_venda_valor', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('margem_venda_valor', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -539,7 +539,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.margem_atual_valor || ''}
-                   onChange={(v) => handleFieldChange('margem_atual_valor', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('margem_atual_valor', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -551,7 +551,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.mrr || ''}
-                   onChange={(v) => handleFieldChange('mrr', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('mrr', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -563,7 +563,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.mrr_total || ''}
-                   onChange={(v) => handleFieldChange('mrr_total', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('mrr_total', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -575,7 +575,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.psa_planejado || ''}
-                   onChange={(v) => handleFieldChange('psa_planejado', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('psa_planejado', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -587,7 +587,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.investimento_comercial || ''}
-                   onChange={(v) => handleFieldChange('investimento_comercial', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('investimento_comercial', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -599,7 +599,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.investimento_erro_produto || ''}
-                   onChange={(v) => handleFieldChange('investimento_erro_produto', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('investimento_erro_produto', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -611,7 +611,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.investimento_perdas || ''}
-                   onChange={(v) => handleFieldChange('investimento_perdas', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('investimento_perdas', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
@@ -623,7 +623,7 @@ const { getProject, updateProject } = useProjects();
                {isEditing ? (
                  <CurrencyInput
                    value={editData.diferenca_psa_projeto || ''}
-                   onChange={(v) => handleFieldChange('diferenca_psa_projeto', v === '' ? '' : parseFloat(v))}
+                   onChange={(v) => handleFieldChange('diferenca_psa_projeto', v)}
                    placeholder="R$ 0,00"
                  />
                ) : (
