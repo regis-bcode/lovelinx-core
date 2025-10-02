@@ -45,7 +45,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
   const { clients } = useClients();
   const { users } = useUsers();
   const { statuses } = useStatus();
-  const { getProject } = useProjects();
+  const { getProject, updateProject } = useProjects();
   
   // Hook para gerenciar as opções das listas suspensas
   const {
