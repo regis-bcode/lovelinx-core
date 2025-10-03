@@ -1,89 +1,51 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { CalendarIcon, Plus, Settings, Download, Eye, EyeOff, ChevronRight, ChevronDown } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { Task, TaskFormData } from '@/types/task';
-import { CustomField } from '@/types/task';
-import { Team } from '@/types/team';
+import { Task } from '@/types/task';
 import { useTasks } from '@/hooks/useTasks';
-import { useTeams } from '@/hooks/useTeams';
+import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
 interface TaskManagementSystemProps {
   projectId: string;
 }
 
-export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
-  const { tasks, customFields, loading, createTask, updateTask, deleteTask, createCustomField, deleteCustomField } = useTasks(projectId);
-  const { teams } = useTeams(projectId);
-  
-  const [showTaskDialog, setShowTaskDialog] = useState(false);
-  const [showFieldDialog, setShowFieldDialog] = useState(false);
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
-  const [expandedTasks, setExpandedTasks] = useState<string[]>([]);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
-  
-  const [taskForm, setTaskForm] = useState<Partial<TaskFormData>>({
-    nome: '',
-    prioridade: 'Média',
-    status: 'BACKLOG',
-    project_id: projectId,
-    nivel: 0,
-    ordem: 0,
-    percentual_conclusao: 0
-  });
+type TaskRow = Partial<Task> & { _isNew?: boolean; _tempId?: string };
 
-  const [fieldForm, setFieldForm] = useState({
-    field_name: '',
-    field_type: 'text' as const,
-    field_options: [] as string[],
-    is_required: false,
-    project_id: projectId
-  });
+export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
+  const { tasks, loading, createTask, updateTask, deleteTask } = useTasks(projectId);
+  const { toast } = useToast();
+  
+  const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Inicializar rows com as tasks existentes
+  useEffect(() => {
+    setEditableRows(tasks.map(t => ({ ...t })));
+  }, [tasks]);
 
   const allColumns = [
-    { key: 'task_id', label: 'ID' },
-    { key: 'nome', label: 'Nome' },
-    { key: 'cliente', label: 'Cliente' },
-    { key: 'modulo', label: 'Módulo' },
-    { key: 'area', label: 'Área' },
-    { key: 'categoria', label: 'Categoria' },
-    { key: 'etapa_projeto', label: 'Etapa do Projeto' },
-    { key: 'descricao_detalhada', label: 'Descrição Detalhada' },
-    { key: 'retorno_acao', label: 'Retorno Ação' },
-    { key: 'acao_realizada', label: 'Ação Realizada' },
-    { key: 'gp_consultoria', label: 'GP Consultoria' },
-    { key: 'responsavel_consultoria', label: 'Responsável Consultoria' },
-    { key: 'responsavel_cliente', label: 'Responsável Cliente' },
-    { key: 'escopo', label: 'Escopo' },
-    { key: 'prioridade', label: 'Prioridade' },
-    { key: 'status', label: 'Status' },
-    { key: 'criticidade', label: 'Criticidade' },
-    { key: 'numero_ticket', label: 'Número do Ticket' },
-    { key: 'descricao_ticket', label: 'Descrição Ticket' },
-    { key: 'data_identificacao_ticket', label: 'Data de Identificação Ticket' },
-    { key: 'responsavel_ticket', label: 'Responsável Ticket' },
-    { key: 'status_ticket', label: 'Status do Ticket' },
-    { key: 'link', label: 'Link' },
-    { key: 'validado_por', label: 'Validado por' },
-    { key: 'data_prevista_entrega', label: 'Data Prevista Entrega' },
-    { key: 'data_entrega', label: 'Data Entrega' },
-    { key: 'data_prevista_validacao', label: 'Data Prevista Validação' },
-    { key: 'dias_para_concluir', label: 'Dias para Concluir' },
-    { key: 'percentual_conclusao', label: '% Conclusão' },
-    { key: 'link_drive', label: 'Link Drive' }
+    { key: 'task_id', label: 'ID', width: '80px' },
+    { key: 'nome', label: 'Nome', width: '200px' },
+    { key: 'prioridade', label: 'Prioridade', width: '120px' },
+    { key: 'status', label: 'Status', width: '150px' },
+    { key: 'cliente', label: 'Cliente', width: '150px' },
+    { key: 'responsavel', label: 'Responsável', width: '150px' },
+    { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
+    { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
+    { key: 'modulo', label: 'Módulo', width: '150px' },
+    { key: 'area', label: 'Área', width: '150px' },
+    { key: 'categoria', label: 'Categoria', width: '150px' },
+    { key: 'criticidade', label: 'Criticidade', width: '120px' },
+    { key: 'escopo', label: 'Escopo', width: '150px' },
   ];
 
   const visibleColumns = allColumns.filter(col => !hiddenColumns.includes(col.key));
@@ -96,8 +58,76 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
     );
   };
 
+  const updateCell = (index: number, field: string, value: any) => {
+    setEditableRows(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+    setHasChanges(true);
+  };
+
+  const addNewRow = () => {
+    const tempId = `temp-${Date.now()}`;
+    const newRow: TaskRow = {
+      _isNew: true,
+      _tempId: tempId,
+      project_id: projectId,
+      task_id: '',
+      nome: '',
+      prioridade: 'Média',
+      status: 'BACKLOG',
+      percentual_conclusao: 0,
+      nivel: 0,
+      ordem: editableRows.length
+    };
+    setEditableRows(prev => [...prev, newRow]);
+    setHasChanges(true);
+  };
+
+  const deleteRow = (index: number) => {
+    setEditableRows(prev => prev.filter((_, i) => i !== index));
+    setHasChanges(true);
+  };
+
+  const saveAllChanges = async () => {
+    try {
+      for (const row of editableRows) {
+        if (row._isNew) {
+          // Nova tarefa
+          const { _isNew, _tempId, id, task_id, created_at, updated_at, user_id, ...taskData } = row;
+          await createTask(taskData);
+        } else if (row.id) {
+          // Atualizar tarefa existente
+          const { id, task_id, created_at, updated_at, user_id, ...taskData } = row;
+          await updateTask(id, taskData);
+        }
+      }
+
+      // Processar exclusões (tarefas que estavam em tasks mas não estão em editableRows)
+      const currentIds = editableRows.filter(r => !r._isNew).map(r => r.id);
+      const deletedTasks = tasks.filter(t => !currentIds.includes(t.id));
+      for (const task of deletedTasks) {
+        await deleteTask(task.id);
+      }
+
+      setHasChanges(false);
+      toast({
+        title: "Sucesso",
+        description: "Todas as alterações foram salvas",
+      });
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao salvar as alterações",
+        variant: "destructive"
+      });
+    }
+  };
+
   const exportToExcel = () => {
-    const exportData = tasks.map(task => {
+    const exportData = editableRows.map(task => {
       const row: any = {};
       allColumns.forEach(col => {
         row[col.label] = task[col.key as keyof Task] || '';
@@ -111,176 +141,78 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
     XLSX.writeFile(wb, `tarefas-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
   };
 
-  const buildTaskTree = (tasks: Task[]): Task[] => {
-    const taskMap = new Map<string, Task & { children: Task[] }>();
-    const rootTasks: (Task & { children: Task[] })[] = [];
+  const renderEditableCell = (row: TaskRow, rowIndex: number, columnKey: string) => {
+    const value = row[columnKey as keyof TaskRow];
 
-    // Inicializar mapa com todas as tarefas
-    tasks.forEach(task => {
-      taskMap.set(task.id, { ...task, children: [] });
-    });
+    if (columnKey === 'task_id') {
+      return <span className="text-xs text-muted-foreground">{row._isNew ? 'Novo' : String(value || '')}</span>;
+    }
 
-    // Construir árvore
-    tasks.forEach(task => {
-      const taskWithChildren = taskMap.get(task.id)!;
-      if (task.parent_task_id && taskMap.has(task.parent_task_id)) {
-        taskMap.get(task.parent_task_id)!.children.push(taskWithChildren);
-      } else {
-        rootTasks.push(taskWithChildren);
-      }
-    });
+    if (columnKey === 'prioridade') {
+      return (
+        <Select 
+          value={value as string || 'Média'} 
+          onValueChange={(val) => updateCell(rowIndex, columnKey, val)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Baixa">Baixa</SelectItem>
+            <SelectItem value="Média">Média</SelectItem>
+            <SelectItem value="Alta">Alta</SelectItem>
+            <SelectItem value="Crítica">Crítica</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
 
-    return rootTasks.sort((a, b) => a.ordem - b.ordem);
-  };
+    if (columnKey === 'percentual_conclusao') {
+      return (
+        <Input
+          type="number"
+          min="0"
+          max="100"
+          value={value as number || 0}
+          onChange={(e) => updateCell(rowIndex, columnKey, parseInt(e.target.value) || 0)}
+          className="h-8 text-xs"
+        />
+      );
+    }
 
-  const renderTaskRow = (task: Task & { children?: Task[] }, level = 0) => {
-    const hasChildren = task.children && task.children.length > 0;
-    const isExpanded = expandedTasks.includes(task.id);
+    if (columnKey === 'data_vencimento') {
+      return (
+        <Input
+          type="date"
+          value={value as string || ''}
+          onChange={(e) => updateCell(rowIndex, columnKey, e.target.value)}
+          className="h-8 text-xs"
+        />
+      );
+    }
 
     return (
-      <React.Fragment key={task.id}>
-        <TableRow>
-          <TableCell>
-            <div className="flex items-center" style={{ paddingLeft: `${level * 20}px` }}>
-              {hasChildren && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setExpandedTasks(prev => 
-                      prev.includes(task.id)
-                        ? prev.filter(id => id !== task.id)
-                        : [...prev, task.id]
-                    );
-                  }}
-                  className="p-0 h-6 w-6 mr-2"
-                >
-                  {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
-              )}
-              <span className="font-mono text-sm">{task.task_id}</span>
-            </div>
-          </TableCell>
-          {visibleColumns.slice(1).map(col => (
-            <TableCell key={col.key}>
-              {col.key === 'prioridade' && (
-                <Badge variant={
-                  task.prioridade === 'Crítica' ? 'destructive' :
-                  task.prioridade === 'Alta' ? 'default' :
-                  task.prioridade === 'Média' ? 'secondary' : 'outline'
-                }>
-                  {task.prioridade}
-                </Badge>
-              )}
-              {col.key === 'status' && (
-                <Badge variant="outline">{task.status}</Badge>
-              )}
-              {col.key === 'percentual_conclusao' && (
-                <div className="flex items-center gap-2">
-                  <div className="w-16 bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full" 
-                      style={{ width: `${task.percentual_conclusao || 0}%` }}
-                    />
-                  </div>
-                  <span className="text-sm">{task.percentual_conclusao || 0}%</span>
-                </div>
-              )}
-              {!['prioridade', 'status', 'percentual_conclusao'].includes(col.key) && (
-                <span>{String(task[col.key as keyof Task] || '-')}</span>
-              )}
-            </TableCell>
-          ))}
-          <TableCell>
-            <Button variant="outline" size="sm" onClick={() => {/* implementar edição */}}>
-              Editar
-            </Button>
-          </TableCell>
-        </TableRow>
-        {hasChildren && isExpanded && task.children!.map(child => 
-          renderTaskRow(child, level + 1)
-        )}
-      </React.Fragment>
+      <Input
+        value={String(value || '')}
+        onChange={(e) => updateCell(rowIndex, columnKey, e.target.value)}
+        className="h-8 text-xs"
+        placeholder={columnKey === 'nome' ? 'Digite o nome da tarefa' : ''}
+      />
     );
   };
 
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createTask(taskForm);
-    setShowTaskDialog(false);
-    setTaskForm({
-      nome: '',
-      prioridade: 'Média',
-      status: 'BACKLOG',
-      project_id: projectId,
-      nivel: 0,
-      ordem: 0,
-      percentual_conclusao: 0
-    });
-  };
-
-  const handleCreateField = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await createCustomField(fieldForm);
-    setShowFieldDialog(false);
-    setFieldForm({
-      field_name: '',
-      field_type: 'text',
-      field_options: [],
-      is_required: false,
-      project_id: projectId
-    });
-  };
-
-  const taskTree = buildTaskTree(tasks);
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Header com ações */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>Gestão de Tarefas</CardTitle>
             <div className="flex gap-2">
-              <Dialog open={showTaskDialog} onOpenChange={setShowTaskDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Nova Tarefa
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Nova Tarefa</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateTask} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>Nome da Tarefa *</Label>
-                        <Input
-                          value={taskForm.nome || ''}
-                          onChange={(e) => setTaskForm(prev => ({...prev, nome: e.target.value}))}
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label>Cliente</Label>
-                        <Input
-                          value={taskForm.cliente || ''}
-                          onChange={(e) => setTaskForm(prev => ({...prev, cliente: e.target.value}))}
-                        />
-                      </div>
-                    </div>
-                    {/* ... continuar com outros campos ... */}
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setShowTaskDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit">Criar Tarefa</Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
+              <Button onClick={addNewRow} variant="default">
+                <Plus className="h-4 w-4 mr-2" />
+                Nova Linha
+              </Button>
 
               <Popover>
                 <PopoverTrigger asChild>
@@ -291,118 +223,101 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
                 </PopoverTrigger>
                 <PopoverContent className="w-64 max-h-80 overflow-y-auto">
                   <div className="space-y-2">
-                    <h4 className="font-medium">Mostrar/Ocultar Colunas</h4>
+                    <h4 className="font-medium text-sm">Mostrar/Ocultar Colunas</h4>
                     {allColumns.map(col => (
                       <div key={col.key} className="flex items-center space-x-2">
                         <Checkbox
+                          id={`col-${col.key}`}
                           checked={!hiddenColumns.includes(col.key)}
                           onCheckedChange={() => toggleColumn(col.key)}
                         />
-                        <label className="text-sm">{col.label}</label>
+                        <label htmlFor={`col-${col.key}`} className="text-sm cursor-pointer">
+                          {col.label}
+                        </label>
                       </div>
                     ))}
                   </div>
                 </PopoverContent>
               </Popover>
 
-              <Dialog open={showFieldDialog} onOpenChange={setShowFieldDialog}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Campo Personalizado
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Novo Campo Personalizado</DialogTitle>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateField} className="space-y-4">
-                    <div>
-                      <Label>Nome do Campo</Label>
-                      <Input
-                        value={fieldForm.field_name}
-                        onChange={(e) => setFieldForm(prev => ({...prev, field_name: e.target.value}))}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label>Tipo do Campo</Label>
-                      <Select
-                        value={fieldForm.field_type}
-                        onValueChange={(value: any) => setFieldForm(prev => ({...prev, field_type: value}))}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="text">Texto</SelectItem>
-                          <SelectItem value="numeric">Numérico</SelectItem>
-                          <SelectItem value="dropdown">Lista</SelectItem>
-                          <SelectItem value="checkbox">Checkbox</SelectItem>
-                          <SelectItem value="date">Data</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        checked={fieldForm.is_required}
-                        onCheckedChange={(checked) => setFieldForm(prev => ({...prev, is_required: !!checked}))}
-                      />
-                      <Label>Campo obrigatório</Label>
-                    </div>
-                    <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" onClick={() => setShowFieldDialog(false)}>
-                        Cancelar
-                      </Button>
-                      <Button type="submit">Criar Campo</Button>
-                    </div>
-                  </form>
-                </DialogContent>
-              </Dialog>
-
               <Button variant="outline" onClick={exportToExcel}>
                 <Download className="h-4 w-4 mr-2" />
-                Exportar Excel
+                Exportar
+              </Button>
+
+              <Button 
+                onClick={saveAllChanges} 
+                disabled={!hasChanges || loading}
+                variant={hasChanges ? "default" : "outline"}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar {hasChanges && '(*)'}
               </Button>
             </div>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Tabela de tarefas */}
+      {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[600px]">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
+                  <TableHead className="w-[50px]">Ações</TableHead>
                   {visibleColumns.map(col => (
-                    <TableHead key={col.key}>{col.label}</TableHead>
+                    <TableHead key={col.key} style={{ minWidth: col.width }}>
+                      {col.label}
+                    </TableHead>
                   ))}
-                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
                     <TableCell colSpan={visibleColumns.length + 1} className="text-center py-8">
-                      Carregando tarefas...
+                      Carregando...
                     </TableCell>
                   </TableRow>
-                ) : taskTree.length === 0 ? (
+                ) : editableRows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={visibleColumns.length + 1} className="text-center py-8">
-                      Nenhuma tarefa cadastrada
+                      <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Nova Linha" para adicionar.</p>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  taskTree.map(task => renderTaskRow(task))
+                  editableRows.map((row, index) => (
+                    <TableRow key={row.id || row._tempId || index} className="hover:bg-muted/50">
+                      <TableCell className="p-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteRow(index)}
+                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                      {visibleColumns.map(col => (
+                        <TableCell key={col.key} className="p-1">
+                          {renderEditableCell(row, index, col.key)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>
           </div>
         </CardContent>
       </Card>
+
+      {hasChanges && (
+        <div className="text-sm text-muted-foreground">
+          * Você tem alterações não salvas
+        </div>
+      )}
     </div>
   );
 }
