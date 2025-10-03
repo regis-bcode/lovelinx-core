@@ -8,7 +8,7 @@ import { useTAP } from "@/hooks/useTAP";
 import { useProjects } from "@/hooks/useProjects";
 import { Calendar, DollarSign, FileText, Target, Edit, Save, X } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { TAP } from "@/types/tap";
 import { TAPEditSuccessDialog } from "@/components/projects/TAPEditSuccessDialog";
@@ -27,7 +27,7 @@ const { getProject, updateProject } = useProjects();
   const { toast } = useToast();
 
   // Dados de visualização combinando Projeto (ex.: cliente) e TAP (sobrepõe)
-  const tapData = { ...(project || {}), ...(tap || {}) };
+  const tapData = useMemo(() => ({ ...(project || {}), ...(tap || {}) }), [project, tap]);
   const loading = tapLoading;
 
   const [isEditing, setIsEditing] = useState(false);
@@ -37,10 +37,12 @@ const { getProject, updateProject } = useProjects();
   const [changes, setChanges] = useState<{ label: string; old: any; new: any; group?: string }[]>([]);
   const [previousGoLive, setPreviousGoLive] = useState<string>('');
 
-  // Sincroniza os dados de edição quando a TAP/projeto carregar
+  // Sincroniza os dados de edição quando a TAP/projeto carregar, sem sobrescrever enquanto está editando
   useEffect(() => {
-    setEditData(tapData || {});
-  }, [tapData]);
+    if (!isEditing) {
+      setEditData(tapData || {});
+    }
+  }, [tapData, isEditing]);
 
   // Guarda a data anterior de go-live para o histórico
   useEffect(() => {
@@ -136,6 +138,8 @@ const { getProject, updateProject } = useProjects();
       } as any;
 
       // Executar updates
+      console.log('[TAPDetails] Saving TAP payload', tapPayload)
+      console.log('[TAPDetails] Saving Project payload', projectPayload)
       let updatedTap = tap ? await updateTAP(tap.id, tapPayload) : null;
       const updatedProject = await updateProject(projectId, projectPayload);
 
