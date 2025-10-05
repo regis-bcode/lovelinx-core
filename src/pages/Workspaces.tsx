@@ -162,25 +162,21 @@ export default function Workspaces() {
           <div className="flex gap-2">
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <EnhancedTooltip
-                  content={!isAuthenticated ? "Faça login para criar um workspace" : "Criar um novo espaço de trabalho para organizar projetos"}
+                <Button 
+                  className="bg-gradient-primary hover:opacity-90" 
+                  onClick={() => {
+                    if (!isAuthenticated) {
+                      toast({ title: "Faça login", description: "Você precisa estar logado para criar workspaces.", variant: "destructive" });
+                      return;
+                    }
+                    resetForm();
+                  }}
                   disabled={!isAuthenticated}
+                  title={!isAuthenticated ? "Faça login para criar um workspace" : "Criar um novo espaço de trabalho para organizar projetos"}
                 >
-                  <Button 
-                    className="bg-gradient-primary hover:opacity-90" 
-                    onClick={() => {
-                      if (!isAuthenticated) {
-                        toast({ title: "Faça login", description: "Você precisa estar logado para criar workspaces.", variant: "destructive" });
-                        return;
-                      }
-                      resetForm();
-                    }}
-                    disabled={!isAuthenticated}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Novo Workspace
-                  </Button>
-                </EnhancedTooltip>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Workspace
+                </Button>
               </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
@@ -283,11 +279,14 @@ export default function Workspaces() {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <EnhancedTooltip content="Mais opções para este workspace" side="left">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </EnhancedTooltip>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Mais opções para este workspace"
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openWorkspace(workspace.id); }}>
