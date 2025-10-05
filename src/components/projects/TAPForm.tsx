@@ -83,6 +83,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
     esn: '',
     criticidade_cliente: 'Baixo',
     drive: '',
+    tipo: 'PROJETO',
     data_inicio: '',
     go_live_previsto: '',
     duracao_pos_producao: 0,
@@ -149,6 +150,7 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
         esn: tap.esn,
         criticidade_cliente: tap.criticidade_cliente,
         drive: tap.drive || '',
+        tipo: tap.tipo || 'PROJETO',
         status: project?.status || '',
         data_inicio: tap.data_inicio || '',
         go_live_previsto: tap.go_live_previsto || '',
@@ -395,6 +397,22 @@ export function TAPForm({ folderId, projectId, isEditing = false, onSuccess }: T
                     onChange={(value) => updateFormData('data', value)}
                     placeholder="Selecione a data"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="tipo">Tipo de TAP</Label>
+                  <Select
+                    value={formData.tipo}
+                    onValueChange={(value) => updateFormData('tipo', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione o tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="PROJETO">PROJETO</SelectItem>
+                      <SelectItem value="SUPORTE">SUPORTE</SelectItem>
+                      <SelectItem value="AVULSO">AVULSO</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="nome_projeto">Nome do Projeto</Label>

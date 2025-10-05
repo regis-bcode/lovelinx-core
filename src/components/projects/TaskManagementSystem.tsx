@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Settings, Download, Save, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Task } from '@/types/task';
 import { useTasks } from '@/hooks/useTasks';
+import { useTAP } from '@/hooks/useTAP';
+import { useStatus } from '@/hooks/useStatus';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -21,11 +23,30 @@ type TaskRow = Partial<Task> & { _isNew?: boolean; _tempId?: string };
 
 export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
   const { tasks, loading, createTask, updateTask, deleteTask } = useTasks(projectId);
+  const { tap } = useTAP(projectId);
+  const { statuses } = useStatus();
   const { toast } = useToast();
   
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Filtrar status baseado no tipo da TAP
+  const filteredStatuses = useMemo(() => {
+    if (!tap?.tipo || !statuses.length) return [];
+    
+    const tipoMap: Record<string, string> = {
+      'PROJETO': 'tarefa_projeto',
+      'SUPORTE': 'tarefa_suporte',
+      'AVULSO': 'tarefa_projeto' // Tratamos AVULSO como tarefa_projeto
+    };
+    
+    const tipoStatus = tipoMap[tap.tipo];
+    
+    return statuses.filter(s => 
+      s.ativo && s.tipo_aplicacao.includes(tipoStatus)
+    );
+  }, [tap?.tipo, statuses]);
 
   // Inicializar rows com as tasks existentes
   useEffect(() => {
@@ -162,6 +183,26 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
             <SelectItem value="Média">Média</SelectItem>
             <SelectItem value="Alta">Alta</SelectItem>
             <SelectItem value="Crítica">Crítica</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (columnKey === 'status') {
+      return (
+        <Select 
+          value={value as string || ''} 
+          onValueChange={(val) => updateCell(rowIndex, columnKey, val)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            {filteredStatuses.map(status => (
+              <SelectItem key={status.id} value={status.nome}>
+                {status.nome}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       );

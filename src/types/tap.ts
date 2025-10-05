@@ -17,6 +17,7 @@ export interface TAP {
   esn: string;
   criticidade_cliente: string;
   drive?: string;
+  tipo: 'PROJETO' | 'SUPORTE' | 'AVULSO';
   
   // Status do Projeto
   status?: string;
@@ -72,6 +73,7 @@ export interface TAPBasicData {
   gerente_projeto: string;
   esn: string;
   criticidade_cliente: string;
+  tipo: 'PROJETO' | 'SUPORTE' | 'AVULSO';
 }
 
 // Tipos para documentos anexados na TAP
