@@ -10,9 +10,9 @@ import { ProjectTabs } from "@/components/projects/ProjectTabs";
 import { StakeholdersList } from "@/components/projects/StakeholdersList";
 import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
-import { TaskList } from "@/components/projects/TaskList";
+import { TaskManagementSystem } from "@/components/projects/TaskManagementSystem";
 import { CustomFieldListManager } from "@/components/projects/CustomFieldListManager";
-import { useTasks } from "@/hooks/useTasks";
+
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
@@ -21,16 +21,6 @@ export default function ProjectDetails() {
   
   const project = id ? getProject(id) : null;
   
-  const {
-    tasks,
-    customFields,
-    createTask,
-    updateTask,
-    deleteTask,
-    createCustomField,
-    deleteCustomField,
-  } = useTasks(id);
-
 
   if (!project) {
     return (
@@ -145,12 +135,7 @@ export default function ProjectDetails() {
                 <CardTitle>Gestão de Tarefas</CardTitle>
               </CardHeader>
               <CardContent>
-                <TaskList 
-                  tasks={tasks}
-                  onTaskCreate={createTask}
-                  onTaskUpdate={updateTask}
-                  onTaskDelete={deleteTask}
-                />
+                <TaskManagementSystem projectId={project.id} />
               </CardContent>
             </Card>
           </TabsContent>
