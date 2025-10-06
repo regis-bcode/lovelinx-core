@@ -10,7 +10,7 @@ export function useTAP(projectId?: string) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { createProject } = useProjects();
+  const { createProject, updateProject } = useProjects();
 
   useEffect(() => {
     if (!projectId || !user) return;
@@ -240,6 +240,51 @@ export function useTAP(projectId?: string) {
           variant: "destructive",
         });
         return null;
+      }
+
+      // Após atualizar a TAP, sincronizar os campos relevantes no projeto associado
+      try {
+        const toNum = (v: any) => (v === '' || v === null || v === undefined ? undefined : Number(v));
+        const toInt = (v: any) => (v === '' || v === null || v === undefined ? undefined : parseInt(v, 10));
+        const toDate = (v: any) => (v === '' || v === null || v === undefined ? undefined : v);
+
+        await updateProject(data.project_id, {
+          data: toDate(tapData.data),
+          cod_cliente: tapData.cod_cliente,
+          nome_projeto: tapData.nome_projeto,
+          cliente: tapData.cod_cliente,
+          gpp: tapData.gpp,
+          coordenador: tapData.coordenador,
+          produto: tapData.produto,
+          esn: tapData.esn,
+          arquiteto: tapData.arquiteto,
+          criticidade: tapData.criticidade_totvs as any,
+          status: tapData.status,
+          drive: tapData.drive,
+          valor_projeto: toNum((tapData as any).valor_projeto),
+          receita_atual: toNum((tapData as any).receita_atual),
+          margem_venda_percent: toNum((tapData as any).margem_venda_percent),
+          margem_atual_percent: toNum((tapData as any).margem_atual_percent),
+          margem_venda_reais: toNum((tapData as any).margem_venda_valor),
+          margem_atual_reais: toNum((tapData as any).margem_atual_valor),
+          mrr: toNum((tapData as any).mrr),
+          investimento_perdas: toNum((tapData as any).investimento_perdas),
+          mrr_total: toNum((tapData as any).mrr_total),
+          investimento_comercial: toNum((tapData as any).investimento_comercial),
+          psa_planejado: toNum((tapData as any).psa_planejado),
+          investimento_erro_produto: toNum((tapData as any).investimento_erro_produto),
+          diferenca_psa_projeto: toNum((tapData as any).diferenca_psa_projeto),
+          projeto_em_perda: (tapData as any).projeto_em_perda ?? undefined,
+          data_inicio: toDate((tapData as any).data_inicio),
+          go_live_previsto: toDate((tapData as any).go_live_previsto),
+          duracao_pos_producao: toInt((tapData as any).duracao_pos_producao),
+          encerramento: toDate((tapData as any).encerramento),
+          escopo: (tapData as any).escopo,
+          objetivo: (tapData as any).objetivo,
+          observacao: (tapData as any).observacoes,
+        } as any);
+      } catch (projErr) {
+        console.error('Aviso: Projeto não pôde ser sincronizado após atualizar a TAP:', projErr);
       }
 
       setTap(data as TAP);
