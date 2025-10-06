@@ -166,6 +166,7 @@ export function useTAP(projectId?: string) {
 
       const sanitizedTap = {
         ...tapPayload,
+        tipo: tapPayload.tipo || 'PROJETO',
         valor_projeto: toNum(tapPayload.valor_projeto),
         receita_atual: toNum(tapPayload.receita_atual),
         margem_venda_percent: toNum(tapPayload.margem_venda_percent),

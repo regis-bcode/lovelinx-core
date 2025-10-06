@@ -69,6 +69,7 @@ const { getProject, updateProject } = useProjects();
         gpp: editData.gpp,
         produto: editData.produto,
         servico: editData.servico,
+        tipo: editData.tipo || 'PROJETO',
         arquiteto: editData.arquiteto,
         criticidade_totvs: editData.criticidade_totvs || editData.criticidade,
         coordenador: editData.coordenador,
