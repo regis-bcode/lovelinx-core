@@ -127,6 +127,9 @@ export const useStatus = () => {
         description: `Status "${statusData.nome}" foi criado com sucesso.`,
       });
 
+      // Atualização otimista da lista
+      setStatuses((prev) => (data ? [data as Status, ...prev] : prev));
+
       return data as Status;
     } catch (error) {
       console.error('Erro ao criar status:', error);
@@ -155,6 +158,9 @@ export const useStatus = () => {
         description: "Status foi atualizado com sucesso.",
       });
 
+      // Atualização otimista da lista
+      setStatuses((prev) => (data ? prev.map((s) => (s.id === id ? (data as Status) : s)) : prev));
+
       return data as Status;
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
@@ -169,25 +175,87 @@ export const useStatus = () => {
 
   const deleteStatus = async (id: string): Promise<boolean> => {
     try {
+      if (!user?.id) return false;
+
+      // Buscar o registro para saber o nome e os tipos de aplicação
+      const { data: statusRecord, error: statusFetchError } = await supabase
+        .from('status')
+        .select('nome,tipo_aplicacao')
+        .eq('id', id)
+        .maybeSingle();
+
+      if (statusFetchError) throw statusFetchError;
+      if (!statusRecord) {
+        toast({
+          title: 'Aviso',
+          description: 'Status não encontrado.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // Verificações de consistência: tarefas e projetos que usam este status
+      let tasksCount = 0;
+      let projectsCount = 0;
+
+      // Se o status se aplica a tarefas, verificar tabela tasks
+      if (Array.isArray(statusRecord.tipo_aplicacao) && (statusRecord.tipo_aplicacao.includes('tarefa_projeto') || statusRecord.tipo_aplicacao.includes('tarefa_suporte'))) {
+        const { count, error: tasksErr } = await supabase
+          .from('tasks')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', statusRecord.nome);
+        if (tasksErr) throw tasksErr;
+        tasksCount = count ?? 0;
+      }
+
+      // Se o status se aplica a projetos, verificar tabela projects
+      if (Array.isArray(statusRecord.tipo_aplicacao) && statusRecord.tipo_aplicacao.includes('projeto')) {
+        const { count, error: projErr } = await supabase
+          .from('projects')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('status', statusRecord.nome);
+        if (projErr) throw projErr;
+        projectsCount = count ?? 0;
+      }
+
+      if (tasksCount > 0 || projectsCount > 0) {
+        const detalhes = [
+          tasksCount > 0 ? `${tasksCount} tarefa(s)` : null,
+          projectsCount > 0 ? `${projectsCount} projeto(s)` : null,
+        ].filter(Boolean).join(' e ');
+
+        toast({
+          title: 'Não é possível excluir',
+          description: `Este status está associado a ${detalhes}. Altere os registros antes de excluir.`,
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      // Pode excluir
       const { error } = await supabase
         .from('status')
         .delete()
         .eq('id', id);
-
       if (error) throw error;
 
+      // Atualização otimista
+      setStatuses((prev) => prev.filter((s) => s.id !== id));
+
       toast({
-        title: "Status excluído",
-        description: "Status foi excluído com sucesso.",
+        title: 'Status excluído',
+        description: 'Status foi excluído com sucesso.',
       });
 
       return true;
     } catch (error) {
       console.error('Erro ao excluir status:', error);
       toast({
-        title: "Erro",
-        description: "Não foi possível excluir o status.",
-        variant: "destructive",
+        title: 'Erro',
+        description: 'Não foi possível excluir o status.',
+        variant: 'destructive',
       });
       return false;
     }
