@@ -88,10 +88,12 @@ export default function TeamAddMembers() {
 
   const handleAdd = async () => {
     if (!teamId) return;
+    
     if (selectedIds.length === 0) {
       toast({ title: "Erro", description: "Selecione pelo menos um usuário", variant: "destructive" });
       return;
     }
+    
     if (!role) {
       toast({ title: "Erro", description: "Selecione um tipo de função", variant: "destructive" });
       return;
