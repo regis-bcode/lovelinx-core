@@ -536,16 +536,15 @@ function TeamManagementContent() {
                 </div>
 
                 <div>
-                  <Label>Projeto Vinculado</Label>
+                  <Label>Projeto Vinculado (opcional)</Label>
                   <Select 
-                    value={editTeamData.project_id} 
+                    value={editTeamData.project_id || undefined} 
                     onValueChange={(value) => setEditTeamData({ ...editTeamData, project_id: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecione um projeto (opcional)" />
+                      <SelectValue placeholder="Nenhum projeto vinculado" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
                       {projects.map(project => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.nome_projeto}
@@ -553,6 +552,16 @@ function TeamManagementContent() {
                       ))}
                     </SelectContent>
                   </Select>
+                  {editTeamData.project_id && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditTeamData({ ...editTeamData, project_id: "" })}
+                      className="mt-2 text-xs"
+                    >
+                      Remover projeto vinculado
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
