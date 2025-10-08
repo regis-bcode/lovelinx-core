@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, Users } from "lucide-react";
-import { TeamType } from "@/types/project-team";
+import { Plus, Trash2, Save, Users, Pencil } from "lucide-react";
+import { TeamType, MemberRoleType } from "@/types/project-team";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
 export default function TeamManagement() {
   const { teams, createTeam, deleteTeam, loading: teamsLoading } = useProjectTeams();
@@ -27,9 +28,13 @@ export default function TeamManagement() {
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedRoleType, setSelectedRoleType] = useState<MemberRoleType>("interno");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const [editingMember, setEditingMember] = useState<{ id: string; custo_hora_override?: number; role_type: MemberRoleType } | null>(null);
+  const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
 
-  const { members, addMember, removeMember, loading: membersLoading } = useTeamMembers(selectedTeam);
+  const { members, addMember, removeMember, updateMember, loading: membersLoading } = useTeamMembers(selectedTeam);
   
   // Todos os projetos por enquanto (filtro por tipo pode ser implementado futuramente)
   const filteredProjects = projects;
@@ -71,8 +76,31 @@ export default function TeamManagement() {
     await addMember({
       team_id: selectedTeam,
       user_id: selectedUserId,
+      role_type: selectedRoleType,
     });
     setSelectedUserId("");
+    setSelectedRoleType("interno");
+    setShowSuccessDialog(true);
+  };
+
+  const handleEditMember = async () => {
+    if (!editingMember) return;
+
+    await updateMember(editingMember.id, {
+      custo_hora_override: editingMember.custo_hora_override,
+      role_type: editingMember.role_type,
+    });
+    setEditingMember(null);
+    setShowEditMemberDialog(false);
+  };
+
+  const openEditMemberDialog = (member: any) => {
+    setEditingMember({
+      id: member.id,
+      custo_hora_override: member.custo_hora_override,
+      role_type: member.role_type,
+    });
+    setShowEditMemberDialog(true);
   };
 
   const handleRemoveMember = async (memberId: string) => {
@@ -227,6 +255,19 @@ export default function TeamManagement() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex-1">
+                  <Label>Tipo de Função</Label>
+                  <Select value={selectedRoleType} onValueChange={(v) => setSelectedRoleType(v as MemberRoleType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="interno">Interno</SelectItem>
+                      <SelectItem value="cliente">Cliente</SelectItem>
+                      <SelectItem value="parceiro">Parceiro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex items-end">
                   <Button onClick={handleAddMember} disabled={!selectedUserId}>
                     <Plus className="mr-2 h-4 w-4" />
@@ -240,6 +281,7 @@ export default function TeamManagement() {
                   <TableRow>
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
+                    <TableHead>Tipo de Função</TableHead>
                     <TableHead className="text-right">Custo/Hora</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -249,23 +291,39 @@ export default function TeamManagement() {
                     <TableRow key={member.id}>
                       <TableCell className="font-medium">{member.user?.nome_completo}</TableCell>
                       <TableCell>{member.user?.email}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">
+                          {member.role_type === 'interno' && 'Interno'}
+                          {member.role_type === 'cliente' && 'Cliente'}
+                          {member.role_type === 'parceiro' && 'Parceiro'}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="text-right">
                         R$ {(member.custo_hora_override ?? member.user?.custo_hora ?? 0).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveMember(member.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditMemberDialog(member)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                   {members.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
                         Nenhum membro na equipe
                       </TableCell>
                     </TableRow>
@@ -300,6 +358,86 @@ export default function TeamManagement() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Success Dialog */}
+          <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Membro Adicionado com Sucesso!</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Equipe: <span className="font-medium text-foreground">{currentTeam.nome}</span>
+                </p>
+                <div>
+                  <p className="text-sm font-medium mb-2">Membros da Equipe:</p>
+                  <div className="space-y-2">
+                    {members.map(member => (
+                      <div key={member.id} className="flex items-center justify-between p-2 border rounded">
+                        <div>
+                          <p className="font-medium">{member.user?.nome_completo}</p>
+                          <p className="text-sm text-muted-foreground">{member.user?.email}</p>
+                        </div>
+                        <Badge variant="outline">
+                          {member.role_type === 'interno' && 'Interno'}
+                          {member.role_type === 'cliente' && 'Cliente'}
+                          {member.role_type === 'parceiro' && 'Parceiro'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={() => setShowSuccessDialog(false)} className="w-full">
+                  Fechar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Edit Member Dialog */}
+          <Dialog open={showEditMemberDialog} onOpenChange={setShowEditMemberDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar Membro</DialogTitle>
+              </DialogHeader>
+              {editingMember && (
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tipo de Função</Label>
+                    <Select 
+                      value={editingMember.role_type} 
+                      onValueChange={(v) => setEditingMember({...editingMember, role_type: v as MemberRoleType})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="interno">Interno</SelectItem>
+                        <SelectItem value="cliente">Cliente</SelectItem>
+                        <SelectItem value="parceiro">Parceiro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Custo/Hora Override (opcional)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editingMember.custo_hora_override || ""}
+                      onChange={(e) => setEditingMember({
+                        ...editingMember, 
+                        custo_hora_override: e.target.value ? parseFloat(e.target.value) : undefined
+                      })}
+                      placeholder="Deixe vazio para usar o custo padrão"
+                    />
+                  </div>
+                  <Button onClick={handleEditMember} className="w-full">
+                    Salvar Alterações
+                  </Button>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </div>

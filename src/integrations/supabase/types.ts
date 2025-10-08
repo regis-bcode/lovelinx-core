@@ -1038,6 +1038,7 @@ export type Database = {
           created_at: string
           custo_hora_override: number | null
           id: string
+          role_type: Database["public"]["Enums"]["member_role_type"]
           team_id: string
           updated_at: string
           user_id: string
@@ -1046,6 +1047,7 @@ export type Database = {
           created_at?: string
           custo_hora_override?: number | null
           id?: string
+          role_type?: Database["public"]["Enums"]["member_role_type"]
           team_id: string
           updated_at?: string
           user_id: string
@@ -1054,6 +1056,7 @@ export type Database = {
           created_at?: string
           custo_hora_override?: number | null
           id?: string
+          role_type?: Database["public"]["Enums"]["member_role_type"]
           team_id?: string
           updated_at?: string
           user_id?: string
@@ -1330,6 +1333,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "gestor" | "usuario"
       approval_status: "pendente" | "aprovado" | "reprovado"
+      member_role_type: "interno" | "cliente" | "parceiro"
       profile_type: "visualizador" | "editor" | "administrador"
       team_type: "projeto" | "suporte"
       time_entry_type: "automatico" | "manual"
@@ -1472,6 +1476,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "gestor", "usuario"],
       approval_status: ["pendente", "aprovado", "reprovado"],
+      member_role_type: ["interno", "cliente", "parceiro"],
       profile_type: ["visualizador", "editor", "administrador"],
       team_type: ["projeto", "suporte"],
       time_entry_type: ["automatico", "manual"],

@@ -1,4 +1,5 @@
 export type TeamType = 'projeto' | 'suporte';
+export type MemberRoleType = 'interno' | 'cliente' | 'parceiro';
 
 export interface ProjectTeam {
   id: string;
@@ -16,6 +17,7 @@ export interface TeamMember {
   id: string;
   team_id: string;
   user_id: string;
+  role_type: MemberRoleType;
   custo_hora_override?: number;
   created_at: string;
   updated_at: string;
