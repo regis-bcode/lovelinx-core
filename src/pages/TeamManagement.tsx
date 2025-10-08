@@ -448,24 +448,22 @@ function TeamManagementContent() {
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => openEditMemberDialog(member)}
-                            title="Editar função"
-                            className="hover:bg-accent"
+                            title="Editar membro"
+                            className="h-8 w-8 hover:bg-accent"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          {isAdminOrGestor && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setMemberToDelete(member.id)}
-                              title="Remover membro"
-                              className="hover:bg-destructive/10 text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setMemberToDelete(member.id)}
+                            title="Excluir membro"
+                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
