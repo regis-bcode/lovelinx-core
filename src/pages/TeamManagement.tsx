@@ -247,7 +247,7 @@ function TeamManagementContent() {
   const selectedProjectData = projects.find(p => p.id === selectedProject);
 
   // Filtrar usuários disponíveis (que não estão na equipe)
-  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.user_id));
+  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.id));
 
   // Filtrar por busca
   const filteredUsers = availableUsers.filter(user => 
@@ -608,22 +608,22 @@ function TeamManagementContent() {
                       ) : (
                         <div className="space-y-2">
                           {filteredUsers.map((user) => {
-                            const isSelected = selectedUserIds.includes(user.user_id);
+                            const isSelected = selectedUserIds.includes(user.id);
                             return (
                               <div 
-                                key={user.user_id} 
+                                key={user.id} 
                                 className={`flex items-center space-x-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors ${
                                   isSelected ? 'bg-accent border border-primary' : ''
                                 }`}
-                                onClick={() => toggleUserSelection(user.user_id)}
+                                onClick={() => toggleUserSelection(user.id)}
                               >
                                 <Checkbox
-                                  id={`user-${user.user_id}`}
+                                  id={`user-${user.id}`}
                                   checked={isSelected}
-                                  onCheckedChange={() => toggleUserSelection(user.user_id)}
+                                  onCheckedChange={() => toggleUserSelection(user.id)}
                                 />
                                 <label
-                                  htmlFor={`user-${user.user_id}`}
+                                  htmlFor={`user-${user.id}`}
                                   className="flex-1 cursor-pointer"
                                 >
                                   <div>
