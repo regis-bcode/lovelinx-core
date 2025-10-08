@@ -56,6 +56,7 @@ function TeamManagementContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
   const [showEditTeamDialog, setShowEditTeamDialog] = useState(false);
+  const [showDeleteTeamDialog, setShowDeleteTeamDialog] = useState(false);
   const [editTeamData, setEditTeamData] = useState({
     nome: "",
     descricao: "",
@@ -193,19 +194,18 @@ function TeamManagementContent() {
     }
   };
 
-  const handleDeleteTeam = async () => {
+  const confirmDeleteTeam = async () => {
     if (!selectedTeam) return;
     
-    if (confirm("Deseja realmente excluir esta equipe?")) {
-      const success = await deleteTeam(selectedTeam);
-      if (success) {
-        setSelectedTeam("");
-        toast({
-          title: "Sucesso",
-          description: "Equipe excluída com sucesso",
-        });
-      }
+    const success = await deleteTeam(selectedTeam);
+    if (success) {
+      setSelectedTeam("");
+      toast({
+        title: "Sucesso",
+        description: "Equipe excluída com sucesso",
+      });
     }
+    setShowDeleteTeamDialog(false);
   };
 
   const openEditTeamDialog = () => {
@@ -392,7 +392,7 @@ function TeamManagementContent() {
                     Adicionar Membros
                   </Button>
                   {isAdminOrGestor && (
-                    <Button variant="destructive" onClick={handleDeleteTeam}>
+                    <Button variant="destructive" onClick={() => setShowDeleteTeamDialog(true)}>
                       <Trash2 className="mr-2 h-4 w-4" />
                       Excluir Equipe
                     </Button>
@@ -776,11 +776,11 @@ function TeamManagementContent() {
             </DialogContent>
           </Dialog>
 
-          {/* Alert Dialog for Delete Confirmation */}
+          {/* Alert Dialog for Delete Member Confirmation */}
           <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                <AlertDialogTitle>Confirmar Exclusão de Membro</AlertDialogTitle>
                 <AlertDialogDescription>
                   Deseja realmente remover este membro da equipe? Esta ação não pode ser desfeita.
                 </AlertDialogDescription>
@@ -789,6 +789,24 @@ function TeamManagementContent() {
                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
                 <AlertDialogAction onClick={confirmRemoveMember} className="bg-destructive hover:bg-destructive/90">
                   Remover
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          {/* Alert Dialog for Delete Team Confirmation */}
+          <AlertDialog open={showDeleteTeamDialog} onOpenChange={setShowDeleteTeamDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar Exclusão de Equipe</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Deseja realmente excluir toda a equipe "{currentTeam.nome}"? Todos os membros serão removidos e esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDeleteTeam} className="bg-destructive hover:bg-destructive/90">
+                  Excluir Equipe
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
