@@ -363,6 +363,57 @@ export type Database = {
         }
         Relationships: []
       }
+      project_teams: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          project_id: string | null
+          tap_id: string | null
+          tipo_equipe: Database["public"]["Enums"]["team_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          project_id?: string | null
+          tap_id?: string | null
+          tipo_equipe?: Database["public"]["Enums"]["team_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          project_id?: string | null
+          tap_id?: string | null
+          tipo_equipe?: Database["public"]["Enums"]["team_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_teams_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_teams_tap_id_fkey"
+            columns: ["tap_id"]
+            isOneToOne: false
+            referencedRelation: "tap"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           arquiteto: string
@@ -982,6 +1033,41 @@ export type Database = {
           },
         ]
       }
+      team_members: {
+        Row: {
+          created_at: string
+          custo_hora_override: number | null
+          id: string
+          team_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custo_hora_override?: number | null
+          id?: string
+          team_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custo_hora_override?: number | null
+          id?: string
+          team_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "project_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           ativo: boolean
@@ -1132,6 +1218,7 @@ export type Database = {
           client_id: string | null
           cpf: string
           created_at: string
+          custo_hora: number | null
           email: string
           id: string
           nome_completo: string
@@ -1148,6 +1235,7 @@ export type Database = {
           client_id?: string | null
           cpf: string
           created_at?: string
+          custo_hora?: number | null
           email: string
           id?: string
           nome_completo: string
@@ -1164,6 +1252,7 @@ export type Database = {
           client_id?: string | null
           cpf?: string
           created_at?: string
+          custo_hora?: number | null
           email?: string
           id?: string
           nome_completo?: string
@@ -1242,6 +1331,7 @@ export type Database = {
       app_role: "admin" | "gestor" | "usuario"
       approval_status: "pendente" | "aprovado" | "reprovado"
       profile_type: "visualizador" | "editor" | "administrador"
+      team_type: "projeto" | "suporte"
       time_entry_type: "automatico" | "manual"
       user_type:
         | "cliente"
@@ -1383,6 +1473,7 @@ export const Constants = {
       app_role: ["admin", "gestor", "usuario"],
       approval_status: ["pendente", "aprovado", "reprovado"],
       profile_type: ["visualizador", "editor", "administrador"],
+      team_type: ["projeto", "suporte"],
       time_entry_type: ["automatico", "manual"],
       user_type: [
         "cliente",

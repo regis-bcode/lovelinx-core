@@ -19,6 +19,7 @@ import Status from "./pages/Status";
 import Modulos from "./pages/Modulos";
 import Areas from "./pages/Areas";
 import Categorias from "./pages/Categorias";
+import TeamManagement from "./pages/TeamManagement";
 import NotFound from "./pages/NotFound";
 
 
@@ -123,7 +124,7 @@ function AppRoutes() {
         path="/team" 
         element={
           <ProtectedRoute>
-            <div className="p-6">Team page - Em desenvolvimento</div>
+            <TeamManagement />
           </ProtectedRoute>
         } 
       />

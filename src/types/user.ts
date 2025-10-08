@@ -22,6 +22,7 @@ export interface User {
   tipo_perfil: ProfileType;
   ativo: boolean;
   observacoes?: string;
+  custo_hora?: number;
   created_at: string;
   updated_at: string;
 }
