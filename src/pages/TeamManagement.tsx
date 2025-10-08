@@ -34,7 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 function TeamManagementContent() {
-  const { teams, createTeam, deleteTeam, loading: teamsLoading } = useProjectTeams();
+  const { teams, createTeam, deleteTeam, updateTeam, loading: teamsLoading } = useProjectTeams();
   const { users } = useUsers();
   const { projects } = useProjects();
   const { toast } = useToast();
@@ -55,6 +55,12 @@ function TeamManagementContent() {
   const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
+  const [showEditTeamDialog, setShowEditTeamDialog] = useState(false);
+  const [editTeamData, setEditTeamData] = useState({
+    nome: "",
+    descricao: "",
+    project_id: "",
+  });
 
   const { members, addMember, removeMember, updateMember, loading: membersLoading } = useTeamMembers(selectedTeam);
 
@@ -194,7 +200,46 @@ function TeamManagementContent() {
       const success = await deleteTeam(selectedTeam);
       if (success) {
         setSelectedTeam("");
+        toast({
+          title: "Sucesso",
+          description: "Equipe excluída com sucesso",
+        });
       }
+    }
+  };
+
+  const openEditTeamDialog = () => {
+    if (!currentTeam) return;
+    setEditTeamData({
+      nome: currentTeam.nome,
+      descricao: currentTeam.descricao || "",
+      project_id: currentTeam.project_id || "",
+    });
+    setShowEditTeamDialog(true);
+  };
+
+  const handleEditTeam = async () => {
+    if (!selectedTeam || !editTeamData.nome) {
+      toast({
+        title: "Erro",
+        description: "O nome da equipe é obrigatório",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const result = await updateTeam(selectedTeam, {
+      nome: editTeamData.nome,
+      descricao: editTeamData.descricao,
+      project_id: editTeamData.project_id || undefined,
+    });
+
+    if (result) {
+      toast({
+        title: "Sucesso",
+        description: "Equipe atualizada com sucesso",
+      });
+      setShowEditTeamDialog(false);
     }
   };
 
@@ -338,6 +383,10 @@ function TeamManagementContent() {
                   <CardDescription>{currentTeam.nome}</CardDescription>
                 </div>
                 <div className="flex gap-2">
+                  <Button variant="outline" onClick={openEditTeamDialog}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar Equipe
+                  </Button>
                   <Button onClick={openAddMembersDialog}>
                     <Plus className="mr-2 h-4 w-4" />
                     Adicionar Membros
@@ -442,6 +491,74 @@ function TeamManagementContent() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Edit Team Dialog */}
+          <Dialog open={showEditTeamDialog} onOpenChange={setShowEditTeamDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Editar Equipe</DialogTitle>
+                <DialogDescription>
+                  Atualize as informações da equipe
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome da Equipe *</Label>
+                  <Input
+                    value={editTeamData.nome}
+                    onChange={(e) => setEditTeamData({ ...editTeamData, nome: e.target.value })}
+                    placeholder="Ex: Equipe Desenvolvimento SPDM"
+                  />
+                </div>
+
+                <div>
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={editTeamData.descricao}
+                    onChange={(e) => setEditTeamData({ ...editTeamData, descricao: e.target.value })}
+                    placeholder="Descreva o propósito da equipe..."
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label>Projeto Vinculado</Label>
+                  <Select 
+                    value={editTeamData.project_id} 
+                    onValueChange={(value) => setEditTeamData({ ...editTeamData, project_id: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um projeto (opcional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Nenhum</SelectItem>
+                      {projects.map(project => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.nome_projeto}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEditTeamDialog(false)}
+                    className="flex-1"
+                  >
+                    Cancelar
+                  </Button>
+                  <Button 
+                    onClick={handleEditTeam}
+                    className="flex-1"
+                  >
+                    Salvar Alterações
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Add Members Dialog */}
           <Dialog open={showAddMembersDialog} onOpenChange={setShowAddMembersDialog}>
