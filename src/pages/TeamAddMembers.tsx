@@ -185,6 +185,25 @@ export default function TeamAddMembers() {
                 </p>
               )}
             </div>
+
+            {/* Botões de ação */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                onClick={handleCancel}
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleAdd} 
+                disabled={!selectedUsers || selectedUsers.length === 0 || !role}
+                className="flex-1"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Salvar e Adicionar {selectedUsers?.length > 0 ? `(${selectedUsers.length})` : ""}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
