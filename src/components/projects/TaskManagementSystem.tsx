@@ -6,12 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Settings, Download, Save, Trash2, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { Task } from '@/types/task';
 import { useTasks } from '@/hooks/useTasks';
 import { useTAP } from '@/hooks/useTAP';
 import { useStatus } from '@/hooks/useStatus';
+import { useModulos } from '@/hooks/useModulos';
+import { useAreas } from '@/hooks/useAreas';
+import { useCategorias } from '@/hooks/useCategorias';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -25,6 +29,9 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
   const { tasks, loading, createTask, updateTask, deleteTask } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
+  const { modulos, createModulo } = useModulos();
+  const { areas, createArea } = useAreas();
+  const { categorias, createCategoria } = useCategorias();
   const { toast } = useToast();
   
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
@@ -227,6 +234,60 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
           type="date"
           value={value as string || ''}
           onChange={(e) => updateCell(rowIndex, columnKey, e.target.value)}
+          className="h-8 text-xs"
+        />
+      );
+    }
+
+    if (columnKey === 'modulo') {
+      return (
+        <CreatableSelect
+          value={value as string || ''}
+          onValueChange={async (val) => {
+            // Se o valor não existe na lista, criar novo
+            if (!modulos.find(m => m.nome === val)) {
+              await createModulo(val);
+            }
+            updateCell(rowIndex, columnKey, val);
+          }}
+          options={modulos.map(m => m.nome)}
+          placeholder="Selecionar módulo..."
+          className="h-8 text-xs"
+        />
+      );
+    }
+
+    if (columnKey === 'area') {
+      return (
+        <CreatableSelect
+          value={value as string || ''}
+          onValueChange={async (val) => {
+            // Se o valor não existe na lista, criar novo
+            if (!areas.find(a => a.nome === val)) {
+              await createArea(val);
+            }
+            updateCell(rowIndex, columnKey, val);
+          }}
+          options={areas.map(a => a.nome)}
+          placeholder="Selecionar área..."
+          className="h-8 text-xs"
+        />
+      );
+    }
+
+    if (columnKey === 'categoria') {
+      return (
+        <CreatableSelect
+          value={value as string || ''}
+          onValueChange={async (val) => {
+            // Se o valor não existe na lista, criar nova
+            if (!categorias.find(c => c.nome === val)) {
+              await createCategoria(val);
+            }
+            updateCell(rowIndex, columnKey, val);
+          }}
+          options={categorias.map(c => c.nome)}
+          placeholder="Selecionar categoria..."
           className="h-8 text-xs"
         />
       );
