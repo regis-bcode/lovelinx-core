@@ -10,10 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MemberRoleType } from "@/types/project-team";
 import { Plus, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MultiSelect } from "primereact/multiselect";
-import "primereact/resources/themes/lara-light-indigo/theme.css";
-import "primereact/resources/primereact.min.css";
-import "primeicons/primeicons.css";
+import { MultiSelect as UsersMultiSelect } from "@/components/ui/multi-select";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -54,33 +51,11 @@ export default function TeamAddMembers() {
   // Formatar usuários para o MultiSelect
   const userOptions = useMemo(() => {
     return availableUsers.map((u) => ({
-      user_id: u.user_id,
-      name: u.nome_completo,
-      email: u.email,
+      value: u.user_id,
+      label: `${u.nome_completo} (${u.email})`,
     }));
   }, [availableUsers]);
 
-  // Template para cada item da lista
-  const userTemplate = (option: any) => {
-    return (
-      <div className="flex flex-col py-1">
-        <span className="font-medium text-sm">{option.name}</span>
-        <span className="text-xs text-muted-foreground">{option.email}</span>
-      </div>
-    );
-  };
-
-  // Footer do painel com contador
-  const panelFooterTemplate = () => {
-    const length = selectedIds.length;
-    return (
-      <div className="py-2 px-3 border-t">
-        <span className="text-sm font-medium">
-          {length} usuário{length !== 1 ? "s" : ""} selecionado{length !== 1 ? "s" : ""}
-        </span>
-      </div>
-    );
-  };
 
   const handleCancel = () => {
     navigate(`/team?teamId=${teamId}`);
@@ -142,21 +117,11 @@ export default function TeamAddMembers() {
             <div>
               <Label htmlFor="users-multiselect">Selecionar Usuários *</Label>
               <div className="mt-2">
-                <MultiSelect
-                  id="users-multiselect"
-                  value={selectedIds}
-                  options={userOptions}
-                  onChange={(e) => setSelectedIds(e.value)}
-                  optionLabel="name"
-                  optionValue="user_id"
+                <UsersMultiSelect
+                  options={availableUsers.length === 0 ? [] : userOptions}
+                  selected={selectedIds}
+                  onChange={setSelectedIds}
                   placeholder="Selecione usuários..."
-                  filter
-                  itemTemplate={userTemplate}
-                  panelFooterTemplate={panelFooterTemplate}
-                  display="chip"
-                  className="w-full"
-                  showClear
-                  disabled={availableUsers.length === 0}
                 />
               </div>
               {availableUsers.length === 0 && (
