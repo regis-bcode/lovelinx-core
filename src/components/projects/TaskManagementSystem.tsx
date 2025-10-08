@@ -16,6 +16,8 @@ import { useStatus } from '@/hooks/useStatus';
 import { useModulos } from '@/hooks/useModulos';
 import { useAreas } from '@/hooks/useAreas';
 import { useCategorias } from '@/hooks/useCategorias';
+import { useTimeLogs } from '@/hooks/useTimeLogs';
+import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 
@@ -32,6 +34,8 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
+  const { timeLogs, getTaskTotalTime } = useTimeLogs(projectId);
+  const { isGestor } = useUserRoles();
   const { toast } = useToast();
   
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
@@ -69,6 +73,7 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
     { key: 'responsavel', label: 'Responsável', width: '150px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
     { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
+    { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
     { key: 'modulo', label: 'Módulo', width: '150px' },
     { key: 'area', label: 'Área', width: '150px' },
     { key: 'categoria', label: 'Categoria', width: '150px' },
@@ -174,6 +179,14 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
 
     if (columnKey === 'task_id') {
       return <span className="text-xs text-muted-foreground">{row._isNew ? 'Novo' : String(value || '')}</span>;
+    }
+
+    if (columnKey === 'tempo_total') {
+      if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
+      const minutes = getTaskTotalTime(row.id);
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return <span className="text-xs">{hours}h {mins}m</span>;
     }
 
     if (columnKey === 'prioridade') {

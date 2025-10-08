@@ -12,6 +12,7 @@ import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
 import { TaskManagementSystem } from "@/components/projects/TaskManagementSystem";
 import { CustomFieldListManager } from "@/components/projects/CustomFieldListManager";
+import { TimeManagement } from "@/components/projects/TimeManagement";
 
 
 export default function ProjectDetails() {
@@ -82,7 +83,7 @@ export default function ProjectDetails() {
 
         {/* Tabs */}
         <Tabs defaultValue="tap" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 gap-1 h-auto">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 gap-1 h-auto">
             <TabsTrigger value="tap" className="text-xs p-2">
               <FileText className="h-3 w-3 mr-1" />
               <span className="hidden sm:inline">TAP</span>
@@ -94,6 +95,10 @@ export default function ProjectDetails() {
             <TabsTrigger value="tasks" className="text-xs p-2">
               <ClipboardList className="h-3 w-3 mr-1" />
               <span className="hidden sm:inline">Tarefas</span>
+            </TabsTrigger>
+            <TabsTrigger value="time" className="text-xs p-2">
+              <Calendar className="h-3 w-3 mr-1" />
+              <span className="hidden sm:inline">Tempo</span>
             </TabsTrigger>
             <TabsTrigger value="communication" className="text-xs p-2">
               <MessageCircle className="h-3 w-3 mr-1" />
@@ -138,6 +143,10 @@ export default function ProjectDetails() {
                 <TaskManagementSystem projectId={project.id} />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="time" className="space-y-4">
+            <TimeManagement projectId={project.id} />
           </TabsContent>
 
           <TabsContent value="communication" className="space-y-4">
