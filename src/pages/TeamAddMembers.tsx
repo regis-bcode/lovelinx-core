@@ -43,7 +43,7 @@ export default function TeamAddMembers() {
   const { users } = useUsers();
   const { members, addMember } = useTeamMembers(teamId || "");
 
-  const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [role, setRole] = useState<MemberRoleType | "">("");
 
   // Available users (not already in team)
@@ -72,7 +72,7 @@ export default function TeamAddMembers() {
 
   // Footer do painel com contador
   const panelFooterTemplate = () => {
-    const length = selectedUsers?.length || 0;
+    const length = selectedIds.length;
     return (
       <div className="py-2 px-3 border-t">
         <span className="text-sm font-medium">
@@ -88,7 +88,7 @@ export default function TeamAddMembers() {
 
   const handleAdd = async () => {
     if (!teamId) return;
-    if (!selectedUsers || selectedUsers.length === 0) {
+    if (selectedIds.length === 0) {
       toast({ title: "Erro", description: "Selecione pelo menos um usuário", variant: "destructive" });
       return;
     }
@@ -99,11 +99,11 @@ export default function TeamAddMembers() {
 
     try {
       await Promise.all(
-        selectedUsers.map((user) =>
-          addMember({ team_id: teamId, user_id: user.user_id, role_type: role as MemberRoleType })
+        selectedIds.map((userId) =>
+          addMember({ team_id: teamId, user_id: userId, role_type: role as MemberRoleType })
         )
       );
-      toast({ title: "Sucesso", description: `${selectedUsers.length} membro(s) adicionado(s)` });
+      toast({ title: "Sucesso", description: `${selectedIds.length} membro(s) adicionado(s)` });
       navigate(`/team?teamId=${teamId}`);
     } catch (e) {
       toast({ title: "Erro", description: "Não foi possível adicionar os membros", variant: "destructive" });
@@ -122,8 +122,8 @@ export default function TeamAddMembers() {
             <Button variant="outline" onClick={handleCancel}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
-            <Button onClick={handleAdd} disabled={!selectedUsers || selectedUsers.length === 0 || !role}>
-              <Plus className="mr-2 h-4 w-4" /> Adicionar {selectedUsers?.length > 0 ? `(${selectedUsers.length})` : ""}
+            <Button onClick={handleAdd} disabled={selectedIds.length === 0 || !role}>
+              <Plus className="mr-2 h-4 w-4" /> Adicionar {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
             </Button>
           </div>
         </header>
@@ -142,10 +142,11 @@ export default function TeamAddMembers() {
               <div className="mt-2">
                 <MultiSelect
                   id="users-multiselect"
-                  value={selectedUsers}
+                  value={selectedIds}
                   options={userOptions}
-                  onChange={(e) => setSelectedUsers(e.value)}
+                  onChange={(e) => setSelectedIds(e.value)}
                   optionLabel="name"
+                  optionValue="user_id"
                   placeholder="Selecione usuários..."
                   filter
                   itemTemplate={userTemplate}
@@ -169,7 +170,7 @@ export default function TeamAddMembers() {
               <Select value={role} onValueChange={(v) => setRole(v as MemberRoleType)}>
                 <SelectTrigger
                   id="role-select"
-                  className={!role && selectedUsers?.length > 0 ? "mt-2 border-destructive" : "mt-2"}
+                  className={!role && selectedIds.length > 0 ? "mt-2 border-destructive" : "mt-2"}
                 >
                   <SelectValue placeholder="Selecione uma função" />
                 </SelectTrigger>
@@ -179,7 +180,7 @@ export default function TeamAddMembers() {
                   <SelectItem value="parceiro">Parceiro</SelectItem>
                 </SelectContent>
               </Select>
-              {!role && selectedUsers?.length > 0 && (
+              {!role && selectedIds.length > 0 && (
                 <p className="text-xs text-destructive mt-1">
                   Selecione uma função antes de adicionar
                 </p>
@@ -197,11 +198,11 @@ export default function TeamAddMembers() {
               </Button>
               <Button 
                 onClick={handleAdd} 
-                disabled={!selectedUsers || selectedUsers.length === 0 || !role}
+                disabled={selectedIds.length === 0 || !role}
                 className="flex-1"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Salvar e Adicionar {selectedUsers?.length > 0 ? `(${selectedUsers.length})` : ""}
+                Salvar e Adicionar {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
               </Button>
             </div>
           </CardContent>
