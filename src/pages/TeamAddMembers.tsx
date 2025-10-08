@@ -128,89 +128,99 @@ export default function TeamAddMembers() {
               Adicione múltiplos membros preenchendo os campos da tabela
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[300px]">Usuário *</TableHead>
-                    <TableHead className="w-[200px]">Tipo de Função *</TableHead>
-                    <TableHead className="w-[180px]">Custo/Hora Override</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rows.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell>
-                        <Select 
-                          value={row.user_id} 
-                          onValueChange={(v) => updateRow(row.id, "user_id", v)}
-                        >
-                          <SelectTrigger className={!row.user_id ? "border-destructive" : ""}>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="grid grid-cols-[1fr_200px_150px_50px] gap-3 px-3 py-2 text-sm font-medium text-muted-foreground border-b">
+                <div>Usuário *</div>
+                <div>Tipo de Função *</div>
+                <div>Custo/Hora Override</div>
+                <div></div>
+              </div>
+              
+              {rows.map((row) => {
+                const selectedUser = availableUsers.find(u => u.user_id === row.user_id);
+                
+                return (
+                  <div key={row.id} className="grid grid-cols-[1fr_200px_150px_50px] gap-3 items-start p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                    <div className="space-y-1">
+                      <Select 
+                        value={row.user_id} 
+                        onValueChange={(v) => updateRow(row.id, "user_id", v)}
+                      >
+                        <SelectTrigger className={`h-auto min-h-[44px] ${!row.user_id ? "border-destructive" : ""}`}>
+                          {selectedUser ? (
+                            <div className="flex flex-col items-start text-left w-full">
+                              <span className="font-medium">{selectedUser.nome_completo}</span>
+                              <span className="text-xs text-muted-foreground">{selectedUser.email}</span>
+                            </div>
+                          ) : (
                             <SelectValue placeholder="Selecione um usuário" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableUsers.map((user) => (
-                              <SelectItem 
-                                key={user.user_id} 
-                                value={user.user_id}
-                                disabled={rows.some(r => r.id !== row.id && r.user_id === user.user_id)}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{user.nome_completo}</span>
-                                  <span className="text-xs text-muted-foreground">{user.email}</span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Select 
-                          value={row.role_type} 
-                          onValueChange={(v) => updateRow(row.id, "role_type", v)}
-                        >
-                          <SelectTrigger className={!row.role_type ? "border-destructive" : ""}>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="interno">Interno</SelectItem>
-                            <SelectItem value="cliente">Cliente</SelectItem>
-                            <SelectItem value="parceiro">Parceiro</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={row.custo_hora_override}
-                          onChange={(e) => updateRow(row.id, "custo_hora_override", e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeRow(row.id)}
-                          disabled={rows.length === 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          )}
+                        </SelectTrigger>
+                        <SelectContent className="z-50 bg-popover">
+                          {availableUsers.map((user) => (
+                            <SelectItem 
+                              key={user.user_id} 
+                              value={user.user_id}
+                              disabled={rows.some(r => r.id !== row.id && r.user_id === user.user_id)}
+                              className="py-3"
+                            >
+                              <div className="flex flex-col">
+                                <span className="font-medium">{user.nome_completo}</span>
+                                <span className="text-xs text-muted-foreground">{user.email}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Select 
+                        value={row.role_type} 
+                        onValueChange={(v) => updateRow(row.id, "role_type", v)}
+                      >
+                        <SelectTrigger className={!row.role_type ? "border-destructive" : ""}>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent className="z-50 bg-popover">
+                          <SelectItem value="interno">Interno</SelectItem>
+                          <SelectItem value="cliente">Cliente</SelectItem>
+                          <SelectItem value="parceiro">Parceiro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={row.custo_hora_override}
+                        onChange={(e) => updateRow(row.id, "custo_hora_override", e.target.value)}
+                        className="text-center"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeRow(row.id)}
+                        disabled={rows.length === 1}
+                        className="h-10 w-10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             
-            <div className="flex gap-3 mt-4">
-              <Button variant="outline" onClick={addRow}>
-                <Plus className="mr-2 h-4 w-4" /> Adicionar Linha
-              </Button>
-            </div>
+            <Button variant="outline" onClick={addRow} className="w-full">
+              <Plus className="mr-2 h-4 w-4" /> Adicionar Linha
+            </Button>
           </CardContent>
         </Card>
       </div>
