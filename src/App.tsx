@@ -16,6 +16,9 @@ import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import Services from "./pages/Services";
 import Status from "./pages/Status";
+import Modulos from "./pages/Modulos";
+import Areas from "./pages/Areas";
+import Categorias from "./pages/Categorias";
 import NotFound from "./pages/NotFound";
 
 
@@ -185,6 +188,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Status />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/modulos" 
+        element={
+          <ProtectedRoute>
+            <Modulos />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/areas" 
+        element={
+          <ProtectedRoute>
+            <Areas />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/categorias" 
+        element={
+          <ProtectedRoute>
+            <Categorias />
           </ProtectedRoute>
         } 
       />
