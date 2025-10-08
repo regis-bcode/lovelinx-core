@@ -247,7 +247,7 @@ function TeamManagementContent() {
   const selectedProjectData = projects.find(p => p.id === selectedProject);
 
   // Filtrar usuários disponíveis (que não estão na equipe)
-  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.id));
+  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.user_id));
 
   // Filtrar por busca
   const filteredUsers = availableUsers.filter(user => 
@@ -609,24 +609,24 @@ function TeamManagementContent() {
                         ) : (
                           <div className="space-y-2">
                             {filteredUsers.map((user) => {
-                              const isSelected = selectedUserIds.includes(user.id);
+                              const isSelected = selectedUserIds.includes(user.user_id);
                               return (
                                 <div 
-                                  key={user.id} 
+                                  key={user.user_id} 
                                   className={`flex items-start space-x-3 p-3 rounded-md hover:bg-accent transition-colors ${
                                     isSelected ? 'bg-accent border border-primary' : 'border border-transparent'
                                   }`}
                                 >
                                   <Checkbox
-                                    id={`user-${user.id}`}
+                                    id={`user-${user.user_id}`}
                                     checked={isSelected}
-                                    onCheckedChange={() => toggleUserSelection(user.id)}
+                                    onCheckedChange={() => toggleUserSelection(user.user_id)}
                                     className="mt-1"
                                   />
                                   <label
-                                    htmlFor={`user-${user.id}`}
+                                    htmlFor={`user-${user.user_id}`}
                                     className="flex-1 cursor-pointer"
-                                    onClick={() => toggleUserSelection(user.id)}
+                                    onClick={() => toggleUserSelection(user.user_id)}
                                   >
                                     <div>
                                       <p className="text-sm font-medium">{user.nome_completo}</p>
