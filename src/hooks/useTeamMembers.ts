@@ -160,6 +160,8 @@ export function useTeamMembers(teamId?: string) {
         description: "Membro removido com sucesso",
       });
 
+      // Recarrega a lista imediatamente para refletir a remoção
+      await loadMembers();
       return true;
     } catch (error) {
       console.error('Erro ao remover membro:', error);
