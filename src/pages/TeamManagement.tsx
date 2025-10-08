@@ -17,7 +17,6 @@ import { TeamType, MemberRoleType } from "@/types/project-team";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { MultiSelect, Option } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -31,6 +30,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function TeamManagementContent() {
   const { teams, createTeam, deleteTeam, loading: teamsLoading } = useProjectTeams();
@@ -183,13 +184,17 @@ function TeamManagementContent() {
   const currentTeam = teams.find(t => t.id === selectedTeam);
   const selectedProjectData = projects.find(p => p.id === selectedProject);
 
-  // Preparar opções para o multi-select
-  const userOptions: Option[] = users
-    .filter(u => !members.find(m => m.user_id === u.user_id))
-    .map(user => ({
-      value: user.user_id,
-      label: user.nome_completo,
-    }));
+  // Filtrar usuários disponíveis (que não estão na equipe)
+  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.user_id));
+
+  // Função para toggle de checkbox
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) 
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -311,13 +316,37 @@ function TeamManagementContent() {
               <div className="space-y-4">
                 <div>
                   <Label>Selecionar Membros</Label>
-                  <MultiSelect
-                    options={userOptions}
-                    selected={selectedUserIds}
-                    onChange={setSelectedUserIds}
-                    placeholder="Selecione um ou mais usuários..."
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="border rounded-md p-4 mt-2">
+                    <ScrollArea className="h-[200px]">
+                      {availableUsers.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Todos os usuários já foram adicionados à equipe
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {availableUsers.map((user) => (
+                            <div key={user.user_id} className="flex items-center space-x-3">
+                              <Checkbox
+                                id={`user-${user.user_id}`}
+                                checked={selectedUserIds.includes(user.user_id)}
+                                onCheckedChange={() => toggleUserSelection(user.user_id)}
+                              />
+                              <label
+                                htmlFor={`user-${user.user_id}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                              >
+                                <div>
+                                  <p>{user.nome_completo}</p>
+                                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                                </div>
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
                     {selectedUserIds.length > 0 
                       ? `${selectedUserIds.length} usuário(s) selecionado(s)`
                       : "Nenhum usuário selecionado"}
