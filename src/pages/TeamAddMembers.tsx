@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MemberRoleType } from "@/types/project-team";
 import { Plus, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MultiSelect as UsersMultiSelect } from "@/components/ui/multi-select";
+import { MultiSelect } from "primereact/multiselect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 export default function TeamAddMembers() {
@@ -63,13 +63,38 @@ export default function TeamAddMembers() {
     return users.filter((u) => !members.find((m) => m.user_id === u.user_id));
   }, [users, members]);
 
-  // Formatar usuários para o MultiSelect
+  // Formatar usuários para o PrimeReact MultiSelect
   const userOptions = useMemo(() => {
     return availableUsers.map((u) => ({
-      value: u.user_id,
-      label: `${u.nome_completo} (${u.email})`,
+      user_id: u.user_id,
+      name: u.nome_completo,
+      email: u.email,
     }));
   }, [availableUsers]);
+
+  // Template para exibir cada usuário na lista
+  const userTemplate = (option: { user_id: string; name: string; email: string }) => {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="flex flex-col">
+          <span className="font-medium">{option.name}</span>
+          <span className="text-xs text-muted-foreground">{option.email}</span>
+        </div>
+      </div>
+    );
+  };
+
+  // Template para o footer do painel
+  const panelFooterTemplate = () => {
+    const selectedCount = tempSelectedIds.length;
+    return (
+      <div className="py-2 px-3 border-t">
+        <span className="text-sm text-muted-foreground">
+          {selectedCount} usuário(s) selecionado(s)
+        </span>
+      </div>
+    );
+  };
 
 
   const handleCancel = () => {
@@ -152,11 +177,19 @@ export default function TeamAddMembers() {
                     <DialogDescription>Busque e selecione um ou mais usuários. Clique em salvar para confirmar.</DialogDescription>
                   </DialogHeader>
                   <div className="mt-2">
-                    <UsersMultiSelect
-                      options={availableUsers.length === 0 ? [] : userOptions}
-                      selected={tempSelectedIds}
-                      onChange={setTempSelectedIds}
-                      placeholder="Digite para buscar e adicionar..."
+                    <MultiSelect
+                      value={tempSelectedIds}
+                      options={userOptions}
+                      onChange={(e) => setTempSelectedIds(e.value)}
+                      optionLabel="name"
+                      optionValue="user_id"
+                      placeholder="Selecione usuários..."
+                      itemTemplate={userTemplate}
+                      panelFooterTemplate={panelFooterTemplate}
+                      className="w-full"
+                      display="chip"
+                      filter
+                      filterPlaceholder="Buscar usuários..."
                     />
                   </div>
                   <DialogFooter className="mt-4">
