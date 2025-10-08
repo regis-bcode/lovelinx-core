@@ -613,19 +613,20 @@ function TeamManagementContent() {
                               return (
                                 <div 
                                   key={user.id} 
-                                  className={`flex items-center space-x-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors ${
-                                    isSelected ? 'bg-accent border border-primary' : ''
+                                  className={`flex items-start space-x-3 p-3 rounded-md hover:bg-accent transition-colors ${
+                                    isSelected ? 'bg-accent border border-primary' : 'border border-transparent'
                                   }`}
-                                  onClick={() => toggleUserSelection(user.id)}
                                 >
                                   <Checkbox
                                     id={`user-${user.id}`}
                                     checked={isSelected}
                                     onCheckedChange={() => toggleUserSelection(user.id)}
+                                    className="mt-1"
                                   />
                                   <label
                                     htmlFor={`user-${user.id}`}
                                     className="flex-1 cursor-pointer"
+                                    onClick={() => toggleUserSelection(user.id)}
                                   >
                                     <div>
                                       <p className="text-sm font-medium">{user.nome_completo}</p>
