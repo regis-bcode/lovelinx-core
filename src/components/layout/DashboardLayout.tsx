@@ -12,12 +12,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex min-h-screen w-full bg-gradient-to-br from-background via-background to-muted/5">
         <AppSidebar />
         
-        <div className="flex flex-col flex-1">
+        <div className="flex flex-col flex-1 min-w-0">
           <header className="h-14 flex items-center border-b bg-background/80 backdrop-blur-sm px-4">
             <AppHeader />
           </header>
           
-          <main className="flex-1 overflow-y-auto bg-gradient-to-b from-background to-muted/5">
+          <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gradient-to-b from-background to-muted/5">
             <div className="container mx-auto p-6 max-w-7xl">
               {children}
             </div>

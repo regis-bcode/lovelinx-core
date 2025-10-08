@@ -287,7 +287,7 @@ function TeamManagementContent() {
     navigate(`/team/${selectedTeam}/add-members`);
   };
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6 max-w-full overflow-hidden">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Gestão de Equipes</h1>
@@ -451,6 +451,7 @@ function TeamManagementContent() {
                             size="sm"
                             onClick={() => openEditMemberDialog(member)}
                             title="Editar função"
+                            className="hover:bg-accent"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -460,8 +461,9 @@ function TeamManagementContent() {
                               size="sm"
                               onClick={() => setMemberToDelete(member.id)}
                               title="Remover membro"
+                              className="hover:bg-destructive/10 text-destructive hover:text-destructive"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
