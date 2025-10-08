@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -39,6 +40,8 @@ function TeamManagementContent() {
   const { projects } = useProjects();
   const { toast } = useToast();
   const { userRoles } = useUserRoles();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [tipoEquipe, setTipoEquipe] = useState<TeamType>("projeto");
@@ -64,6 +67,13 @@ function TeamManagementContent() {
   });
 
   const { members, addMember, removeMember, updateMember, loading: membersLoading } = useTeamMembers(selectedTeam);
+
+  // Preseleciona equipe via query param
+  useEffect(() => {
+    const tid = searchParams.get("teamId");
+    if (tid) setSelectedTeam(tid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Verificar se o usuário é admin ou gestor
   const isAdminOrGestor = userRoles.includes('admin') || userRoles.includes('gestor');
@@ -264,14 +274,18 @@ function TeamManagementContent() {
     );
   };
 
-  // Abrir modal de adicionar membros
+  // Abrir tela de adicionar membros
   const openAddMembersDialog = () => {
-    setSelectedUserIds([]);
-    setSelectedRoleType("");
-    setSearchQuery("");
-    setShowAddMembersDialog(true);
+    if (!selectedTeam) {
+      toast({
+        title: "Erro",
+        description: "Selecione uma equipe antes de adicionar membros",
+        variant: "destructive",
+      });
+      return;
+    }
+    navigate(`/team/${selectedTeam}/add-members`);
   };
-
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">

@@ -20,6 +20,7 @@ import Modulos from "./pages/Modulos";
 import Areas from "./pages/Areas";
 import Categorias from "./pages/Categorias";
 import TeamManagement from "./pages/TeamManagement";
+import TeamAddMembers from "./pages/TeamAddMembers";
 import NotFound from "./pages/NotFound";
 
 
@@ -125,6 +126,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TeamManagement />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/team/:teamId/add-members" 
+        element={
+          <ProtectedRoute>
+            <TeamAddMembers />
           </ProtectedRoute>
         } 
       />
