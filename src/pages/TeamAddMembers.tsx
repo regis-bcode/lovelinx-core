@@ -11,6 +11,7 @@ import { MemberRoleType } from "@/types/project-team";
 import { Plus, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MultiSelect as UsersMultiSelect } from "@/components/ui/multi-select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -42,6 +43,20 @@ export default function TeamAddMembers() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [role, setRole] = useState<MemberRoleType | "">("");
+
+  // Popup de seleção
+  const [selectDialogOpen, setSelectDialogOpen] = useState(false);
+  const [tempSelectedIds, setTempSelectedIds] = useState<string[]>([]);
+
+  const openSelectDialog = () => {
+    setTempSelectedIds(selectedIds);
+    setSelectDialogOpen(true);
+  };
+
+  const confirmSelectDialog = () => {
+    setSelectedIds(tempSelectedIds);
+    setSelectDialogOpen(false);
+  };
 
   // Available users (not already in team)
   const availableUsers = useMemo(() => {
@@ -113,22 +128,47 @@ export default function TeamAddMembers() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* PrimeReact MultiSelect */}
+            {/* Seleção via Popup */}
             <div>
               <Label htmlFor="users-multiselect">Selecionar Usuários *</Label>
-              <div className="mt-2">
-                <UsersMultiSelect
-                  options={availableUsers.length === 0 ? [] : userOptions}
-                  selected={selectedIds}
-                  onChange={setSelectedIds}
-                  placeholder="Selecione usuários..."
-                />
+              <div className="mt-2 flex items-center gap-2">
+                <Button variant="outline" onClick={openSelectDialog} id="users-multiselect">
+                  Selecionar usuários
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  {selectedIds.length} usuário(s) selecionado(s)
+                </span>
               </div>
               {availableUsers.length === 0 && (
                 <p className="text-xs text-muted-foreground mt-2">
                   Todos os usuários já foram adicionados à equipe
                 </p>
               )}
+
+              <Dialog open={selectDialogOpen} onOpenChange={setSelectDialogOpen}>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Selecionar usuários</DialogTitle>
+                    <DialogDescription>Busque e selecione um ou mais usuários. Clique em salvar para confirmar.</DialogDescription>
+                  </DialogHeader>
+                  <div className="mt-2">
+                    <UsersMultiSelect
+                      options={availableUsers.length === 0 ? [] : userOptions}
+                      selected={tempSelectedIds}
+                      onChange={setTempSelectedIds}
+                      placeholder="Digite para buscar e adicionar..."
+                    />
+                  </div>
+                  <DialogFooter className="mt-4">
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancelar</Button>
+                    </DialogClose>
+                    <Button onClick={confirmSelectDialog} disabled={tempSelectedIds.length === 0}>
+                      Salvar seleção
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Tipo de função */}
