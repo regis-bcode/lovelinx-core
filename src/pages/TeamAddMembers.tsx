@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { useUsers } from "@/hooks/useUsers";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useToast } from "@/hooks/use-toast";
 import { MemberRoleType } from "@/types/project-team";
 import { Plus, ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -41,7 +40,6 @@ export default function TeamAddMembers() {
   const { users } = useUsers();
   const { members, addMember } = useTeamMembers(teamId || "");
 
-  const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [role, setRole] = useState<MemberRoleType | "">("");
 
@@ -50,17 +48,13 @@ export default function TeamAddMembers() {
     return users.filter((u) => !members.find((m) => m.user_id === u.user_id));
   }, [users, members]);
 
-  // Filter by name or email
-  const filteredUsers = useMemo(() => {
-    const q = search.toLowerCase();
-    return availableUsers.filter(
-      (u) => u.nome_completo.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-    );
-  }, [availableUsers, search]);
-
-  const toggle = (id: string) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
-  };
+  // Opções para o MultiSelect
+  const userOptions = useMemo(() => {
+    return availableUsers.map((u) => ({
+      value: u.user_id,
+      label: `${u.nome_completo} (${u.email})`,
+    }));
+  }, [availableUsers]);
 
   const handleCancel = () => {
     navigate(`/team?teamId=${teamId}`);
@@ -96,93 +90,68 @@ export default function TeamAddMembers() {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Adicionar Membros à Equipe</h1>
-            <p className="text-muted-foreground">Busque, selecione e defina a função antes de adicionar</p>
+            <p className="text-muted-foreground">Selecione múltiplos usuários e defina a função</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleCancel}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
             <Button onClick={handleAdd} disabled={selectedIds.length === 0 || !role}>
-              <Plus className="mr-2 h-4 w-4" /> Adicionar Selecionados
+              <Plus className="mr-2 h-4 w-4" /> Adicionar {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
             </Button>
           </div>
         </header>
 
-        <section className="grid gap-6">
-          {/* Busca */}
-          <div>
-            <Label htmlFor="user-search">Buscar Usuário</Label>
-            <Input
-              id="user-search"
-              placeholder="Buscar por nome ou e-mail..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="mt-2"
-            />
-          </div>
-
-          {/* Lista de usuários */}
-          <div>
-            <Label className="mb-2 block">Selecionar Usuários</Label>
-            <div className="border rounded-md">
-              <ScrollArea className="h-[420px]">
-                <div className="p-4 space-y-2">
-                  {availableUsers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      Todos os usuários já estão na equipe
-                    </p>
-                  ) : filteredUsers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-8">
-                      Nenhum usuário encontrado com "{search}"
-                    </p>
-                  ) : (
-                    filteredUsers.map((u) => {
-                      const checked = selectedIds.includes(u.user_id);
-                      return (
-                        <div
-                          key={u.user_id}
-                          className={`flex items-start gap-3 p-3 rounded-md hover:bg-accent transition-colors ${
-                            checked ? "bg-accent border border-primary" : "border border-transparent"
-                          }`}
-                        >
-                          <Checkbox
-                            id={`u-${u.user_id}`}
-                            checked={checked}
-                            onCheckedChange={() => toggle(u.user_id)}
-                            className="mt-1"
-                          />
-                          <label
-                            htmlFor={`u-${u.user_id}`}
-                            onClick={() => toggle(u.user_id)}
-                            className="flex-1 cursor-pointer"
-                          >
-                            <p className="text-sm font-medium">{u.nome_completo}</p>
-                            <p className="text-xs text-muted-foreground">{u.email}</p>
-                          </label>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </ScrollArea>
+        <Card>
+          <CardHeader>
+            <CardTitle>Seleção de Membros</CardTitle>
+            <CardDescription>
+              Use o dropdown para buscar e selecionar um ou mais usuários aleatoriamente
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Multi-select dropdown */}
+            <div>
+              <Label htmlFor="members-select">Selecionar Usuários *</Label>
+              <div className="mt-2">
+                <MultiSelect
+                  options={userOptions}
+                  selected={selectedIds}
+                  onChange={setSelectedIds}
+                  placeholder="Busque e selecione usuários..."
+                />
+              </div>
+              {availableUsers.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Todos os usuários já foram adicionados à equipe
+                </p>
+              )}
             </div>
-          </div>
 
-          {/* Tipo de função */}
-          <div>
-            <Label>Tipo de Função *</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as MemberRoleType)}>
-              <SelectTrigger className={!role ? "mt-2 border-destructive" : "mt-2"}>
-                <SelectValue placeholder="Selecione uma função" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="interno">Interno</SelectItem>
-                <SelectItem value="cliente">Cliente</SelectItem>
-                <SelectItem value="parceiro">Parceiro</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </section>
+            {/* Tipo de função */}
+            <div>
+              <Label htmlFor="role-select">Tipo de Função *</Label>
+              <Select value={role} onValueChange={(v) => setRole(v as MemberRoleType)}>
+                <SelectTrigger 
+                  id="role-select"
+                  className={!role && selectedIds.length > 0 ? "mt-2 border-destructive" : "mt-2"}
+                >
+                  <SelectValue placeholder="Selecione uma função" />
+                </SelectTrigger>
+                <SelectContent className="z-50 bg-popover">
+                  <SelectItem value="interno">Interno</SelectItem>
+                  <SelectItem value="cliente">Cliente</SelectItem>
+                  <SelectItem value="parceiro">Parceiro</SelectItem>
+                </SelectContent>
+              </Select>
+              {!role && selectedIds.length > 0 && (
+                <p className="text-xs text-destructive mt-1">
+                  Selecione uma função antes de adicionar
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );
