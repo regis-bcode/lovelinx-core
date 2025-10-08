@@ -10,11 +10,8 @@ import { useToast } from "@/hooks/use-toast";
 import { MemberRoleType } from "@/types/project-team";
 import { Plus, ArrowLeft } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MultiSelect } from "primereact/multiselect";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Search } from "lucide-react";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -50,11 +47,9 @@ export default function TeamAddMembers() {
   // Popup de seleção
   const [selectDialogOpen, setSelectDialogOpen] = useState(false);
   const [tempSelectedIds, setTempSelectedIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
 
   const openSelectDialog = () => {
     setTempSelectedIds(selectedIds);
-    setSearchQuery("");
     setSelectDialogOpen(true);
   };
 
@@ -63,29 +58,34 @@ export default function TeamAddMembers() {
     setSelectDialogOpen(false);
   };
 
-  const toggleUserSelection = (userId: string) => {
-    setTempSelectedIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((id) => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
   // Available users (not already in team)
   const availableUsers = useMemo(() => {
     return users.filter((u) => !members.find((m) => m.user_id === u.user_id));
   }, [users, members]);
 
-  // Filtrar usuários baseado na busca
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return availableUsers;
-    const query = searchQuery.toLowerCase();
-    return availableUsers.filter(
-      (u) =>
-        u.nome_completo.toLowerCase().includes(query) ||
-        u.email.toLowerCase().includes(query)
-    );
-  }, [availableUsers, searchQuery]);
+  // Opções para o PrimeReact MultiSelect
+  const userOptions = useMemo(() => {
+    return availableUsers.map((u) => ({
+      user_id: u.user_id,
+      name: u.nome_completo,
+      email: u.email,
+    }));
+  }, [availableUsers]);
+
+  const itemTemplate = (option: { user_id: string; name: string; email: string }) => (
+    <div className="flex flex-col">
+      <span className="font-medium">{option.name}</span>
+      <span className="text-xs text-muted-foreground">{option.email}</span>
+    </div>
+  );
+
+  const footerTemplate = () => (
+    <div className="py-2 px-3 border-t">
+      <span className="text-sm text-muted-foreground">
+        {tempSelectedIds.length} usuário(s) selecionado(s)
+      </span>
+    </div>
+  );
 
 
   const handleCancel = () => {
@@ -170,66 +170,30 @@ export default function TeamAddMembers() {
                     </DialogDescription>
                   </DialogHeader>
 
-                  <div className="space-y-4">
-                    {/* Campo de busca */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Buscar por nome ou email..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-
-                    {/* Lista de usuários */}
-                    <ScrollArea className="h-[300px] rounded-md border">
-                      <div className="p-4 space-y-2">
-                        {filteredUsers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Nenhum usuário encontrado
-                          </p>
-                        ) : (
-                          filteredUsers.map((user) => {
-                            const checkboxId = `user-${user.user_id}`;
-                            const isChecked = tempSelectedIds.includes(user.user_id);
-                            return (
-                              <div
-                                key={user.user_id}
-                                className="flex items-start space-x-3 rounded-lg p-3 hover:bg-accent transition-colors"
-                              >
-                                <Checkbox
-                                  id={checkboxId}
-                                  checked={isChecked}
-                                  onCheckedChange={(checked) => {
-                                    const next = checked === true;
-                                    setTempSelectedIds((prev) =>
-                                      next
-                                        ? prev.includes(user.user_id)
-                                          ? prev
-                                          : [...prev, user.user_id]
-                                        : prev.filter((id) => id !== user.user_id)
-                                    );
-                                  }}
-                                  className="mt-0.5"
-                                />
-                                <label htmlFor={checkboxId} className="flex-1 cursor-pointer space-y-0.5">
-                                  <p className="text-sm font-medium leading-none">{user.nome_completo}</p>
-                                  <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </label>
-                              </div>
-                            );
-                          })
-                        )}
-                      </div>
-                    </ScrollArea>
+                  <div className="mt-2">
+                    <MultiSelect
+                      value={tempSelectedIds}
+                      options={userOptions}
+                      onChange={(e) => setTempSelectedIds(e.value || [])}
+                      optionLabel="name"
+                      optionValue="user_id"
+                      placeholder="Selecione usuários..."
+                      itemTemplate={itemTemplate}
+                      panelFooterTemplate={footerTemplate}
+                      display="chip"
+                      filter
+                      filterBy="name,email"
+                      className="w-full"
+                      panelClassName="z-50 bg-popover"
+                      appendTo={typeof document !== 'undefined' ? document.body : undefined}
+                    />
                   </div>
 
-                  <DialogFooter>
+                  <DialogFooter className="mt-4">
                     <DialogClose asChild>
                       <Button variant="outline">Cancelar</Button>
                     </DialogClose>
-                    <Button onClick={confirmSelectDialog}>
+                    <Button onClick={confirmSelectDialog} disabled={tempSelectedIds.length === 0}>
                       Salvar seleção ({tempSelectedIds.length})
                     </Button>
                   </DialogFooter>
