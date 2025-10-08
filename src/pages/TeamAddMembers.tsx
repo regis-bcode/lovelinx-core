@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUsers } from "@/hooks/useUsers";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useToast } from "@/hooks/use-toast";
 import { MemberRoleType } from "@/types/project-team";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MultiSelect } from "primereact/multiselect";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -41,51 +40,35 @@ export default function TeamAddMembers() {
   const { users } = useUsers();
   const { members, addMember } = useTeamMembers(teamId || "");
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [role, setRole] = useState<MemberRoleType | "">("");
+  interface MemberRow {
+    id: string;
+    user_id: string;
+    role_type: MemberRoleType | "";
+    custo_hora_override: string;
+  }
 
-  // Popup de seleção
-  const [selectDialogOpen, setSelectDialogOpen] = useState(false);
-  const [tempSelectedIds, setTempSelectedIds] = useState<string[]>([]);
-
-  const openSelectDialog = () => {
-    setTempSelectedIds(selectedIds);
-    setSelectDialogOpen(true);
-  };
-
-  const confirmSelectDialog = () => {
-    setSelectedIds(tempSelectedIds);
-    setSelectDialogOpen(false);
-  };
+  const [rows, setRows] = useState<MemberRow[]>([
+    { id: crypto.randomUUID(), user_id: "", role_type: "", custo_hora_override: "" }
+  ]);
 
   // Available users (not already in team)
   const availableUsers = useMemo(() => {
     return users.filter((u) => !members.find((m) => m.user_id === u.user_id));
   }, [users, members]);
 
-  // Opções para o PrimeReact MultiSelect
-  const userOptions = useMemo(() => {
-    return availableUsers.map((u) => ({
-      user_id: u.user_id,
-      name: u.nome_completo,
-      email: u.email,
-    }));
-  }, [availableUsers]);
+  const addRow = () => {
+    setRows([...rows, { id: crypto.randomUUID(), user_id: "", role_type: "", custo_hora_override: "" }]);
+  };
 
-  const itemTemplate = (option: { user_id: string; name: string; email: string }) => (
-    <div className="flex flex-col">
-      <span className="font-medium">{option.name}</span>
-      <span className="text-xs text-muted-foreground">{option.email}</span>
-    </div>
-  );
+  const removeRow = (id: string) => {
+    if (rows.length > 1) {
+      setRows(rows.filter(r => r.id !== id));
+    }
+  };
 
-  const footerTemplate = () => (
-    <div className="py-2 px-3 border-t">
-      <span className="text-sm text-muted-foreground">
-        {tempSelectedIds.length} usuário(s) selecionado(s)
-      </span>
-    </div>
-  );
+  const updateRow = (id: string, field: keyof MemberRow, value: string) => {
+    setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
+  };
 
 
   const handleCancel = () => {
@@ -95,23 +78,25 @@ export default function TeamAddMembers() {
   const handleAdd = async () => {
     if (!teamId) return;
     
-    if (selectedIds.length === 0) {
-      toast({ title: "Erro", description: "Selecione pelo menos um usuário", variant: "destructive" });
-      return;
-    }
+    const validRows = rows.filter(r => r.user_id && r.role_type);
     
-    if (!role) {
-      toast({ title: "Erro", description: "Selecione um tipo de função", variant: "destructive" });
+    if (validRows.length === 0) {
+      toast({ title: "Erro", description: "Preencha pelo menos uma linha completa", variant: "destructive" });
       return;
     }
 
     try {
       await Promise.all(
-        selectedIds.map((userId) =>
-          addMember({ team_id: teamId, user_id: userId, role_type: role as MemberRoleType })
+        validRows.map((row) =>
+          addMember({ 
+            team_id: teamId, 
+            user_id: row.user_id, 
+            role_type: row.role_type as MemberRoleType,
+            custo_hora_override: row.custo_hora_override ? parseFloat(row.custo_hora_override) : undefined
+          })
         )
       );
-      toast({ title: "Sucesso", description: `${selectedIds.length} membro(s) adicionado(s)` });
+      toast({ title: "Sucesso", description: `${validRows.length} membro(s) adicionado(s)` });
       navigate(`/team?teamId=${teamId}`);
     } catch (e) {
       toast({ title: "Erro", description: "Não foi possível adicionar os membros", variant: "destructive" });
@@ -124,122 +109,106 @@ export default function TeamAddMembers() {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold">Adicionar Membros à Equipe</h1>
-            <p className="text-muted-foreground">Selecione múltiplos usuários e defina a função</p>
+            <p className="text-muted-foreground">Preencha a tabela com os dados dos membros</p>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={handleCancel}>
               <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
-            <Button onClick={handleAdd} disabled={selectedIds.length === 0 || !role}>
-              <Plus className="mr-2 h-4 w-4" /> Adicionar {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
+            <Button onClick={handleAdd}>
+              <Plus className="mr-2 h-4 w-4" /> Salvar e Adicionar
             </Button>
           </div>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Seleção de Membros</CardTitle>
+            <CardTitle>Membros da Equipe</CardTitle>
             <CardDescription>
-              Busque e selecione um ou mais usuários da lista
+              Adicione múltiplos membros preenchendo os campos da tabela
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Seleção via Popup */}
-            <div>
-              <Label htmlFor="users-multiselect">Selecionar Usuários *</Label>
-              <div className="mt-2 flex items-center gap-2">
-                <Button variant="outline" onClick={openSelectDialog} id="users-multiselect">
-                  Selecionar usuários
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  {selectedIds.length} usuário(s) selecionado(s)
-                </span>
-              </div>
-              {availableUsers.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Todos os usuários já foram adicionados à equipe
-                </p>
-              )}
-
-              <Dialog open={selectDialogOpen} onOpenChange={setSelectDialogOpen}>
-                <DialogContent className="sm:max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Selecionar usuários</DialogTitle>
-                    <DialogDescription>
-                      Busque e selecione um ou mais usuários. {tempSelectedIds.length} selecionado(s).
-                    </DialogDescription>
-                  </DialogHeader>
-
-                  <div className="mt-2">
-                    <MultiSelect
-                      value={tempSelectedIds}
-                      options={userOptions}
-                      onChange={(e) => setTempSelectedIds(e.value || [])}
-                      optionLabel="name"
-                      optionValue="user_id"
-                      placeholder="Selecione usuários..."
-                      itemTemplate={itemTemplate}
-                      panelFooterTemplate={footerTemplate}
-                      display="chip"
-                      filter
-                      filterBy="name,email"
-                      className="w-full"
-                      panelClassName="z-50 bg-popover"
-                      appendTo={typeof document !== 'undefined' ? document.body : undefined}
-                    />
-                  </div>
-
-                  <DialogFooter className="mt-4">
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancelar</Button>
-                    </DialogClose>
-                    <Button onClick={confirmSelectDialog} disabled={tempSelectedIds.length === 0}>
-                      Salvar seleção ({tempSelectedIds.length})
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[300px]">Usuário *</TableHead>
+                    <TableHead className="w-[200px]">Tipo de Função *</TableHead>
+                    <TableHead className="w-[180px]">Custo/Hora Override</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((row) => (
+                    <TableRow key={row.id}>
+                      <TableCell>
+                        <Select 
+                          value={row.user_id} 
+                          onValueChange={(v) => updateRow(row.id, "user_id", v)}
+                        >
+                          <SelectTrigger className={!row.user_id ? "border-destructive" : ""}>
+                            <SelectValue placeholder="Selecione um usuário" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableUsers.map((user) => (
+                              <SelectItem 
+                                key={user.user_id} 
+                                value={user.user_id}
+                                disabled={rows.some(r => r.id !== row.id && r.user_id === user.user_id)}
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{user.nome_completo}</span>
+                                  <span className="text-xs text-muted-foreground">{user.email}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select 
+                          value={row.role_type} 
+                          onValueChange={(v) => updateRow(row.id, "role_type", v)}
+                        >
+                          <SelectTrigger className={!row.role_type ? "border-destructive" : ""}>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="interno">Interno</SelectItem>
+                            <SelectItem value="cliente">Cliente</SelectItem>
+                            <SelectItem value="parceiro">Parceiro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={row.custo_hora_override}
+                          onChange={(e) => updateRow(row.id, "custo_hora_override", e.target.value)}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeRow(row.id)}
+                          disabled={rows.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-
-            {/* Tipo de função */}
-            <div>
-              <Label htmlFor="role-select">Tipo de Função *</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as MemberRoleType)}>
-                <SelectTrigger
-                  id="role-select"
-                  className={!role && selectedIds.length > 0 ? "mt-2 border-destructive" : "mt-2"}
-                >
-                  <SelectValue placeholder="Selecione uma função" />
-                </SelectTrigger>
-                <SelectContent className="z-50 bg-popover">
-                  <SelectItem value="interno">Interno</SelectItem>
-                  <SelectItem value="cliente">Cliente</SelectItem>
-                  <SelectItem value="parceiro">Parceiro</SelectItem>
-                </SelectContent>
-              </Select>
-              {!role && selectedIds.length > 0 && (
-                <p className="text-xs text-destructive mt-1">
-                  Selecione uma função antes de adicionar
-                </p>
-              )}
-            </div>
-
-            {/* Botões de ação */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                onClick={handleCancel}
-                className="flex-1"
-              >
-                Cancelar
-              </Button>
-              <Button 
-                onClick={handleAdd} 
-                disabled={selectedIds.length === 0 || !role}
-                className="flex-1"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Salvar e Adicionar {selectedIds.length > 0 ? `(${selectedIds.length})` : ""}
+            
+            <div className="flex gap-3 mt-4">
+              <Button variant="outline" onClick={addRow}>
+                <Plus className="mr-2 h-4 w-4" /> Adicionar Linha
               </Button>
             </div>
           </CardContent>
