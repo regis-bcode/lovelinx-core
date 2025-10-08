@@ -4,7 +4,9 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MultiSelect } from "@/components/ui/multi-select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useUsers } from "@/hooks/useUsers";
 import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useToast } from "@/hooks/use-toast";
@@ -42,19 +44,29 @@ export default function TeamAddMembers() {
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [role, setRole] = useState<MemberRoleType | "">("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Available users (not already in team)
   const availableUsers = useMemo(() => {
     return users.filter((u) => !members.find((m) => m.user_id === u.user_id));
   }, [users, members]);
 
-  // Opções para o MultiSelect
-  const userOptions = useMemo(() => {
-    return availableUsers.map((u) => ({
-      value: u.user_id,
-      label: `${u.nome_completo} (${u.email})`,
-    }));
-  }, [availableUsers]);
+  // Filtrar usuários pela busca
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.toLowerCase();
+    return availableUsers.filter(
+      (u) =>
+        u.nome_completo.toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query)
+    );
+  }, [availableUsers, searchQuery]);
+
+  // Toggle seleção de usuário
+  const toggleUser = (userId: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
 
   const handleCancel = () => {
     navigate(`/team?teamId=${teamId}`);
@@ -106,33 +118,86 @@ export default function TeamAddMembers() {
           <CardHeader>
             <CardTitle>Seleção de Membros</CardTitle>
             <CardDescription>
-              Use o dropdown para buscar e selecionar um ou mais usuários aleatoriamente
+              Busque e selecione um ou mais usuários da lista usando os checkboxes
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Multi-select dropdown */}
+            {/* Campo de busca */}
             <div>
-              <Label htmlFor="members-select">Selecionar Usuários *</Label>
-              <div className="mt-2">
-                <MultiSelect
-                  options={userOptions}
-                  selected={selectedIds}
-                  onChange={setSelectedIds}
-                  placeholder="Busque e selecione usuários..."
-                />
-              </div>
-              {availableUsers.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-2">
-                  Todos os usuários já foram adicionados à equipe
+              <Label htmlFor="search-users">Buscar Usuários</Label>
+              <Input
+                id="search-users"
+                placeholder="Busque e selecione usuários..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+
+            {/* Lista de usuários com checkboxes */}
+            <div>
+              <Label>Selecionar Usuários *</Label>
+              {selectedIds.length > 0 && (
+                <p className="text-sm text-primary mt-1 mb-2">
+                  {selectedIds.length} usuário(s) selecionado(s)
                 </p>
               )}
+              <div className="border rounded-md mt-2">
+                <ScrollArea className="h-[400px]">
+                  <div className="p-2">
+                    {availableUsers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Todos os usuários já foram adicionados à equipe
+                      </p>
+                    ) : filteredUsers.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-8">
+                        Nenhum usuário encontrado com "{searchQuery}"
+                      </p>
+                    ) : (
+                      <div className="space-y-1">
+                        {filteredUsers.map((user) => {
+                          const isSelected = selectedIds.includes(user.user_id);
+                          return (
+                            <div
+                              key={user.user_id}
+                              className={`flex items-start gap-3 p-3 rounded-md hover:bg-accent transition-colors cursor-pointer ${
+                                isSelected ? "bg-accent border border-primary" : ""
+                              }`}
+                              onClick={() => toggleUser(user.user_id)}
+                            >
+                              <Checkbox
+                                id={`user-${user.user_id}`}
+                                checked={isSelected}
+                                onCheckedChange={() => toggleUser(user.user_id)}
+                                className="mt-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <label
+                                htmlFor={`user-${user.user_id}`}
+                                className="flex-1 cursor-pointer"
+                              >
+                                <p className="text-sm font-medium leading-none">
+                                  {user.nome_completo}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {user.email}
+                                </p>
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
             </div>
 
             {/* Tipo de função */}
             <div>
               <Label htmlFor="role-select">Tipo de Função *</Label>
               <Select value={role} onValueChange={(v) => setRole(v as MemberRoleType)}>
-                <SelectTrigger 
+                <SelectTrigger
                   id="role-select"
                   className={!role && selectedIds.length > 0 ? "mt-2 border-destructive" : "mt-2"}
                 >
