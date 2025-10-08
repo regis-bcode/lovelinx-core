@@ -190,27 +190,36 @@ export default function TeamAddMembers() {
                             Nenhum usuário encontrado
                           </p>
                         ) : (
-                          filteredUsers.map((user) => (
-                            <div
-                              key={user.user_id}
-                              className="flex items-start space-x-3 rounded-lg p-3 hover:bg-accent transition-colors cursor-pointer"
-                              onClick={() => toggleUserSelection(user.user_id)}
-                            >
-                              <Checkbox
-                                checked={tempSelectedIds.includes(user.user_id)}
-                                onCheckedChange={() => toggleUserSelection(user.user_id)}
-                                className="mt-0.5"
-                              />
-                              <div className="flex-1 space-y-0.5">
-                                <p className="text-sm font-medium leading-none">
-                                  {user.nome_completo}
-                                </p>
-                                <p className="text-sm text-muted-foreground">
-                                  {user.email}
-                                </p>
+                          filteredUsers.map((user) => {
+                            const checkboxId = `user-${user.user_id}`;
+                            const isChecked = tempSelectedIds.includes(user.user_id);
+                            return (
+                              <div
+                                key={user.user_id}
+                                className="flex items-start space-x-3 rounded-lg p-3 hover:bg-accent transition-colors"
+                              >
+                                <Checkbox
+                                  id={checkboxId}
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    const next = checked === true;
+                                    setTempSelectedIds((prev) =>
+                                      next
+                                        ? prev.includes(user.user_id)
+                                          ? prev
+                                          : [...prev, user.user_id]
+                                        : prev.filter((id) => id !== user.user_id)
+                                    );
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <label htmlFor={checkboxId} className="flex-1 cursor-pointer space-y-0.5">
+                                  <p className="text-sm font-medium leading-none">{user.nome_completo}</p>
+                                  <p className="text-sm text-muted-foreground">{user.email}</p>
+                                </label>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </ScrollArea>
