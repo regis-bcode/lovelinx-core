@@ -4,22 +4,40 @@ import { useTeamMembers } from "@/hooks/useTeamMembers";
 import { useTAP } from "@/hooks/useTAP";
 import { useProjects } from "@/hooks/useProjects";
 import { useUsers } from "@/hooks/useUsers";
+import { useUserRoles } from "@/hooks/useUserRoles";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, Users, Pencil } from "lucide-react";
+import { Plus, Trash2, Users, Pencil } from "lucide-react";
 import { TeamType, MemberRoleType } from "@/types/project-team";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect, Option } from "@/components/ui/multi-select";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-export default function TeamManagement() {
+function TeamManagementContent() {
   const { teams, createTeam, deleteTeam, loading: teamsLoading } = useProjectTeams();
   const { users } = useUsers();
   const { projects } = useProjects();
+  const { toast } = useToast();
+  const { userRoles } = useUserRoles();
   
   const [selectedTeam, setSelectedTeam] = useState<string>("");
   const [tipoEquipe, setTipoEquipe] = useState<TeamType>("projeto");
@@ -27,14 +45,18 @@ export default function TeamManagement() {
   const [selectedProject, setSelectedProject] = useState<string>("");
   const [teamName, setTeamName] = useState("");
   const [teamDescription, setTeamDescription] = useState("");
-  const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
   const [selectedRoleType, setSelectedRoleType] = useState<MemberRoleType>("interno");
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const [editingMember, setEditingMember] = useState<{ id: string; custo_hora_override?: number; role_type: MemberRoleType } | null>(null);
   const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
+  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
 
   const { members, addMember, removeMember, updateMember, loading: membersLoading } = useTeamMembers(selectedTeam);
+
+  // Verificar se o usuário é admin ou gestor
+  const isAdminOrGestor = userRoles.includes('admin') || userRoles.includes('gestor');
   
   // Todos os projetos por enquanto (filtro por tipo pode ser implementado futuramente)
   const filteredProjects = projects;
@@ -70,17 +92,41 @@ export default function TeamManagement() {
     }
   };
 
-  const handleAddMember = async () => {
-    if (!selectedTeam || !selectedUserId) return;
+  const handleAddMembers = async () => {
+    if (!selectedTeam || selectedUserIds.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Selecione pelo menos um usuário",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    await addMember({
-      team_id: selectedTeam,
-      user_id: selectedUserId,
-      role_type: selectedRoleType,
-    });
-    setSelectedUserId("");
-    setSelectedRoleType("interno");
-    setShowSuccessDialog(true);
+    try {
+      // Adicionar todos os membros selecionados
+      for (const userId of selectedUserIds) {
+        await addMember({
+          team_id: selectedTeam,
+          user_id: userId,
+          role_type: selectedRoleType,
+        });
+      }
+
+      setSelectedUserIds([]);
+      setSelectedRoleType("interno");
+      setShowSuccessDialog(true);
+      
+      toast({
+        title: "Sucesso",
+        description: `${selectedUserIds.length} membro(s) adicionado(s) com sucesso!`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao adicionar membros",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditMember = async () => {
@@ -103,9 +149,23 @@ export default function TeamManagement() {
     setShowEditMemberDialog(true);
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (confirm("Deseja realmente remover este membro da equipe?")) {
-      await removeMember(memberId);
+  const confirmRemoveMember = async () => {
+    if (!memberToDelete) return;
+
+    try {
+      await removeMember(memberToDelete);
+      toast({
+        title: "Sucesso",
+        description: "Membro removido com sucesso!",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Erro ao remover membro",
+        variant: "destructive",
+      });
+    } finally {
+      setMemberToDelete(null);
     }
   };
 
@@ -122,6 +182,14 @@ export default function TeamManagement() {
 
   const currentTeam = teams.find(t => t.id === selectedTeam);
   const selectedProjectData = projects.find(p => p.id === selectedProject);
+
+  // Preparar opções para o multi-select
+  const userOptions: Option[] = users
+    .filter(u => !members.find(m => m.user_id === u.user_id))
+    .map(user => ({
+      value: user.user_id,
+      label: user.nome_completo,
+    }));
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -140,6 +208,9 @@ export default function TeamManagement() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Criar Nova Equipe</DialogTitle>
+              <DialogDescription>
+                Preencha os dados para criar uma nova equipe de projeto ou suporte
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -237,25 +308,22 @@ export default function TeamManagement() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label>Adicionar Membro</Label>
-                  <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um usuário" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {users
-                        .filter(u => !members.find(m => m.user_id === u.user_id))
-                        .map(user => (
-                          <SelectItem key={user.user_id} value={user.user_id}>
-                            {user.nome_completo}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+              <div className="space-y-4">
+                <div>
+                  <Label>Selecionar Membros</Label>
+                  <MultiSelect
+                    options={userOptions}
+                    selected={selectedUserIds}
+                    onChange={setSelectedUserIds}
+                    placeholder="Selecione um ou mais usuários..."
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {selectedUserIds.length > 0 
+                      ? `${selectedUserIds.length} usuário(s) selecionado(s)`
+                      : "Nenhum usuário selecionado"}
+                  </p>
                 </div>
-                <div className="flex-1">
+                <div>
                   <Label>Tipo de Função</Label>
                   <Select value={selectedRoleType} onValueChange={(v) => setSelectedRoleType(v as MemberRoleType)}>
                     <SelectTrigger>
@@ -268,12 +336,14 @@ export default function TeamManagement() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end">
-                  <Button onClick={handleAddMember} disabled={!selectedUserId}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar
-                  </Button>
-                </div>
+                <Button 
+                  onClick={handleAddMembers} 
+                  disabled={selectedUserIds.length === 0}
+                  className="w-full"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar {selectedUserIds.length > 0 ? `${selectedUserIds.length} Membro(s)` : "Membros"}
+                </Button>
               </div>
 
               <Table>
@@ -282,6 +352,7 @@ export default function TeamManagement() {
                     <TableHead>Nome</TableHead>
                     <TableHead>E-mail</TableHead>
                     <TableHead>Tipo de Função</TableHead>
+                    <TableHead>Data de Inclusão</TableHead>
                     <TableHead className="text-right">Custo/Hora</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
@@ -298,6 +369,9 @@ export default function TeamManagement() {
                           {member.role_type === 'parceiro' && 'Parceiro'}
                         </Badge>
                       </TableCell>
+                      <TableCell>
+                        {format(new Date(member.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </TableCell>
                       <TableCell className="text-right">
                         R$ {(member.custo_hora_override ?? member.user?.custo_hora ?? 0).toFixed(2)}
                       </TableCell>
@@ -307,23 +381,27 @@ export default function TeamManagement() {
                             variant="ghost"
                             size="sm"
                             onClick={() => openEditMemberDialog(member)}
+                            title="Editar função"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveMember(member.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          {isAdminOrGestor && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setMemberToDelete(member.id)}
+                              title="Remover membro"
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
                   ))}
                   {members.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      <TableCell colSpan={6} className="text-center text-muted-foreground">
                         Nenhum membro na equipe
                       </TableCell>
                     </TableRow>
@@ -363,7 +441,10 @@ export default function TeamManagement() {
           <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Membro Adicionado com Sucesso!</DialogTitle>
+                <DialogTitle>Membros Adicionados com Sucesso!</DialogTitle>
+                <DialogDescription>
+                  Os membros foram adicionados à equipe
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
@@ -399,6 +480,9 @@ export default function TeamManagement() {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Editar Membro</DialogTitle>
+                <DialogDescription>
+                  Atualize o tipo de função ou o custo por hora do membro
+                </DialogDescription>
               </DialogHeader>
               {editingMember && (
                 <div className="space-y-4">
@@ -438,8 +522,34 @@ export default function TeamManagement() {
               )}
             </DialogContent>
           </Dialog>
+
+          {/* Alert Dialog for Delete Confirmation */}
+          <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Deseja realmente remover este membro da equipe? Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmRemoveMember} className="bg-destructive hover:bg-destructive/90">
+                  Remover
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </div>
+  );
+}
+
+export default function TeamManagement() {
+  return (
+    <DashboardLayout>
+      <TeamManagementContent />
+    </DashboardLayout>
   );
 }
