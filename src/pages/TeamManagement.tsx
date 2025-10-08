@@ -562,15 +562,15 @@ function TeamManagementContent() {
 
           {/* Add Members Dialog */}
           <Dialog open={showAddMembersDialog} onOpenChange={setShowAddMembersDialog}>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6">
                 <DialogTitle>Adicionar Membros à Equipe</DialogTitle>
                 <DialogDescription>
                   Selecione os usuários e escolha a função que desempenharão na equipe
                 </DialogDescription>
               </DialogHeader>
               
-              <div className="space-y-4">
+              <div className="flex-1 flex flex-col gap-4 overflow-hidden px-6">
                 {/* Campo de busca */}
                 <div>
                   <Label htmlFor="search">Buscar Usuário</Label>
@@ -593,61 +593,63 @@ function TeamManagementContent() {
                 )}
 
                 {/* Lista de usuários com checkboxes */}
-                <div>
-                  <Label>Selecionar Usuários</Label>
-                  <div className="border rounded-md p-4 mt-2">
-                    <ScrollArea className="h-[300px]">
-                      {availableUsers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Todos os usuários já foram adicionados à equipe
-                        </p>
-                      ) : filteredUsers.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-8">
-                          Nenhum usuário encontrado com "{searchQuery}"
-                        </p>
-                      ) : (
-                        <div className="space-y-2">
-                          {filteredUsers.map((user) => {
-                            const isSelected = selectedUserIds.includes(user.id);
-                            return (
-                              <div 
-                                key={user.id} 
-                                className={`flex items-center space-x-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors ${
-                                  isSelected ? 'bg-accent border border-primary' : ''
-                                }`}
-                                onClick={() => toggleUserSelection(user.id)}
-                              >
-                                <Checkbox
-                                  id={`user-${user.id}`}
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleUserSelection(user.id)}
-                                />
-                                <label
-                                  htmlFor={`user-${user.id}`}
-                                  className="flex-1 cursor-pointer"
+                <div className="flex-1 flex flex-col min-h-0">
+                  <Label className="mb-2">Selecionar Usuários</Label>
+                  <div className="border rounded-md flex-1 min-h-0">
+                    <ScrollArea className="h-full">
+                      <div className="p-4">
+                        {availableUsers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            Todos os usuários já foram adicionados à equipe
+                          </p>
+                        ) : filteredUsers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            Nenhum usuário encontrado com "{searchQuery}"
+                          </p>
+                        ) : (
+                          <div className="space-y-2">
+                            {filteredUsers.map((user) => {
+                              const isSelected = selectedUserIds.includes(user.id);
+                              return (
+                                <div 
+                                  key={user.id} 
+                                  className={`flex items-center space-x-3 p-3 rounded-md hover:bg-accent cursor-pointer transition-colors ${
+                                    isSelected ? 'bg-accent border border-primary' : ''
+                                  }`}
+                                  onClick={() => toggleUserSelection(user.id)}
                                 >
-                                  <div>
-                                    <p className="text-sm font-medium">{user.nome_completo}</p>
-                                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                                  </div>
-                                </label>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
+                                  <Checkbox
+                                    id={`user-${user.id}`}
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleUserSelection(user.id)}
+                                  />
+                                  <label
+                                    htmlFor={`user-${user.id}`}
+                                    className="flex-1 cursor-pointer"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-medium">{user.nome_completo}</p>
+                                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                                    </div>
+                                  </label>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </ScrollArea>
                   </div>
                 </div>
 
                 {/* Dropdown de função - obrigatório */}
-                <div>
+                <div className="pb-2">
                   <Label>Tipo de Função *</Label>
                   <Select 
                     value={selectedRoleType} 
                     onValueChange={(v) => setSelectedRoleType(v as MemberRoleType)}
                   >
-                    <SelectTrigger className={!selectedRoleType ? "border-destructive" : ""}>
+                    <SelectTrigger className={!selectedRoleType ? "border-destructive mt-2" : "mt-2"}>
                       <SelectValue placeholder="Selecione uma função" />
                     </SelectTrigger>
                     <SelectContent>
@@ -662,30 +664,30 @@ function TeamManagementContent() {
                     </p>
                   )}
                 </div>
+              </div>
 
-                {/* Botões de ação */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setShowAddMembersDialog(false);
-                      setSelectedUserIds([]);
-                      setSelectedRoleType("");
-                      setSearchQuery("");
-                    }}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleAddMembers} 
-                    disabled={selectedUserIds.length === 0 || !selectedRoleType}
-                    className="flex-1"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Selecionados
-                  </Button>
-                </div>
+              {/* Botões de ação */}
+              <div className="flex gap-3 border-t px-6 py-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowAddMembersDialog(false);
+                    setSelectedUserIds([]);
+                    setSelectedRoleType("");
+                    setSearchQuery("");
+                  }}
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleAddMembers} 
+                  disabled={selectedUserIds.length === 0 || !selectedRoleType}
+                  className="flex-1"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Adicionar Selecionados
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
