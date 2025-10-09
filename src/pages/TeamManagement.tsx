@@ -357,12 +357,12 @@ export default function TeamManagement() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Projeto</Label>
-                <Select value={filterProject} onValueChange={setFilterProject}>
+                <Select value={filterProject || "all"} onValueChange={(value) => setFilterProject(value === "all" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os projetos" />
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-popover">
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.nome_projeto}
@@ -374,12 +374,12 @@ export default function TeamManagement() {
 
               <div className="space-y-2">
                 <Label>TAP</Label>
-                <Select value={filterTap} onValueChange={setFilterTap} disabled={!filterProject}>
+                <Select value={filterTap || "all"} onValueChange={(value) => setFilterTap(value === "all" ? "" : value)} disabled={!filterProject}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todas as TAPs" />
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-popover">
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {taps
                       .filter(tap => !filterProject || tap.project_id === filterProject)
                       .map((tap) => (
@@ -393,12 +393,12 @@ export default function TeamManagement() {
 
               <div className="space-y-2">
                 <Label>Status</Label>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <Select value={filterStatus || "all"} onValueChange={(value) => setFilterStatus(value === "all" ? "" : value)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Todos os status" />
                   </SelectTrigger>
                   <SelectContent className="z-50 bg-popover">
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     <SelectItem value="Ativo">Ativo</SelectItem>
                     <SelectItem value="Inativo">Inativo</SelectItem>
                   </SelectContent>
