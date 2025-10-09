@@ -1,334 +1,369 @@
-import { useState, useEffect } from "react";
-import { useProjectTeams } from "@/hooks/useProjectTeams";
-import { useTeamMembers } from "@/hooks/useTeamMembers";
-import { useTAP } from "@/hooks/useTAP";
-import { useProjects } from "@/hooks/useProjects";
-import { useUsers } from "@/hooks/useUsers";
-import { useUserRoles } from "@/hooks/useUserRoles";
+import { useEffect, useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Users, Pencil } from "lucide-react";
-import { TeamType, MemberRoleType } from "@/types/project-team";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useProjectAllocations } from "@/hooks/useProjectAllocations";
+import { useProjects } from "@/hooks/useProjects";
+import { useTAP } from "@/hooks/useTAP";
+import { useUsers } from "@/hooks/useUsers";
+import { ProjectAllocationFormData, FUNCOES_PROJETO } from "@/types/project-allocation";
+import { Plus, Edit, Trash2, Users, Filter, X } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
-function TeamManagementContent() {
-  const { teams, createTeam, deleteTeam, updateTeam, loading: teamsLoading } = useProjectTeams();
-  const { users } = useUsers();
-  const { projects } = useProjects();
-  const { toast } = useToast();
-  const { userRoles } = useUserRoles();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  
-  const [selectedTeam, setSelectedTeam] = useState<string>("");
-  const [tipoEquipe, setTipoEquipe] = useState<TeamType>("projeto");
-  const [selectedTap, setSelectedTap] = useState<string>("");
-  const [selectedProject, setSelectedProject] = useState<string>("");
-  const [teamName, setTeamName] = useState("");
-  const [teamDescription, setTeamDescription] = useState("");
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [selectedRoleType, setSelectedRoleType] = useState<MemberRoleType | "">("");
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [editingMember, setEditingMember] = useState<{ id: string; custo_hora_override?: number; role_type: MemberRoleType } | null>(null);
-  const [showEditMemberDialog, setShowEditMemberDialog] = useState(false);
-  const [memberToDelete, setMemberToDelete] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showAddMembersDialog, setShowAddMembersDialog] = useState(false);
-  const [showEditTeamDialog, setShowEditTeamDialog] = useState(false);
-  const [showDeleteTeamDialog, setShowDeleteTeamDialog] = useState(false);
-  const [editTeamData, setEditTeamData] = useState({
-    nome: "",
-    descricao: "",
-    project_id: "",
+export default function TeamManagement() {
+  const [showDialog, setShowDialog] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<ProjectAllocationFormData>>({
+    status_participacao: 'Ativo',
+    valor_hora: 0,
   });
 
-  const { members, addMember, removeMember, updateMember, loading: membersLoading } = useTeamMembers(selectedTeam);
+  // Filtros
+  const [filterProject, setFilterProject] = useState<string>("");
+  const [filterTap, setFilterTap] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");
 
-  // Preseleciona equipe via query param
+  const { projects } = useProjects();
+  const { tap } = useTAP();
+  const { users } = useUsers();
+  
+  // Converter TAP único para array para compatibilidade
+  const taps = tap ? [tap] : [];
+  const { allocations, loading, createAllocation, updateAllocation, deleteAllocation } = useProjectAllocations();
+
+  // SEO
   useEffect(() => {
-    const tid = searchParams.get("teamId");
-    if (tid) setSelectedTeam(tid);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    document.title = "Gestão de Equipes | Sistema de Gestão de Projetos";
+    const desc = "Gerencie alocações de membros da equipe em projetos e TAPs";
+    let meta = document.querySelector('meta[name="description"]');
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.setAttribute("name", "description");
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute("content", desc);
   }, []);
 
-  // Verificar se o usuário é admin ou gestor
-  const isAdminOrGestor = userRoles.includes('admin') || userRoles.includes('gestor');
-  
-  // Todos os projetos por enquanto (filtro por tipo pode ser implementado futuramente)
-  const filteredProjects = projects;
+  // Filtrar TAPs baseado no projeto selecionado
+  const filteredTaps = useMemo(() => {
+    if (!formData.project_id) return taps;
+    return taps.filter(tap => tap.project_id === formData.project_id);
+  }, [formData.project_id, taps]);
 
-  // Filtra TAPs baseado no projeto selecionado
-  const availableTaps = selectedProject ? [] : []; // TODO: Implementar filtro de TAPs por projeto
+  // Filtrar usuários que têm cliente associado
+  const usersWithClient = useMemo(() => {
+    return users.filter(u => u.client_id);
+  }, [users]);
 
-  const calculateTotalCost = () => {
-    return members.reduce((total, member) => {
-      const custoHora = member.custo_hora_override ?? member.user?.custo_hora ?? 0;
-      return total + custoHora;
-    }, 0);
-  };
-
-  const handleCreateTeam = async () => {
-    if (!teamName) {
-      return;
-    }
-
-    const result = await createTeam({
-      tipo_equipe: tipoEquipe,
-      tap_id: selectedTap || undefined,
-      project_id: selectedProject || undefined,
-      nome: teamName,
-      descricao: teamDescription,
+  // Aplicar filtros às alocações
+  const filteredAllocations = useMemo(() => {
+    return allocations.filter(allocation => {
+      if (filterProject && allocation.project_id !== filterProject) return false;
+      if (filterTap && allocation.tap_id !== filterTap) return false;
+      if (filterStatus && allocation.status_participacao !== filterStatus) return false;
+      return true;
     });
+  }, [allocations, filterProject, filterTap, filterStatus]);
 
-    if (result) {
-      setSelectedTeam(result.id);
-      setShowCreateDialog(false);
-      setTeamName("");
-      setTeamDescription("");
-    }
-  };
-
-  const handleAddMembers = async () => {
-    if (!selectedTeam || selectedUserIds.length === 0) {
-      toast({
-        title: "Erro",
-        description: "Selecione pelo menos um usuário",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!selectedRoleType) {
-      toast({
-        title: "Erro",
-        description: "Selecione um tipo de função antes de adicionar",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      // Adicionar todos os membros selecionados
-      for (const userId of selectedUserIds) {
-        await addMember({
-          team_id: selectedTeam,
-          user_id: userId,
-          role_type: selectedRoleType,
-        });
-      }
-
-      const functionLabel = 
-        selectedRoleType === 'interno' ? 'Interno' :
-        selectedRoleType === 'cliente' ? 'Cliente' : 'Parceiro';
-
-      toast({
-        title: "Sucesso",
-        description: `${selectedUserIds.length} membro(s) adicionado(s) como ${functionLabel}`,
-      });
-
-      setSelectedUserIds([]);
-      setSelectedRoleType("");
-      setSearchQuery("");
-      setShowAddMembersDialog(false);
-      setShowSuccessDialog(true);
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao adicionar membros",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEditMember = async () => {
-    if (!editingMember) return;
-
-    await updateMember(editingMember.id, {
-      custo_hora_override: editingMember.custo_hora_override,
-      role_type: editingMember.role_type,
-    });
-    setEditingMember(null);
-    setShowEditMemberDialog(false);
-  };
-
-  const openEditMemberDialog = (member: any) => {
-    setEditingMember({
-      id: member.id,
-      custo_hora_override: member.custo_hora_override,
-      role_type: member.role_type,
-    });
-    setShowEditMemberDialog(true);
-  };
-
-  const confirmRemoveMember = async () => {
-    if (!memberToDelete) return;
-
-    try {
-      await removeMember(memberToDelete);
-      toast({
-        title: "Sucesso",
-        description: "Membro removido com sucesso!",
-      });
-    } catch (error) {
-      toast({
-        title: "Erro",
-        description: "Erro ao remover membro",
-        variant: "destructive",
-      });
-    } finally {
-      setMemberToDelete(null);
-    }
-  };
-
-  const confirmDeleteTeam = async () => {
-    if (!selectedTeam) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     
-    const success = await deleteTeam(selectedTeam);
+    if (!formData.project_id || !formData.allocated_user_id || !formData.funcao_projeto || !formData.data_inicio) {
+      return;
+    }
+
+    const success = editingId
+      ? await updateAllocation(editingId, formData)
+      : await createAllocation(formData as ProjectAllocationFormData);
+
     if (success) {
-      setSelectedTeam("");
-      toast({
-        title: "Sucesso",
-        description: "Equipe excluída com sucesso",
-      });
+      setShowDialog(false);
+      resetForm();
     }
-    setShowDeleteTeamDialog(false);
   };
 
-  const openEditTeamDialog = () => {
-    if (!currentTeam) return;
-    setEditTeamData({
-      nome: currentTeam.nome,
-      descricao: currentTeam.descricao || "",
-      project_id: currentTeam.project_id || "",
+  const handleEdit = (allocation: any) => {
+    setEditingId(allocation.id);
+    setFormData({
+      project_id: allocation.project_id,
+      tap_id: allocation.tap_id,
+      allocated_user_id: allocation.allocated_user_id,
+      funcao_projeto: allocation.funcao_projeto,
+      valor_hora: allocation.valor_hora,
+      data_inicio: allocation.data_inicio,
+      data_saida: allocation.data_saida,
+      status_participacao: allocation.status_participacao,
+      observacoes: allocation.observacoes,
     });
-    setShowEditTeamDialog(true);
+    setShowDialog(true);
   };
 
-  const handleEditTeam = async () => {
-    if (!selectedTeam || !editTeamData.nome) {
-      toast({
-        title: "Erro",
-        description: "O nome da equipe é obrigatório",
-        variant: "destructive",
-      });
-      return;
+  const handleDelete = async (id: string) => {
+    if (confirm("Tem certeza que deseja remover esta alocação?")) {
+      await deleteAllocation(id);
     }
+  };
 
-    const result = await updateTeam(selectedTeam, {
-      nome: editTeamData.nome,
-      descricao: editTeamData.descricao,
-      project_id: editTeamData.project_id || undefined,
+  const resetForm = () => {
+    setFormData({
+      status_participacao: 'Ativo',
+      valor_hora: 0,
     });
-
-    if (result) {
-      toast({
-        title: "Sucesso",
-        description: "Equipe atualizada com sucesso",
-      });
-      setShowEditTeamDialog(false);
-    }
+    setEditingId(null);
   };
 
-  const currentTeam = teams.find(t => t.id === selectedTeam);
-  const selectedProjectData = projects.find(p => p.id === selectedProject);
-
-  // Filtrar usuários disponíveis (que não estão na equipe)
-  const availableUsers = users.filter(u => !members.find(m => m.user_id === u.user_id));
-
-  // Filtrar por busca
-  const filteredUsers = availableUsers.filter(user => 
-    user.nome_completo.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Função para toggle de checkbox
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUserIds(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+  const clearFilters = () => {
+    setFilterProject("");
+    setFilterTap("");
+    setFilterStatus("");
   };
 
-  // Abrir tela de adicionar membros
-  const openAddMembersDialog = () => {
-    if (!selectedTeam) {
-      toast({
-        title: "Erro",
-        description: "Selecione uma equipe antes de adicionar membros",
-        variant: "destructive",
-      });
-      return;
-    }
-    navigate(`/team/${selectedTeam}/add-members`);
-  };
+  // Agrupar por Projeto → TAP
+  const groupedAllocations = useMemo(() => {
+    const groups: Record<string, Record<string, typeof filteredAllocations>> = {};
+    
+    filteredAllocations.forEach(allocation => {
+      const projectKey = allocation.project_id;
+      const tapKey = allocation.tap_id || 'sem-tap';
+      
+      if (!groups[projectKey]) {
+        groups[projectKey] = {};
+      }
+      if (!groups[projectKey][tapKey]) {
+        groups[projectKey][tapKey] = [];
+      }
+      groups[projectKey][tapKey].push(allocation);
+    });
+    
+    return groups;
+  }, [filteredAllocations]);
+
   return (
-    <div className="space-y-6 max-w-full overflow-hidden">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Gestão de Equipes</h1>
-          <p className="text-muted-foreground">Gerencie equipes, membros e custos dos projetos</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Equipe
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Criar Nova Equipe</DialogTitle>
-              <DialogDescription>
-                Preencha os dados para criar uma nova equipe de projeto ou suporte
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Tipo de Equipe</Label>
-                <Select value={tipoEquipe} onValueChange={(v) => setTipoEquipe(v as TeamType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="projeto">Projeto</SelectItem>
-                    <SelectItem value="suporte">Suporte</SelectItem>
-                  </SelectContent>
-                </Select>
+    <DashboardLayout>
+      <div className="space-y-6">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Users className="h-8 w-8" />
+              Gestão de Equipes
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Gerencie alocações de membros em projetos e TAPs
+            </p>
+          </div>
+          <Dialog open={showDialog} onOpenChange={setShowDialog}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Membro à Equipe
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <form onSubmit={handleSubmit}>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingId ? "Editar Alocação" : "Nova Alocação de Equipe"}
+                  </DialogTitle>
+                  <DialogDescription>
+                    Preencha os dados para alocar um membro à equipe do projeto
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="project">Projeto *</Label>
+                    <Select
+                      value={formData.project_id}
+                      onValueChange={(value) => setFormData({ ...formData, project_id: value, tap_id: undefined })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um projeto" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover">
+                        {projects.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.nome_projeto} - {project.cliente}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="tap">TAP (opcional)</Label>
+                    <Select
+                      value={formData.tap_id}
+                      onValueChange={(value) => setFormData({ ...formData, tap_id: value })}
+                      disabled={!formData.project_id}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma TAP" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover">
+                        {filteredTaps.map((tap) => (
+                          <SelectItem key={tap.id} value={tap.id}>
+                            {tap.nome_projeto}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="user">Analista (Usuário) *</Label>
+                    <Select
+                      value={formData.allocated_user_id}
+                      onValueChange={(value) => setFormData({ ...formData, allocated_user_id: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um usuário" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover">
+                        {usersWithClient.map((user) => (
+                          <SelectItem key={user.id} value={user.id}>
+                            {user.nome_completo} - {user.email}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Apenas usuários com cliente associado
+                    </p>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="funcao">Função no Projeto *</Label>
+                    <Select
+                      value={formData.funcao_projeto}
+                      onValueChange={(value) => setFormData({ ...formData, funcao_projeto: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione uma função" />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover">
+                        {FUNCOES_PROJETO.map((funcao) => (
+                          <SelectItem key={funcao} value={funcao}>
+                            {funcao}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="valor_hora">Valor Hora (R$) *</Label>
+                    <Input
+                      id="valor_hora"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.valor_hora}
+                      onChange={(e) => setFormData({ ...formData, valor_hora: parseFloat(e.target.value) })}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="data_inicio">Data de Início *</Label>
+                      <Input
+                        id="data_inicio"
+                        type="date"
+                        value={formData.data_inicio}
+                        onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="data_saida">Data de Saída</Label>
+                      <Input
+                        id="data_saida"
+                        type="date"
+                        value={formData.data_saida || ''}
+                        onChange={(e) => setFormData({ ...formData, data_saida: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="status">Status *</Label>
+                    <Select
+                      value={formData.status_participacao}
+                      onValueChange={(value: 'Ativo' | 'Inativo') => setFormData({ ...formData, status_participacao: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-50 bg-popover">
+                        <SelectItem value="Ativo">Ativo</SelectItem>
+                        <SelectItem value="Inativo">Inativo</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="observacoes">Observações</Label>
+                    <Textarea
+                      id="observacoes"
+                      value={formData.observacoes || ''}
+                      onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit">
+                    {editingId ? "Atualizar" : "Adicionar"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </header>
+
+        {/* Filtros */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                <CardTitle>Filtros</CardTitle>
               </div>
-              
-              <div>
+              {(filterProject || filterTap || filterStatus) && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="mr-2 h-4 w-4" />
+                  Limpar Filtros
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
                 <Label>Projeto</Label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <Select value={filterProject} onValueChange={setFilterProject}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um projeto" />
+                    <SelectValue placeholder="Todos os projetos" />
                   </SelectTrigger>
-                  <SelectContent>
-                    {filteredProjects.map(project => (
+                  <SelectContent className="z-50 bg-popover">
+                    <SelectItem value="">Todos</SelectItem>
+                    {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.nome_projeto}
                       </SelectItem>
@@ -337,516 +372,158 @@ function TeamManagementContent() {
                 </Select>
               </div>
 
-              <div>
-                <Label>Nome da Equipe</Label>
-                <Input
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                  placeholder="Ex: Equipe Desenvolvimento SPDM"
-                />
-              </div>
-
-              <div>
-                <Label>Descrição</Label>
-                <Textarea
-                  value={teamDescription}
-                  onChange={(e) => setTeamDescription(e.target.value)}
-                  placeholder="Descreva o propósito da equipe..."
-                />
-              </div>
-
-              <Button onClick={handleCreateTeam} className="w-full">
-                Criar Equipe
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Selecionar Equipe</CardTitle>
-          <CardDescription>Escolha uma equipe para gerenciar seus membros</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger>
-              <SelectValue placeholder="Selecione uma equipe" />
-            </SelectTrigger>
-            <SelectContent>
-              {teams.map(team => (
-                <SelectItem key={team.id} value={team.id}>
-                  {team.nome} ({team.tipo_equipe})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {selectedTeam && currentTeam && (
-        <>
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Membros da Equipe
-                  </CardTitle>
-                  <CardDescription>{currentTeam.nome}</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={openEditTeamDialog}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar Equipe
-                  </Button>
-                  <Button onClick={openAddMembersDialog}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Membros
-                  </Button>
-                  {isAdminOrGestor && (
-                    <Button variant="destructive" onClick={() => setShowDeleteTeamDialog(true)}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Excluir Equipe
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>E-mail</TableHead>
-                    <TableHead>Tipo de Função</TableHead>
-                    <TableHead>Data de Inclusão</TableHead>
-                    <TableHead className="text-right">Custo/Hora</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map(member => (
-                    <TableRow key={member.id}>
-                      <TableCell className="font-medium">{member.user?.nome_completo}</TableCell>
-                      <TableCell>{member.user?.email}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {member.role_type === 'interno' && 'Interno'}
-                          {member.role_type === 'cliente' && 'Cliente'}
-                          {member.role_type === 'parceiro' && 'Parceiro'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {format(new Date(member.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        R$ {(member.custo_hora_override ?? member.user?.custo_hora ?? 0).toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditMemberDialog(member)}
-                            title="Editar membro"
-                            className="h-8 w-8 hover:bg-accent"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setMemberToDelete(member.id)}
-                            title="Excluir membro"
-                            className="h-8 w-8 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {members.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground">
-                        Nenhum membro na equipe
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Resumo da Equipe</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Tipo</p>
-                  <p className="font-medium">{currentTeam.tipo_equipe === 'projeto' ? 'Projeto' : 'Suporte'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Projeto</p>
-                  <p className="font-medium">{selectedProjectData?.nome_projeto || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Membros</p>
-                  <p className="font-medium">{members.length}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Custo Total/Hora</p>
-                  <p className="font-medium text-lg">R$ {calculateTotalCost().toFixed(2)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Edit Team Dialog */}
-          <Dialog open={showEditTeamDialog} onOpenChange={setShowEditTeamDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Editar Equipe</DialogTitle>
-                <DialogDescription>
-                  Atualize as informações da equipe
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Nome da Equipe *</Label>
-                  <Input
-                    value={editTeamData.nome}
-                    onChange={(e) => setEditTeamData({ ...editTeamData, nome: e.target.value })}
-                    placeholder="Ex: Equipe Desenvolvimento SPDM"
-                  />
-                </div>
-
-                <div>
-                  <Label>Descrição</Label>
-                  <Textarea
-                    value={editTeamData.descricao}
-                    onChange={(e) => setEditTeamData({ ...editTeamData, descricao: e.target.value })}
-                    placeholder="Descreva o propósito da equipe..."
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label>Projeto Vinculado (opcional)</Label>
-                  <Select 
-                    value={editTeamData.project_id || undefined} 
-                    onValueChange={(value) => setEditTeamData({ ...editTeamData, project_id: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Nenhum projeto vinculado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {projects.map(project => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.nome_projeto}
+              <div className="space-y-2">
+                <Label>TAP</Label>
+                <Select value={filterTap} onValueChange={setFilterTap} disabled={!filterProject}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas as TAPs" />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-popover">
+                    <SelectItem value="">Todas</SelectItem>
+                    {taps
+                      .filter(tap => !filterProject || tap.project_id === filterProject)
+                      .map((tap) => (
+                        <SelectItem key={tap.id} value={tap.id}>
+                          {tap.nome_projeto}
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                  {editTeamData.project_id && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditTeamData({ ...editTeamData, project_id: "" })}
-                      className="mt-2 text-xs"
-                    >
-                      Remover projeto vinculado
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowEditTeamDialog(false)}
-                    className="flex-1"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button 
-                    onClick={handleEditTeam}
-                    className="flex-1"
-                  >
-                    Salvar Alterações
-                  </Button>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
-            </DialogContent>
-          </Dialog>
 
-          {/* Add Members Dialog */}
-          <Dialog open={showAddMembersDialog} onOpenChange={setShowAddMembersDialog}>
-            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-              <DialogHeader className="px-6 pt-6">
-                <DialogTitle>Adicionar Membros à Equipe</DialogTitle>
-                <DialogDescription>
-                  Selecione os usuários e escolha a função que desempenharão na equipe
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="flex-1 flex flex-col gap-4 overflow-hidden px-6">
-                {/* Campo de busca */}
-                <div>
-                  <Label htmlFor="search">Buscar Usuário</Label>
-                  <Input
-                    id="search"
-                    placeholder="Buscar por nome ou e-mail..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="mt-2"
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={filterStatus} onValueChange={setFilterStatus}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os status" />
+                  </SelectTrigger>
+                  <SelectContent className="z-50 bg-popover">
+                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="Ativo">Ativo</SelectItem>
+                    <SelectItem value="Inativo">Inativo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-                {/* Contador de selecionados */}
-                {selectedUserIds.length > 0 && (
-                  <div className="bg-primary/10 border border-primary/20 rounded-md p-3">
-                    <p className="text-sm font-medium text-primary">
-                      {selectedUserIds.length} usuário(s) selecionado(s)
-                    </p>
-                  </div>
-                )}
-
-                {/* Lista de usuários com checkboxes */}
-                <div className="flex-1 flex flex-col min-h-0">
-                  <Label className="mb-2">Selecionar Usuários</Label>
-                  <div className="border rounded-md flex-1 min-h-0">
-                    <ScrollArea className="h-full">
-                      <div className="p-4">
-                        {availableUsers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Todos os usuários já foram adicionados à equipe
-                          </p>
-                        ) : filteredUsers.length === 0 ? (
-                          <p className="text-sm text-muted-foreground text-center py-8">
-                            Nenhum usuário encontrado com "{searchQuery}"
-                          </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {filteredUsers.map((user) => {
-                              const isSelected = selectedUserIds.includes(user.user_id);
-                              return (
-                                <div 
-                                  key={user.user_id} 
-                                  className={`flex items-start space-x-3 p-3 rounded-md hover:bg-accent transition-colors ${
-                                    isSelected ? 'bg-accent border border-primary' : 'border border-transparent'
-                                  }`}
-                                >
-                                  <Checkbox
-                                    id={`user-${user.user_id}`}
-                                    checked={isSelected}
-                                    onCheckedChange={() => toggleUserSelection(user.user_id)}
-                                    className="mt-1"
-                                  />
-                                  <label
-                                    htmlFor={`user-${user.user_id}`}
-                                    className="flex-1 cursor-pointer"
-                                    onClick={() => toggleUserSelection(user.user_id)}
-                                  >
-                                    <div>
-                                      <p className="text-sm font-medium">{user.nome_completo}</p>
-                                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                                    </div>
-                                  </label>
-                                </div>
-                              );
-                            })}
+        {/* Lista de Alocações Agrupadas */}
+        {loading ? (
+          <Card>
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">Carregando...</p>
+            </CardContent>
+          </Card>
+        ) : Object.keys(groupedAllocations).length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">
+                Nenhuma alocação encontrada. Adicione membros à equipe dos seus projetos.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          Object.entries(groupedAllocations).map(([projectId, tapGroups]) => {
+            const project = projects.find(p => p.id === projectId);
+            
+            return (
+              <Card key={projectId} className="overflow-hidden">
+                <CardHeader className="bg-muted/50">
+                  <CardTitle className="text-xl">
+                    {project?.nome_projeto || 'Projeto não encontrado'}
+                  </CardTitle>
+                  <CardDescription>
+                    Cliente: {project?.cliente || 'N/A'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {Object.entries(tapGroups).map(([tapKey, members]) => {
+                    const tap = tapKey !== 'sem-tap' ? taps.find(t => t.id === tapKey) : null;
+                    
+                    return (
+                      <div key={tapKey} className="border-t first:border-t-0">
+                        {tap && (
+                          <div className="bg-accent/50 px-6 py-3">
+                            <h3 className="font-medium text-sm">
+                              TAP: {tap.nome_projeto}
+                            </h3>
                           </div>
                         )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </div>
-
-                {/* Dropdown de função - obrigatório */}
-                <div className="pb-2">
-                  <Label>Tipo de Função *</Label>
-                  <Select 
-                    value={selectedRoleType} 
-                    onValueChange={(v) => setSelectedRoleType(v as MemberRoleType)}
-                  >
-                    <SelectTrigger className={!selectedRoleType ? "border-destructive mt-2" : "mt-2"}>
-                      <SelectValue placeholder="Selecione uma função" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="interno">Interno</SelectItem>
-                      <SelectItem value="cliente">Cliente</SelectItem>
-                      <SelectItem value="parceiro">Parceiro</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {!selectedRoleType && selectedUserIds.length > 0 && (
-                    <p className="text-xs text-destructive mt-1">
-                      Selecione uma função antes de adicionar
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Botões de ação */}
-              <div className="flex gap-3 border-t px-6 py-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setShowAddMembersDialog(false);
-                    setSelectedUserIds([]);
-                    setSelectedRoleType("");
-                    setSearchQuery("");
-                  }}
-                  className="flex-1"
-                >
-                  Cancelar
-                </Button>
-                <Button 
-                  onClick={handleAddMembers} 
-                  disabled={selectedUserIds.length === 0 || !selectedRoleType}
-                  className="flex-1"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Adicionar Selecionados
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Success Dialog */}
-          <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Membros Adicionados com Sucesso!</DialogTitle>
-                <DialogDescription>
-                  Os membros foram adicionados à equipe
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <p className="text-sm text-muted-foreground">
-                  Equipe: <span className="font-medium text-foreground">{currentTeam.nome}</span>
-                </p>
-                <div>
-                  <p className="text-sm font-medium mb-2">Membros da Equipe:</p>
-                  <div className="space-y-2">
-                    {members.map(member => (
-                      <div key={member.id} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <p className="font-medium">{member.user?.nome_completo}</p>
-                          <p className="text-sm text-muted-foreground">{member.user?.email}</p>
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Membro</TableHead>
+                                <TableHead>Cliente</TableHead>
+                                <TableHead>Função</TableHead>
+                                <TableHead>Valor/Hora</TableHead>
+                                <TableHead>Período</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead className="text-right">Ações</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {members.map((allocation) => (
+                                <TableRow key={allocation.id}>
+                                  <TableCell>
+                                    <div>
+                                      <div className="font-medium">{allocation.user?.nome_completo}</div>
+                                      <div className="text-sm text-muted-foreground">{allocation.user?.email}</div>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    {allocation.client?.nome || 'N/A'}
+                                  </TableCell>
+                                  <TableCell>{allocation.funcao_projeto}</TableCell>
+                                  <TableCell>R$ {allocation.valor_hora.toFixed(2)}</TableCell>
+                                  <TableCell>
+                                    <div className="text-sm">
+                                      <div>{format(new Date(allocation.data_inicio), 'dd/MM/yyyy')}</div>
+                                      {allocation.data_saida && (
+                                        <div className="text-muted-foreground">
+                                          até {format(new Date(allocation.data_saida), 'dd/MM/yyyy')}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Badge variant={allocation.status_participacao === 'Ativo' ? 'default' : 'secondary'}>
+                                      {allocation.status_participacao}
+                                    </Badge>
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    <div className="flex justify-end gap-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleEdit(allocation)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleDelete(allocation.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
                         </div>
-                        <Badge variant="outline">
-                          {member.role_type === 'interno' && 'Interno'}
-                          {member.role_type === 'cliente' && 'Cliente'}
-                          {member.role_type === 'parceiro' && 'Parceiro'}
-                        </Badge>
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <Button onClick={() => setShowSuccessDialog(false)} className="w-full">
-                  Fechar
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
-
-          {/* Edit Member Dialog */}
-          <Dialog open={showEditMemberDialog} onOpenChange={setShowEditMemberDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Editar Membro</DialogTitle>
-                <DialogDescription>
-                  Atualize o tipo de função ou o custo por hora do membro
-                </DialogDescription>
-              </DialogHeader>
-              {editingMember && (
-                <div className="space-y-4">
-                  <div>
-                    <Label>Tipo de Função</Label>
-                    <Select 
-                      value={editingMember.role_type} 
-                      onValueChange={(v) => setEditingMember({...editingMember, role_type: v as MemberRoleType})}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="interno">Interno</SelectItem>
-                        <SelectItem value="cliente">Cliente</SelectItem>
-                        <SelectItem value="parceiro">Parceiro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Custo/Hora Override (opcional)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={editingMember.custo_hora_override || ""}
-                      onChange={(e) => setEditingMember({
-                        ...editingMember, 
-                        custo_hora_override: e.target.value ? parseFloat(e.target.value) : undefined
-                      })}
-                      placeholder="Deixe vazio para usar o custo padrão"
-                    />
-                  </div>
-                  <Button onClick={handleEditMember} className="w-full">
-                    Salvar Alterações
-                  </Button>
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-
-          {/* Alert Dialog for Delete Member Confirmation */}
-          <AlertDialog open={!!memberToDelete} onOpenChange={(open) => !open && setMemberToDelete(null)}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar Exclusão de Membro</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Deseja realmente remover este membro da equipe? Esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmRemoveMember} className="bg-destructive hover:bg-destructive/90">
-                  Remover
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {/* Alert Dialog for Delete Team Confirmation */}
-          <AlertDialog open={showDeleteTeamDialog} onOpenChange={setShowDeleteTeamDialog}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Confirmar Exclusão de Equipe</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Deseja realmente excluir toda a equipe "{currentTeam.nome}"? Todos os membros serão removidos e esta ação não pode ser desfeita.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDeleteTeam} className="bg-destructive hover:bg-destructive/90">
-                  Excluir Equipe
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </>
-      )}
-    </div>
-  );
-}
-
-export default function TeamManagement() {
-  return (
-    <DashboardLayout>
-      <TeamManagementContent />
+                    );
+                  })}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
     </DashboardLayout>
   );
 }

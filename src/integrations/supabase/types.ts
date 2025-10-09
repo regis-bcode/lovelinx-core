@@ -363,6 +363,76 @@ export type Database = {
         }
         Relationships: []
       }
+      project_allocations: {
+        Row: {
+          allocated_user_id: string
+          created_at: string
+          created_by: string
+          data_inicio: string
+          data_saida: string | null
+          funcao_projeto: string
+          id: string
+          observacoes: string | null
+          project_id: string
+          status_participacao: string
+          tap_id: string | null
+          updated_at: string
+          valor_hora: number
+        }
+        Insert: {
+          allocated_user_id: string
+          created_at?: string
+          created_by?: string
+          data_inicio: string
+          data_saida?: string | null
+          funcao_projeto: string
+          id?: string
+          observacoes?: string | null
+          project_id: string
+          status_participacao?: string
+          tap_id?: string | null
+          updated_at?: string
+          valor_hora?: number
+        }
+        Update: {
+          allocated_user_id?: string
+          created_at?: string
+          created_by?: string
+          data_inicio?: string
+          data_saida?: string | null
+          funcao_projeto?: string
+          id?: string
+          observacoes?: string | null
+          project_id?: string
+          status_participacao?: string
+          tap_id?: string | null
+          updated_at?: string
+          valor_hora?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_allocations_allocated_user_id_fkey"
+            columns: ["allocated_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_allocations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_allocations_tap_id_fkey"
+            columns: ["tap_id"]
+            isOneToOne: false
+            referencedRelation: "tap"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_teams: {
         Row: {
           created_at: string
