@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 export default function TeamAddMembers() {
   const navigate = useNavigate();
@@ -40,15 +41,18 @@ export default function TeamAddMembers() {
   const { users } = useUsers();
   const { members, addMember } = useTeamMembers(teamId || "");
 
+  const MULTI_SELECT_PER_ROW = false as const;
+
   interface MemberRow {
     id: string;
     user_id: string;
+    user_ids?: string[];
     role_type: MemberRoleType | "";
     custo_hora_override: string;
   }
 
   const [rows, setRows] = useState<MemberRow[]>([
-    { id: crypto.randomUUID(), user_id: "", role_type: "", custo_hora_override: "" }
+    { id: crypto.randomUUID(), user_id: "", user_ids: [], role_type: "", custo_hora_override: "" }
   ]);
 
   // Available users (not already in team)
@@ -57,7 +61,7 @@ export default function TeamAddMembers() {
   }, [users, members]);
 
   const addRow = () => {
-    setRows([...rows, { id: crypto.randomUUID(), user_id: "", role_type: "", custo_hora_override: "" }]);
+    setRows([...rows, { id: crypto.randomUUID(), user_id: "", user_ids: [], role_type: "", custo_hora_override: "" }]);
   };
 
   const removeRow = (id: string) => {
@@ -66,8 +70,8 @@ export default function TeamAddMembers() {
     }
   };
 
-  const updateRow = (id: string, field: keyof MemberRow, value: string) => {
-    setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
+  const updateRow = <K extends keyof MemberRow>(id: string, field: K, value: MemberRow[K]) => {
+    setRows(rows.map(r => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
 
@@ -77,26 +81,33 @@ export default function TeamAddMembers() {
 
   const handleAdd = async () => {
     if (!teamId) return;
-    
-    const validRows = rows.filter(r => r.user_id && r.role_type);
-    
+
+    const validRows = rows.filter((r) => {
+      const hasUser = MULTI_SELECT_PER_ROW ? ((r.user_ids?.length ?? 0) > 0) : !!r.user_id;
+      return hasUser && !!r.role_type;
+    });
+
     if (validRows.length === 0) {
       toast({ title: "Erro", description: "Preencha pelo menos uma linha completa", variant: "destructive" });
       return;
     }
 
     try {
-      await Promise.all(
-        validRows.map((row) =>
-          addMember({ 
-            team_id: teamId, 
-            user_id: row.user_id, 
+      const payloads = validRows.flatMap((row) => {
+        const ids = MULTI_SELECT_PER_ROW ? (row.user_ids ?? []) : [row.user_id];
+        return ids
+          .filter(Boolean)
+          .map((uid) => ({
+            team_id: teamId,
+            user_id: uid as string,
             role_type: row.role_type as MemberRoleType,
-            custo_hora_override: row.custo_hora_override ? parseFloat(row.custo_hora_override) : undefined
-          })
-        )
-      );
-      toast({ title: "Sucesso", description: `${validRows.length} membro(s) adicionado(s)` });
+            custo_hora_override: row.custo_hora_override ? parseFloat(row.custo_hora_override) : undefined,
+          }));
+      });
+
+      await Promise.all(payloads.map((p) => addMember(p)));
+
+      toast({ title: "Sucesso", description: `${payloads.length} membro(s) adicionado(s)` });
       navigate(`/team?teamId=${teamId}`);
     } catch (e) {
       toast({ title: "Erro", description: "Não foi possível adicionar os membros", variant: "destructive" });
@@ -138,47 +149,62 @@ export default function TeamAddMembers() {
               </div>
               
               {rows.map((row) => {
-                const selectedUser = availableUsers.find(u => u.user_id === row.user_id);
+                const selectedUser = users.find(u => u.user_id === row.user_id);
+                const takenIds = rows
+                  .filter((r) => r.id !== row.id)
+                  .flatMap((r) => (MULTI_SELECT_PER_ROW ? (r.user_ids ?? []) : r.user_id ? [r.user_id] : []));
+                const msOptions = availableUsers
+                  .filter((u) => !takenIds.includes(u.user_id))
+                  .map((u) => ({ value: u.user_id, label: `${u.nome_completo} — ${u.email}` }));
                 
                 return (
                   <div key={row.id} className="grid grid-cols-[1fr_200px_150px_50px] gap-3 items-start p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
                     <div className="space-y-1">
-                      <Select 
-                        value={row.user_id} 
-                        onValueChange={(v) => updateRow(row.id, "user_id", v)}
-                      >
-                        <SelectTrigger className={`h-auto min-h-[44px] ${!row.user_id ? "border-destructive" : ""}`}>
-                          {selectedUser ? (
-                            <div className="flex flex-col items-start text-left w-full">
-                              <span className="font-medium">{selectedUser.nome_completo}</span>
-                              <span className="text-xs text-muted-foreground">{selectedUser.email}</span>
-                            </div>
-                          ) : (
-                            <SelectValue placeholder="Selecione um usuário" />
-                          )}
-                        </SelectTrigger>
-                        <SelectContent className="z-50 bg-popover">
-                          {availableUsers.map((user) => (
-                            <SelectItem 
-                              key={user.user_id} 
-                              value={user.user_id}
-                              disabled={rows.some(r => r.id !== row.id && r.user_id === user.user_id)}
-                              className="py-3"
-                            >
-                              <div className="flex flex-col">
-                                <span className="font-medium">{user.nome_completo}</span>
-                                <span className="text-xs text-muted-foreground">{user.email}</span>
+                      {MULTI_SELECT_PER_ROW ? (
+                        <MultiSelect
+                          options={msOptions}
+                          selected={row.user_ids ?? []}
+                          onChange={(vals) => updateRow(row.id, "user_ids", vals)}
+                          placeholder="Selecione um usuário"
+                        />
+                      ) : (
+                        <Select 
+                          value={row.user_id} 
+                          onValueChange={(v) => updateRow(row.id, "user_id", v)}
+                        >
+                          <SelectTrigger className={`h-auto min-h-[44px] ${!row.user_id ? "border-destructive" : ""}`}>
+                            {selectedUser ? (
+                              <div className="flex flex-col items-start text-left w-full">
+                                <span className="font-medium">{selectedUser.nome_completo}</span>
+                                <span className="text-xs text-muted-foreground">{selectedUser.email}</span>
                               </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            ) : (
+                              <SelectValue placeholder="Selecione um usuário" />
+                            )}
+                          </SelectTrigger>
+                          <SelectContent className="z-50 bg-popover">
+                            {availableUsers.map((user) => (
+                              <SelectItem 
+                                key={user.user_id} 
+                                value={user.user_id}
+                                disabled={takenIds.includes(user.user_id)}
+                                className="py-3"
+                              >
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{user.nome_completo}</span>
+                                  <span className="text-xs text-muted-foreground">{user.email}</span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                     
                     <div>
                       <Select 
                         value={row.role_type} 
-                        onValueChange={(v) => updateRow(row.id, "role_type", v)}
+                        onValueChange={(v) => updateRow(row.id, "role_type", v as MemberRow["role_type"]) }
                       >
                         <SelectTrigger className={!row.role_type ? "border-destructive" : ""}>
                           <SelectValue placeholder="Selecione" />
