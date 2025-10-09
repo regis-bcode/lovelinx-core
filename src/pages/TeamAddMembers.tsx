@@ -61,17 +61,15 @@ export default function TeamAddMembers() {
   }, [users, members]);
 
   const addRow = () => {
-    setRows([...rows, { id: crypto.randomUUID(), user_id: "", user_ids: [], role_type: "", custo_hora_override: "" }]);
+    setRows((prev) => [...prev, { id: crypto.randomUUID(), user_id: "", user_ids: [], role_type: "", custo_hora_override: "" }]);
   };
 
   const removeRow = (id: string) => {
-    if (rows.length > 1) {
-      setRows(rows.filter(r => r.id !== id));
-    }
+    setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.id !== id) : prev));
   };
 
   const updateRow = <K extends keyof MemberRow>(id: string, field: K, value: MemberRow[K]) => {
-    setRows(rows.map(r => (r.id === id ? { ...r, [field]: value } : r)));
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   };
 
 
@@ -168,8 +166,9 @@ export default function TeamAddMembers() {
                           placeholder="Selecione um usuário"
                         />
                       ) : (
-                        <Select 
-                          value={row.user_id} 
+                        <Select
+                          key={`user-${row.id}`}
+                          value={row.user_id}
                           onValueChange={(v) => updateRow(row.id, "user_id", v)}
                         >
                           <SelectTrigger className={`h-auto min-h-[44px] ${!row.user_id ? "border-destructive" : ""}`}>
