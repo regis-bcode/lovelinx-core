@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -162,10 +162,65 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [filteredStatuses, statuses]);
 
   // Inicializar rows com as tasks existentes
+  const createBlankRow = useCallback((order: number): TaskRow => ({
+    _isNew: true,
+    _tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    project_id: projectId,
+    task_id: '',
+    nome: '',
+    prioridade: 'Média',
+    status: defaultStatusName || '',
+    cliente: defaultClient || undefined,
+    percentual_conclusao: 0,
+    nivel: 0,
+    ordem: order,
+    custom_fields: {},
+  }), [projectId, defaultClient, defaultStatusName]);
+
   useEffect(() => {
     setEditableRows(tasks.map(t => ({ ...t, custom_fields: t.custom_fields || {} })));
     setHasChanges(false);
   }, [tasks]);
+
+  const tasksLength = tasks.length;
+
+  useEffect(() => {
+    if (loading) return;
+    if (tasksLength > 0) return;
+    if (editableRows.length > 0) return;
+
+    setEditableRows([createBlankRow(0)]);
+    setHasChanges(true);
+  }, [loading, tasksLength, editableRows.length, createBlankRow]);
+
+  useEffect(() => {
+    let modified = false;
+    setEditableRows(prev => {
+      if (!prev.length) return prev;
+      const [first, ...rest] = prev;
+      if (!first._isNew) return prev;
+
+      const updatedFirst = { ...first };
+
+      if (defaultClient && defaultClient !== first.cliente) {
+        updatedFirst.cliente = defaultClient;
+        modified = true;
+      }
+
+      if (defaultStatusName && defaultStatusName !== first.status) {
+        updatedFirst.status = defaultStatusName;
+        modified = true;
+      }
+
+      if (!modified) return prev;
+
+      return [updatedFirst, ...rest];
+    });
+
+    if (modified) {
+      setHasChanges(true);
+    }
+  }, [defaultClient, defaultStatusName]);
 
   const baseColumns = useMemo<ColumnDefinition[]>(() => ([
     { key: 'task_id', label: 'ID', width: '80px' },
@@ -219,22 +274,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   };
 
   const addNewRow = () => {
-    const tempId = `temp-${Date.now()}`;
-    const newRow: TaskRow = {
-      _isNew: true,
-      _tempId: tempId,
-      project_id: projectId,
-      task_id: '',
-      nome: '',
-      prioridade: 'Média',
-      status: defaultStatusName,
-      cliente: defaultClient,
-      percentual_conclusao: 0,
-      nivel: 0,
-      ordem: editableRows.length,
-      custom_fields: {},
-    };
-    setEditableRows(prev => [...prev, newRow]);
+    setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
     setHasChanges(true);
   };
 
