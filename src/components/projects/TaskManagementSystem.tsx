@@ -25,6 +25,7 @@ import { useCategorias } from '@/hooks/useCategorias';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
+import { useTeams } from '@/hooks/useTeams';
 import * as XLSX from 'xlsx';
 
 interface TaskManagementSystemProps {
@@ -107,6 +108,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
   const { getTaskTotalTime } = useTimeLogs(projectId);
+  const { teams } = useTeams(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
   
@@ -746,6 +748,63 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           onChange={(e) => updateCell(rowIndex, column.key, parseInt(e.target.value) || 0)}
           className="h-8 text-xs"
         />
+      );
+    }
+
+    if (column.key === 'criticidade') {
+      return (
+        <Select
+          value={(value as string) || ''}
+          onValueChange={(val) => updateCell(rowIndex, column.key, val)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Baixa">Baixa</SelectItem>
+            <SelectItem value="Média">Média</SelectItem>
+            <SelectItem value="Alta">Alta</SelectItem>
+            <SelectItem value="Crítica">Crítica</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (column.key === 'escopo') {
+      return (
+        <Select
+          value={(value as string) || ''}
+          onValueChange={(val) => updateCell(rowIndex, column.key, val)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Sim">Sim</SelectItem>
+            <SelectItem value="Não">Não</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (column.key === 'responsavel') {
+      return (
+        <Select
+          value={(value as string) || ''}
+          onValueChange={(val) => updateCell(rowIndex, column.key, val || undefined)}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder={teams.length ? 'Selecione' : 'Sem membros disponíveis'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Sem responsável</SelectItem>
+            {teams.map((team) => (
+              <SelectItem key={team.id} value={team.nome}>
+                {team.nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     }
 
