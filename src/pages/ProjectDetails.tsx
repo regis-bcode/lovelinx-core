@@ -32,9 +32,6 @@ export default function ProjectDetails() {
     if (!id) return;
     if (projectFromStore || fetchedProject || isFetchingProject) return;
 
-    // Aguarda o carregamento inicial dos projetos antes de buscar diretamente no banco
-    if (projectsLoading) return;
-
     const fetchProject = async () => {
       try {
         setIsFetchingProject(true);
