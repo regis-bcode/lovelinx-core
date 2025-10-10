@@ -139,7 +139,7 @@ export default function ProjectDetails() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="tap" className="w-full">
+        <Tabs defaultValue="tasks" className="w-full">
           <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 gap-1 h-auto">
             <TabsTrigger value="tap" className="text-xs p-2">
               <FileText className="h-3 w-3 mr-1" />
