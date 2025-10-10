@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import type { ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
-import { Settings, Download, Save, Trash2, Plus } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Plus, Upload } from 'lucide-react';
 import { format } from 'date-fns';
 import { Task } from '@/types/task';
 import { useTasks } from '@/hooks/useTasks';
@@ -23,11 +24,12 @@ import * as XLSX from 'xlsx';
 
 interface TaskManagementSystemProps {
   projectId: string;
+  projectClient?: string;
 }
 
 type TaskRow = Partial<Task> & { _isNew?: boolean; _tempId?: string };
 
-export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
+export function TaskManagementSystem({ projectId, projectClient }: TaskManagementSystemProps) {
   const { tasks, loading, createTask, updateTask, deleteTask } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
@@ -41,6 +43,18 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const defaultClient = useMemo(() => {
+    if (projectClient) {
+      return projectClient;
+    }
+    if (tap?.cod_cliente) {
+      return tap.cod_cliente;
+    }
+    return '';
+  }, [projectClient, tap?.cod_cliente]);
 
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
@@ -110,6 +124,7 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
       nome: '',
       prioridade: 'Média',
       status: 'BACKLOG',
+      cliente: defaultClient,
       percentual_conclusao: 0,
       nivel: 0,
       ordem: editableRows.length
@@ -172,6 +187,187 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tarefas');
     XLSX.writeFile(wb, `tarefas-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+  };
+
+  const handleExportTemplate = () => {
+    const worksheet = XLSX.utils.json_to_sheet([
+      {
+        'Nome da Tarefa': '',
+        'Prioridade': 'Média',
+        'Status': filteredStatuses[0]?.nome || 'BACKLOG',
+        'Cliente': defaultClient,
+        'Responsável': '',
+        'Vencimento (dd/mm/aaaa)': '',
+        'Percentual de Conclusão (%)': '0',
+        'Módulo': '',
+        'Área': '',
+        'Categoria': '',
+        'Criticidade': '',
+        'Escopo': '',
+      }
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modelo Tarefas');
+    XLSX.writeFile(workbook, 'modelo-tarefas.xlsx');
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const parseDateValue = (value: unknown): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === 'number') {
+      const date = (XLSX.SSF as any)?.parse_date_code?.(value);
+      if (!date) return undefined;
+      const year = String(date.y).padStart(4, '0');
+      const month = String(date.m).padStart(2, '0');
+      const day = String(date.d).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return undefined;
+
+      const dateParts = trimmed.split(/[\/]/);
+      if (dateParts.length === 3) {
+        const [day, month, year] = dateParts;
+        if (day && month && year) {
+          const isoYear = year.padStart(4, '0');
+          const isoMonth = month.padStart(2, '0');
+          const isoDay = day.padStart(2, '0');
+          return `${isoYear}-${isoMonth}-${isoDay}`;
+        }
+      }
+
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+    }
+
+    return undefined;
+  };
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const input = event.target;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      if (!worksheet) {
+        throw new Error('Planilha inválida');
+      }
+
+      const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, any>[];
+
+      const priorityOptions = ['Baixa', 'Média', 'Alta', 'Crítica'];
+      const statusOptions = filteredStatuses.map(status => status.nome.toLowerCase());
+
+      const formattedRows = rows.map((row) => {
+        const nome = String(row['Nome da Tarefa'] ?? row['Nome'] ?? '').trim();
+        if (!nome) {
+          return null;
+        }
+
+        const prioridadeValue = String(row['Prioridade'] ?? '').trim();
+        const prioridade = priorityOptions.includes(prioridadeValue) ? prioridadeValue : 'Média';
+
+        const statusValue = String(row['Status'] ?? '').trim();
+        const status = statusOptions.includes(statusValue.toLowerCase())
+          ? filteredStatuses.find(s => s.nome.toLowerCase() === statusValue.toLowerCase())?.nome || 'BACKLOG'
+          : filteredStatuses[0]?.nome || 'BACKLOG';
+
+        const clienteValue = String(row['Cliente'] ?? '').trim();
+        const responsavelValue = String(row['Responsável'] ?? '').trim();
+        const percentualValue = row['Percentual de Conclusão (%)'] ?? row['Percentual de Conclusão'] ?? row['% Conclusão'];
+        const percentualNumber = typeof percentualValue === 'number'
+          ? percentualValue
+          : parseInt(String(percentualValue).replace(/[^0-9]/g, ''), 10);
+        const percentualConclusao = Number.isFinite(percentualNumber)
+          ? Math.min(Math.max(Number(percentualNumber), 0), 100)
+          : 0;
+
+        return {
+          nome,
+          prioridade,
+          status,
+          cliente: clienteValue || defaultClient || undefined,
+          responsavel: responsavelValue || undefined,
+          data_vencimento: parseDateValue(row['Vencimento (dd/mm/aaaa)'] ?? row['Vencimento'] ?? row['Data de Vencimento']),
+          percentual_conclusao: percentualConclusao,
+          modulo: String(row['Módulo'] ?? row['Modulo'] ?? '').trim() || undefined,
+          area: String(row['Área'] ?? row['Area'] ?? '').trim() || undefined,
+          categoria: String(row['Categoria'] ?? '').trim() || undefined,
+          criticidade: String(row['Criticidade'] ?? '').trim() || undefined,
+          escopo: String(row['Escopo'] ?? '').trim() || undefined,
+          nivel: 0,
+          ordem: tasks.length,
+        };
+      }).filter((row): row is TaskRow => row !== null);
+
+      if (formattedRows.length === 0) {
+        toast({
+          title: 'Nenhum dado válido encontrado na planilha',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      let createdCount = 0;
+      let currentOrder = tasks.length;
+
+      for (const row of formattedRows) {
+        try {
+          const { nivel, ordem, ...taskData } = row;
+          const result = await createTask({
+            ...taskData,
+            nivel: 0,
+            ordem: currentOrder,
+            percentual_conclusao: row.percentual_conclusao ?? 0,
+          });
+          if (result) {
+            createdCount += 1;
+            currentOrder += 1;
+          }
+        } catch (error) {
+          console.error('Erro ao importar tarefa', error);
+        }
+      }
+
+      if (createdCount > 0) {
+        toast({
+          title: 'Importação concluída',
+          description: `${createdCount} tarefa(s) importada(s) com sucesso!`,
+        });
+      } else {
+        toast({
+          title: 'Não foi possível importar os dados',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erro ao importar planilha',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsImporting(false);
+      if (input) {
+        input.value = '';
+      }
+    }
   };
 
   const renderEditableCell = (row: TaskRow, rowIndex: number, columnKey: string) => {
@@ -324,6 +520,13 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
           <div className="flex justify-between items-center">
             <CardTitle>Gestão de Tarefas</CardTitle>
             <div className="flex gap-2">
+              <input
+                type="file"
+                accept=".xls,.xlsx"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
               <Button onClick={addNewRow} variant="default">
                 <Plus className="h-4 w-4 mr-2" />
                 Nova Linha
@@ -354,6 +557,16 @@ export function TaskManagementSystem({ projectId }: TaskManagementSystemProps) {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              <Button variant="outline" onClick={handleExportTemplate}>
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Modelo
+              </Button>
+
+              <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
+                <Upload className="h-4 w-4 mr-2" />
+                {isImporting ? 'Importando...' : 'Importar Dados'}
+              </Button>
 
               <Button variant="outline" onClick={exportToExcel}>
                 <Download className="h-4 w-4 mr-2" />

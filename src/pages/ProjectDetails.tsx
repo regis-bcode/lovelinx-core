@@ -140,7 +140,7 @@ export default function ProjectDetails() {
                 <CardTitle>Gestão de Tarefas</CardTitle>
               </CardHeader>
               <CardContent>
-                <TaskManagementSystem projectId={project.id} />
+                <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
               </CardContent>
             </Card>
           </TabsContent>
