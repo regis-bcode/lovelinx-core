@@ -174,8 +174,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return [];
     };
 
+    const tipoSynonyms: Record<string, string[]> = {
+      'tarefa_projeto': ['tarefa_projeto', 'projeto', 'tarefa'],
+      'tarefa_suporte': ['tarefa_suporte', 'suporte', 'tarefa'],
+    };
+
     const rawTipoStatus = tap?.tipo ? tipoMap[tap.tipo] ?? tipoMap.PROJETO : tipoMap.PROJETO;
     const normalizedTipoStatus = rawTipoStatus?.toLowerCase();
+    const allowedValues = normalizedTipoStatus
+      ? tipoSynonyms[normalizedTipoStatus] ?? [normalizedTipoStatus]
+      : null;
 
     return statuses.filter(status => {
       if (!status?.ativo) {
@@ -184,18 +192,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const tiposAplicacao = normalizeTipoAplicacao(
         (status as Status & { tipo_aplicacao?: Status['tipo_aplicacao'] | string | null | undefined }).tipo_aplicacao
-      );
+      ).map(tipo => tipo.toLowerCase());
 
       // Se o status não possui tipos configurados, mantemos disponível para evitar travamentos
-      if (!tiposAplicacao.length) {
+      if (!tiposAplicacao.length || !allowedValues) {
         return true;
       }
 
-      if (!normalizedTipoStatus) {
-        return true;
-      }
-
-      return tiposAplicacao.some(tipo => tipo.toLowerCase() === normalizedTipoStatus);
+      return tiposAplicacao.some(tipo => allowedValues.includes(tipo));
     });
   }, [tap?.tipo, statuses]);
 
