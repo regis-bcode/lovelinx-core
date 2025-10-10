@@ -55,15 +55,14 @@ export function useTasks(projectId?: string) {
   }, [projectId, user]);
 
   const loadTasks = async () => {
-    if (!projectId || !user) return;
-    
+    if (!projectId) return;
+
     setLoading(true);
     try {
       const { data, error } = await (supabase as any)
         .from('tasks')
         .select('*')
         .eq('project_id', projectId)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -85,14 +84,13 @@ export function useTasks(projectId?: string) {
   };
 
   const loadCustomFields = async () => {
-    if (!projectId || !user) return;
-    
+    if (!projectId) return;
+
     try {
       const { data, error } = await (supabase as any)
         .from('custom_fields')
         .select('*')
         .eq('project_id', projectId)
-        .eq('user_id', user.id)
         .order('created_at', { ascending: true });
 
       if (error) {
