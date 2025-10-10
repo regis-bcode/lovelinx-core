@@ -138,7 +138,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
     if (!tap?.tipo || !statuses.length) return [];
-    
+
     const tipoMap: Record<string, string> = {
       'PROJETO': 'tarefa_projeto',
       'SUPORTE': 'tarefa_suporte',
@@ -146,11 +146,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     };
     
     const tipoStatus = tipoMap[tap.tipo];
-    
-    return statuses.filter(s => 
+
+    return statuses.filter(s =>
       s.ativo && s.tipo_aplicacao.includes(tipoStatus)
     );
   }, [tap?.tipo, statuses]);
+
+  const defaultStatusName = useMemo(() => {
+    if (filteredStatuses.length > 0) {
+      return filteredStatuses[0].nome;
+    }
+
+    const fallback = statuses.find(status => status.ativo);
+    return fallback?.nome ?? '';
+  }, [filteredStatuses, statuses]);
 
   // Inicializar rows com as tasks existentes
   useEffect(() => {
@@ -218,7 +227,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       task_id: '',
       nome: '',
       prioridade: 'Média',
-      status: filteredStatuses[0]?.nome || 'BACKLOG',
+      status: defaultStatusName,
       cliente: defaultClient,
       percentual_conclusao: 0,
       nivel: 0,
@@ -719,13 +728,35 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     if (column.key === 'status') {
+      if (!filteredStatuses.length) {
+        return (
+          <Input
+            value={typeof value === 'string' ? value : ''}
+            onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Defina o status"
+          />
+        );
+      }
+
+      const hasMatchingStatus = typeof value === 'string'
+        ? filteredStatuses.some(status => status.nome === value)
+        : false;
+
+      const currentStatus = hasMatchingStatus ? (value as string) : undefined;
+      const placeholder = hasMatchingStatus
+        ? undefined
+        : typeof value === 'string' && value.trim().length > 0
+          ? `${value} (inativo)`
+          : 'Selecione';
+
       return (
         <Select
-          value={value as string || ''}
+          value={currentStatus}
           onValueChange={(val) => updateCell(rowIndex, column.key, val)}
         >
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder="Selecione" />
+            <SelectValue placeholder={placeholder} />
           </SelectTrigger>
           <SelectContent>
             {filteredStatuses.map(status => (
