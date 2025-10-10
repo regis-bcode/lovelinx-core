@@ -16,6 +16,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
+import type { Status } from '@/types/status';
 import { useTasks } from '@/hooks/useTasks';
 import { useTAP } from '@/hooks/useTAP';
 import { useStatus } from '@/hooks/useStatus';
@@ -137,19 +138,65 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
-    if (!tap?.tipo || !statuses.length) return [];
+    if (!statuses.length) return [];
 
     const tipoMap: Record<string, string> = {
-      'PROJETO': 'tarefa_projeto',
-      'SUPORTE': 'tarefa_suporte',
-      'AVULSO': 'tarefa_projeto' // Tratamos AVULSO como tarefa_projeto
+      PROJETO: 'tarefa_projeto',
+      SUPORTE: 'tarefa_suporte',
+      AVULSO: 'tarefa_projeto', // Tratamos AVULSO como tarefa_projeto
     };
-    
-    const tipoStatus = tipoMap[tap.tipo];
 
-    return statuses.filter(s =>
-      s.ativo && s.tipo_aplicacao.includes(tipoStatus)
-    );
+    const normalizeTipoAplicacao = (value: Status['tipo_aplicacao'] | string | null | undefined): string[] => {
+      if (Array.isArray(value)) {
+        return value
+          .map(option => (typeof option === 'string' ? option.trim() : ''))
+          .filter((option): option is string => option.length > 0);
+      }
+
+      if (typeof value === 'string') {
+        try {
+          const parsed = JSON.parse(value);
+          if (Array.isArray(parsed)) {
+            return parsed
+              .map(option => (typeof option === 'string' ? option.trim() : ''))
+              .filter((option): option is string => option.length > 0);
+          }
+        } catch {
+          // Valor não é um JSON válido, tentar quebrar por vírgula
+        }
+
+        return value
+          .split(',')
+          .map(option => option.trim())
+          .filter(option => option.length > 0);
+      }
+
+      return [];
+    };
+
+    const rawTipoStatus = tap?.tipo ? tipoMap[tap.tipo] ?? tipoMap.PROJETO : tipoMap.PROJETO;
+    const normalizedTipoStatus = rawTipoStatus?.toLowerCase();
+
+    return statuses.filter(status => {
+      if (!status?.ativo) {
+        return false;
+      }
+
+      const tiposAplicacao = normalizeTipoAplicacao(
+        (status as Status & { tipo_aplicacao?: Status['tipo_aplicacao'] | string | null | undefined }).tipo_aplicacao
+      );
+
+      // Se o status não possui tipos configurados, mantemos disponível para evitar travamentos
+      if (!tiposAplicacao.length) {
+        return true;
+      }
+
+      if (!normalizedTipoStatus) {
+        return true;
+      }
+
+      return tiposAplicacao.some(tipo => tipo.toLowerCase() === normalizedTipoStatus);
+    });
   }, [tap?.tipo, statuses]);
 
   const defaultStatusName = useMemo(() => {
