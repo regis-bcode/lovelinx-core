@@ -33,6 +33,34 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+const mapSupabaseUser = (u: any): User => ({
+  id: u.id,
+  name: (u.user_metadata as any)?.full_name ?? u.email,
+  email: u.email,
+  avatar: (u.user_metadata as any)?.avatar_url ?? null,
+});
+
+const persistMappedUser = (mapped: User | null) => {
+  if (typeof window === "undefined") return;
+  if (mapped) {
+    localStorage.setItem("user", JSON.stringify(mapped));
+  } else {
+    localStorage.removeItem("user");
+  }
+};
+
+const getStoredUser = (): User | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem("user");
+    return stored ? (JSON.parse(stored) as User) : null;
+  } catch (error) {
+    console.warn("Failed to parse stored user:", error);
+    localStorage.removeItem("user");
+    return null;
+  }
+};
+
 export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,17 +71,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setIsLoading(true);
     const DEFAULT_EMAIL = "admin@projectos.com";
     const DEFAULT_PASSWORD = "123456";
-    const FUNCTIONS_URL = "https://mmghpkoumxqbuwebkjxo.functions.supabase.co/bootstrap-default-user";
 
     const mapAndPersistUser = (u: any) => {
-      const mapped: User = {
-        id: u.id,
-        name: (u.user_metadata as any)?.full_name ?? u.email,
-        email: u.email,
-        avatar: (u.user_metadata as any)?.avatar_url ?? null,
-      };
+      const mapped = mapSupabaseUser(u);
       setUser(mapped);
-      localStorage.setItem("user", JSON.stringify(mapped));
+      persistMappedUser(mapped);
     };
 
     try {
@@ -131,28 +153,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("user");
+    persistMappedUser(null);
     toast({ title: "Logout realizado" });
   };
 
   // Initialize auth state and listen for changes
   useEffect(() => {
+    const storedUser = getStoredUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      const u = session?.user;
-      const mapped = u
-        ? { id: u.id, name: (u.user_metadata as any)?.full_name ?? u.email, email: u.email, avatar: (u.user_metadata as any)?.avatar_url ?? null }
-        : null;
+      const mapped = session?.user ? mapSupabaseUser(session.user) : null;
       setUser(mapped);
+      try {
+        persistMappedUser(mapped);
+      } catch (storageError) {
+        console.warn("Failed to persist auth user:", storageError);
+      }
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const u = session?.user;
-      const mapped = u
-        ? { id: u.id, name: (u?.user_metadata as any)?.full_name ?? u?.email, email: u?.email, avatar: (u?.user_metadata as any)?.avatar_url ?? null }
-        : null;
-      setUser(mapped);
-      setIsLoading(false);
-    });
+    const initializeSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        const mapped = data.session?.user ? mapSupabaseUser(data.session.user) : null;
+        setUser(mapped);
+        persistMappedUser(mapped);
+      } catch (error) {
+        console.error("Failed to initialize auth session:", error);
+        const fallbackUser = getStoredUser();
+        if (fallbackUser) {
+          setUser(fallbackUser);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    initializeSession();
 
     return () => {
       subscription.unsubscribe();
