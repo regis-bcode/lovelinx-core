@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -13,15 +14,74 @@ import { CommunicationPlanList } from "@/components/projects/CommunicationPlanLi
 import { TaskManagementSystem } from "@/components/projects/TaskManagementSystem";
 import { CustomFieldListManager } from "@/components/projects/CustomFieldListManager";
 import { TimeManagement } from "@/components/projects/TimeManagement";
+import { supabase } from "@/integrations/supabase/client";
+import { Project } from "@/types/project";
 
 
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getProject, updateProject } = useProjects();
-  
-  const project = id ? getProject(id) : null;
-  
+  const { getProject, updateProject, loading: projectsLoading, refreshProjects } = useProjects();
+
+  const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
+  const [isFetchingProject, setIsFetchingProject] = useState(false);
+  const projectFromStore = id ? getProject(id) : null;
+  const project = projectFromStore ?? fetchedProject;
+
+  useEffect(() => {
+    if (!id) return;
+    if (projectFromStore || fetchedProject || isFetchingProject) return;
+
+    // Aguarda o carregamento inicial dos projetos antes de buscar diretamente no banco
+    if (projectsLoading) return;
+
+    const fetchProject = async () => {
+      try {
+        setIsFetchingProject(true);
+        const { data, error } = await supabase
+          .from("projects")
+          .select("*")
+          .eq("id", id)
+          .maybeSingle<Project>();
+
+        if (error) throw error;
+        if (data) {
+          setFetchedProject({
+            ...data,
+            criticidade: data.criticidade as Project["criticidade"],
+          });
+          // Recarrega o cache local para manter os hooks sincronizados
+          refreshProjects();
+        }
+      } catch (error) {
+        console.error("Erro ao buscar projeto diretamente:", error);
+      } finally {
+        setIsFetchingProject(false);
+      }
+    };
+
+    fetchProject();
+  }, [id, projectFromStore, fetchedProject, isFetchingProject, projectsLoading, refreshProjects]);
+
+  useEffect(() => {
+    if (projectFromStore) {
+      setFetchedProject(projectFromStore);
+    }
+  }, [projectFromStore]);
+
+
+  if (projectsLoading || isFetchingProject) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span>Carregando projeto...</span>
+          </div>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!project) {
     return (
