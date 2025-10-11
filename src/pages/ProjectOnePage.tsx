@@ -620,24 +620,28 @@ export default function ProjectOnePage() {
       const today = new Date();
       const filePrefix = `onepage-${fileSlug}-${today.toISOString().slice(0, 10)}`;
 
-      if (format === "pdf") {
-        exportRoot = createExportContainer(selectedSections);
+      exportRoot = createExportContainer(selectedSections);
 
-        if (!exportRoot) {
-          throw new Error("Não foi possível preparar o conteúdo para exportação.");
-        }
+      if (!exportRoot) {
+        throw new Error("Não foi possível preparar o conteúdo para exportação.");
+      }
 
+      const captureExportCanvas = async () => {
         const html2canvas = await loadHtml2Canvas();
         if (!html2canvas) {
           throw new Error("Não foi possível carregar a biblioteca de captura.");
         }
 
-        const canvas = await html2canvas(exportRoot, {
+        return html2canvas(exportRoot!, {
           scale: 2,
           backgroundColor: "#ffffff",
           useCORS: true,
           logging: false,
         });
+      };
+
+      if (format === "pdf") {
+        const canvas = await captureExportCanvas();
 
         const imageData = canvas.toDataURL("image/png");
         const jsPDFConstructor = await loadJsPDF();
@@ -660,466 +664,71 @@ export default function ProjectOnePage() {
           throw new Error("Biblioteca de PPTX indisponível.");
         }
 
+        const canvas = await captureExportCanvas();
+        if (canvas.width === 0 || canvas.height === 0) {
+          throw new Error("Não foi possível capturar o conteúdo para o PPTX.");
+        }
+
         const pptx = new PptxGenJS();
         pptx.layout = "LAYOUT_16x9";
         const slide = pptx.addSlide();
         slide.background = { color: "FFFFFF" };
 
         const slideWidth = pptx.presLayout.width;
-        const headerHeight = 0.9;
+        const slideHeight = pptx.presLayout.height;
+        const targetChunkHeight = Math.max(Math.round(canvas.width / (slideWidth / slideHeight)), 1);
 
-        const headerShape = slide.addShape(PptxGenJS.ShapeType.rect, {
-          x: 0,
-          y: 0,
-          w: slideWidth,
-          h: headerHeight,
-          fill: { color: "1F2937" },
-          line: { color: "1F2937" },
-        });
-        headerShape?.sendToBack?.();
+        const createChunkCanvas = (height: number) => {
+          const chunkCanvas = document.createElement("canvas");
+          chunkCanvas.width = canvas.width;
+          chunkCanvas.height = height;
+          const context = chunkCanvas.getContext("2d");
 
-        slide.addText("Project Status Report", {
-          x: 0.6,
-          y: 0.18,
-          fontSize: 16,
-          color: "E2E8F0",
-          bold: true,
-        });
+          if (!context) {
+            throw new Error("Não foi possível processar a imagem para o PPTX.");
+          }
 
-        slide.addText(project.nome_projeto, {
-          x: 0.6,
-          y: 0.42,
-          w: slideWidth - 1.2,
-          fontSize: 22,
-          color: "FFFFFF",
-          bold: true,
-        });
+          return { chunkCanvas, context };
+        };
 
-        slide.addText(`Cliente: ${project.cliente ?? "—"}`, {
-          x: 0.6,
-          y: 0.68,
-          fontSize: 11,
-          color: "CBD5F5",
-        });
+        for (let offsetY = 0; offsetY < canvas.height; offsetY += targetChunkHeight) {
+          const chunkHeight = Math.min(targetChunkHeight, canvas.height - offsetY);
+          const { chunkCanvas, context } = createChunkCanvas(chunkHeight);
 
-        slide.addText(`Atualizado em ${formatDateTime(today)}`, {
-          x: slideWidth - 3.1,
-          y: 0.2,
-          w: 2.5,
-          fontSize: 10,
-          color: "CBD5F5",
-          align: "right",
-        });
+          context.drawImage(
+            canvas,
+            0,
+            offsetY,
+            canvas.width,
+            chunkHeight,
+            0,
+            0,
+            canvas.width,
+            chunkHeight,
+          );
 
-        const leftMargin = 0.6;
-        const columnGap = 0.3;
-        const leftColumnWidth = 5.4;
-        const rightColumnWidth = 3.8;
-        const rightColumnX = leftMargin + leftColumnWidth + columnGap;
-        const baseY = headerHeight + 0.2;
+          const chunkAspectRatio = canvas.width / chunkHeight;
+          let imageWidth = slideWidth;
+          let imageHeight = imageWidth / chunkAspectRatio;
 
-        const projectStatus = normalizeStatusLabel(project.status);
-        const realizedRatio = Math.min(Math.max(progress, 0), 100) / 100;
-        const plannedRatio = Math.min(Math.max(plannedProgress, 0), 100) / 100;
+          if (imageHeight > slideHeight) {
+            imageHeight = slideHeight;
+            imageWidth = imageHeight * chunkAspectRatio;
+          }
 
-        const progressCardHeight = 2;
-        slide.addShape(PptxGenJS.ShapeType.rect, {
-          x: leftMargin,
-          y: baseY,
-          w: leftColumnWidth,
-          h: progressCardHeight,
-          fill: { color: "F8FAFC" },
-          line: { color: "E2E8F0" },
-        });
+          const positionX = (slideWidth - imageWidth) / 2;
+          const positionY = (slideHeight - imageHeight) / 2;
 
-        slide.addText("Status do Projeto", {
-          x: leftMargin + 0.25,
-          y: baseY + 0.18,
-          fontSize: 12,
-          color: "475569",
-          bold: true,
-        });
-
-        slide.addText(projectStatus, {
-          x: leftMargin + 0.25,
-          y: baseY + 0.5,
-          fontSize: 18,
-          color: "1F2937",
-          bold: true,
-        });
-
-        slide.addText(`${progress}% realizado`, {
-          x: leftMargin + 0.25,
-          y: baseY + 0.9,
-          fontSize: 12,
-          color: "1F2937",
-          bold: true,
-        });
-
-        slide.addText(`Previsto ${plannedProgress}%`, {
-          x: leftMargin + 2.6,
-          y: baseY + 0.9,
-          fontSize: 11,
-          color: "64748B",
-        });
-
-        const progressBarWidth = leftColumnWidth - 0.5;
-        const progressBarX = leftMargin + 0.25;
-        const progressBarY = baseY + 1.25;
-
-        slide.addShape(PptxGenJS.ShapeType.rect, {
-          x: progressBarX,
-          y: progressBarY,
-          w: progressBarWidth,
-          h: 0.28,
-          fill: { color: "E2E8F0" },
-          line: { color: "E2E8F0" },
-        });
-
-        const realizedWidth = progressBarWidth * realizedRatio;
-        if (realizedWidth > 0) {
-          slide.addShape(PptxGenJS.ShapeType.rect, {
-            x: progressBarX,
-            y: progressBarY,
-            w: realizedWidth,
-            h: 0.28,
-            fill: { color: "16A34A" },
-            line: { color: "16A34A" },
+          const chunkData = chunkCanvas.toDataURL("image/png");
+          const currentSlide = offsetY === 0 ? slide : pptx.addSlide({ background: { color: "FFFFFF" } });
+          currentSlide.addImage({
+            data: chunkData,
+            x: positionX,
+            y: positionY,
+            w: imageWidth,
+            h: imageHeight,
           });
         }
-
-        const plannedMarkerX = progressBarX + progressBarWidth * plannedRatio;
-        slide.addShape(PptxGenJS.ShapeType.rect, {
-          x: Math.min(Math.max(plannedMarkerX - 0.02, progressBarX), progressBarX + progressBarWidth - 0.02),
-          y: progressBarY - 0.06,
-          w: 0.04,
-          h: 0.4,
-          fill: { color: "F59E0B" },
-          line: { color: "F59E0B" },
-        });
-
-        slide.addText(`${tasks.length} atividades monitoradas`, {
-          x: leftMargin + 0.25,
-          y: progressBarY + 0.4,
-          fontSize: 10,
-          color: "64748B",
-        });
-
-        let currentLeftY = baseY + progressCardHeight + 0.3;
-
-        type ExportTableCell = { text: string; options?: Record<string, unknown> };
-        type ExportTableRow = Array<string | ExportTableCell>;
-
-        const addTableCard = ({
-          title,
-          rows,
-          x,
-          y,
-          width,
-          columnWidths,
-        }: {
-          title: string;
-          rows: ExportTableRow[];
-          x: number;
-          y: number;
-          width: number;
-          columnWidths: number[];
-        }) => {
-          const padding = 0.22;
-          const rowHeight = 0.32;
-          const titleHeight = 0.32;
-          const tableHeight = rows.length * rowHeight;
-          const cardHeight = padding * 2 + titleHeight + tableHeight;
-
-          slide.addShape(PptxGenJS.ShapeType.rect, {
-            x,
-            y,
-            w: width,
-            h: cardHeight,
-            fill: { color: "F8FAFC" },
-            line: { color: "E2E8F0" },
-          });
-
-          slide.addText(title, {
-            x: x + padding,
-            y: y + padding - 0.02,
-            w: width - padding * 2,
-            fontSize: 12,
-            color: "1F2937",
-            bold: true,
-          });
-
-          slide.addTable(rows, {
-            x: x + padding,
-            y: y + padding + titleHeight,
-            w: width - padding * 2,
-            colW: columnWidths,
-            fontSize: 10,
-            rowH: rowHeight,
-            border: { pt: 0.5, color: "E2E8F0" },
-            valign: "middle",
-          });
-
-          return y + cardHeight + 0.24;
-        };
-
-        const issuesRows = [
-          [
-            {
-              text: "Responsável",
-              options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } },
-            },
-            {
-              text: "Pendências",
-              options: {
-                bold: true,
-                color: "FFFFFF",
-                fill: { color: "1E293B" },
-                align: "center",
-              },
-            },
-          ],
-          ...(
-            issuesByOwner.length
-              ? issuesByOwner.map((issue) => [
-                  { text: issue.owner, options: { color: "1F2937" } },
-                  { text: issue.count.toString(), options: { align: "center", color: "1F2937" } },
-                ])
-              : [[
-                  { text: "Nenhuma pendência identificada", options: { color: "64748B", italic: true } },
-                  { text: "—", options: { align: "center", color: "94A3B8" } },
-                ]]
-          ),
-        ];
-
-        const issuesContentWidth = leftColumnWidth - 0.44;
-        currentLeftY = addTableCard({
-          title: "Questões por responsável",
-          rows: issuesRows,
-          x: leftMargin,
-          y: currentLeftY,
-          width: leftColumnWidth,
-          columnWidths: [issuesContentWidth * 0.7, issuesContentWidth * 0.3],
-        });
-
-        const deliveredRows = [
-          [
-            { text: "Data", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-            { text: "Entrega", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-          ],
-          ...(
-            deliveredTasks.length
-              ? deliveredTasks.map((task) => [
-                  { text: formatDate(task.data_entrega ?? task.updated_at ?? ""), options: { color: "1F2937" } },
-                  { text: task.nome, options: { color: "1F2937" } },
-                ])
-              : [[
-                  { text: "Sem entregas registradas", options: { color: "64748B", italic: true } },
-                  { text: "—", options: { color: "94A3B8" } },
-                ]]
-          ),
-        ];
-
-        currentLeftY = addTableCard({
-          title: "Entregas recentes",
-          rows: deliveredRows,
-          x: leftMargin,
-          y: currentLeftY,
-          width: leftColumnWidth,
-          columnWidths: [issuesContentWidth * 0.32, issuesContentWidth * 0.68],
-        });
-
-        const upcomingRows = [
-          [
-            { text: "Data", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-            { text: "Atividade", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-          ],
-          ...(
-            upcomingDeliveries.length
-              ? upcomingDeliveries.map(({ task, date }) => [
-                  { text: formatDate(date.toISOString()), options: { color: "1F2937" } },
-                  { text: task.nome, options: { color: "1F2937" } },
-                ])
-              : [[
-                  { text: "Sem atividades previstas", options: { color: "64748B", italic: true } },
-                  { text: "—", options: { color: "94A3B8" } },
-                ]]
-          ),
-        ];
-
-        currentLeftY = addTableCard({
-          title: "Entregas próximas",
-          rows: upcomingRows,
-          x: leftMargin,
-          y: currentLeftY,
-          width: leftColumnWidth,
-          columnWidths: [issuesContentWidth * 0.32, issuesContentWidth * 0.68],
-        });
-
-        let currentRightY = baseY;
-
-        const addInfoCard = ({
-          title,
-          lines,
-          x,
-          y,
-          width,
-        }: {
-          title: string;
-          lines: Array<{ label: string; value: string }>;
-          x: number;
-          y: number;
-          width: number;
-        }) => {
-          const padding = 0.22;
-          const lineHeight = 0.28;
-          const titleHeight = 0.32;
-          const cardHeight = padding * 2 + titleHeight + lines.length * lineHeight;
-
-          slide.addShape(PptxGenJS.ShapeType.rect, {
-            x,
-            y,
-            w: width,
-            h: cardHeight,
-            fill: { color: "F8FAFC" },
-            line: { color: "E2E8F0" },
-          });
-
-          slide.addText(title, {
-            x: x + padding,
-            y: y + padding - 0.02,
-            w: width - padding * 2,
-            fontSize: 12,
-            color: "1F2937",
-            bold: true,
-          });
-
-          lines.forEach((line, index) => {
-            const lineY = y + padding + titleHeight + index * lineHeight;
-            slide.addText(line.label, {
-              x: x + padding,
-              y: lineY,
-              fontSize: 10,
-              color: "64748B",
-            });
-
-            slide.addText(line.value, {
-              x: x + padding,
-              y: lineY,
-              w: width - padding * 2,
-              fontSize: 11,
-              color: "1F2937",
-              bold: true,
-              align: "right",
-            });
-          });
-
-          return y + cardHeight + 0.26;
-        };
-
-        currentRightY = addInfoCard({
-          title: "Informações do projeto",
-          lines: [
-            { label: "Data", value: formatDate(project.data) },
-            { label: "Código", value: tap?.cod_cliente ?? project.cod_cliente ?? "—" },
-            { label: "GPP", value: tap?.gpp ?? project.gpp ?? "—" },
-            { label: "Coordenação", value: tap?.coordenador ?? project.coordenador ?? "—" },
-            { label: "Gerente", value: tap?.gerente_projeto ?? project.coordenador ?? "—" },
-          ],
-          x: rightColumnX,
-          y: currentRightY,
-          width: rightColumnWidth,
-        });
-
-        currentRightY = addInfoCard({
-          title: "Cronograma",
-          lines: [
-            { label: "Início", value: formatDate(project.data_inicio) },
-            { label: "Go-live previsto", value: formatDate(project.go_live_previsto) },
-            {
-              label: "Pós-produção",
-              value: project.duracao_pos_producao ? `${project.duracao_pos_producao} dias` : "—",
-            },
-          ],
-          x: rightColumnX,
-          y: currentRightY,
-          width: rightColumnWidth,
-        });
-
-        currentRightY = addInfoCard({
-          title: "Financeiro",
-          lines: [
-            { label: "Valor do projeto", value: formatCurrency(project.valor_projeto) },
-            { label: "Receita atual", value: formatCurrency(project.receita_atual) },
-            {
-              label: "Margem",
-              value: `${formatPercentage(project.margem_venda_percent)} / ${formatPercentage(project.margem_atual_percent)}`,
-            },
-          ],
-          x: rightColumnX,
-          y: currentRightY,
-          width: rightColumnWidth,
-        });
-
-        const riskRows = [
-          [
-            { text: "Risco", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-            { text: "Responsável", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-            { text: "Exposição", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" }, align: "center" } },
-          ],
-          ...(
-            criticalRisks.length
-              ? criticalRisks.map((risk) => [
-                  { text: risk.situacao, options: { color: "1F2937" } },
-                  { text: risk.responsavel, options: { color: "1F2937" } },
-                  {
-                    text: `${Math.round(risk.exposicao)}%`,
-                    options: { align: "center", color: "1F2937" },
-                  },
-                ])
-              : [[
-                  { text: "Sem riscos críticos", options: { color: "64748B", italic: true } },
-                  { text: "—", options: { color: "94A3B8" } },
-                  { text: "—", options: { align: "center", color: "94A3B8" } },
-                ]]
-          ),
-        ];
-
-        currentRightY = addTableCard({
-          title: "Riscos críticos",
-          rows: riskRows,
-          x: rightColumnX,
-          y: currentRightY,
-          width: rightColumnWidth,
-          columnWidths: [rightColumnWidth * 0.42, rightColumnWidth * 0.33, rightColumnWidth * 0.23],
-        });
-
-        const stakeholderRows = [
-          [
-            { text: "Stakeholder", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-            { text: "Cargo", options: { bold: true, color: "FFFFFF", fill: { color: "1E293B" } } },
-          ],
-          ...(
-            keyStakeholders.length
-              ? keyStakeholders.map((stakeholder) => [
-                  { text: stakeholder.nome, options: { color: "1F2937" } },
-                  { text: stakeholder.cargo, options: { color: "1F2937" } },
-                ])
-              : [[
-                  { text: "Sem stakeholders cadastrados", options: { color: "64748B", italic: true } },
-                  { text: "—", options: { color: "94A3B8" } },
-                ]]
-          ),
-        ];
-
-        addTableCard({
-          title: "Stakeholders chave",
-          rows: stakeholderRows,
-          x: rightColumnX,
-          y: currentRightY,
-          width: rightColumnWidth,
-          columnWidths: [rightColumnWidth * 0.55, rightColumnWidth * 0.45],
-        });
 
         await pptx.writeFile({ fileName: `${filePrefix}.pptx` });
       }
