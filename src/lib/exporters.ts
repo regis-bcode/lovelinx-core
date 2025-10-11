@@ -10,6 +10,23 @@ const scriptPromises = new Map<ScriptKey, Promise<void>>();
 
 type ExtendedWindow = Window & { pptxgen?: unknown };
 
+type PptxConstructor = new () => unknown;
+
+const resolvePptxConstructor = (candidate: unknown): PptxConstructor | null => {
+  if (typeof candidate === "function") {
+    return candidate as PptxConstructor;
+  }
+
+  if (candidate && typeof candidate === "object" && "default" in (candidate as Record<string, unknown>)) {
+    const { default: defaultExport } = candidate as { default?: unknown };
+    if (typeof defaultExport === "function") {
+      return defaultExport as PptxConstructor;
+    }
+  }
+
+  return null;
+};
+
 const ensureScript = (key: ScriptKey) => {
   if (typeof window === "undefined") {
     return Promise.resolve();
@@ -74,13 +91,19 @@ export const loadJsPDF = async () => {
 
 export const loadPptxGenJS = async () => {
   await ensureScript("pptxgenjs");
-  const pptxGlobal = window.PptxGenJS ?? (window as ExtendedWindow).pptxgen;
-  if (!pptxGlobal || typeof pptxGlobal !== "function") {
-    console.error("PptxGenJS global constructor not available after script load", pptxGlobal);
-    return null;
+
+  const extendedWindow = window as ExtendedWindow;
+  const candidates = [window.PptxGenJS, extendedWindow.pptxgen];
+
+  for (const candidate of candidates) {
+    const constructor = resolvePptxConstructor(candidate);
+    if (constructor) {
+      return constructor;
+    }
   }
 
-  return pptxGlobal as new () => unknown;
+  console.error("PptxGenJS constructor not available after script load", candidates);
+  return null;
 };
 
 export {}; // Ensure this file is treated as a module
