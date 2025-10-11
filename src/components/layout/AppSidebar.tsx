@@ -10,6 +10,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const mainNavigation = navigation.slice(0, 2);
 const toolsNavigation = navigation.slice(2);
@@ -47,65 +48,67 @@ export function AppSidebar() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto px-6 pb-6 pt-8">
-        <SidebarCollapsibleSection
-          title="Navegação"
-          open={isNavigationOpen}
-          onOpenChange={setIsNavigationOpen}
-        >
-          <div className="flex flex-col gap-2">
-            {mainNavigation.map((item) => (
-              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                <item.icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </NavLink>
-            ))}
-          </div>
-        </SidebarCollapsibleSection>
+      <ScrollArea className="flex-1">
+        <div className="flex flex-col px-6 pb-6 pt-8">
+          <SidebarCollapsibleSection
+            title="Navegação"
+            open={isNavigationOpen}
+            onOpenChange={setIsNavigationOpen}
+          >
+            <div className="flex flex-col gap-2">
+              {mainNavigation.map((item) => (
+                <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </NavLink>
+              ))}
+            </div>
+          </SidebarCollapsibleSection>
 
-        <SidebarCollapsibleSection
-          title="Meus Workspaces"
-          className="mt-8"
-          open={isWorkspacesOpen}
-          onOpenChange={setIsWorkspacesOpen}
-        >
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]">
-            <WorkspaceTree collapsed={false} />
-          </div>
-        </SidebarCollapsibleSection>
+          <SidebarCollapsibleSection
+            title="Meus Workspaces"
+            className="mt-8"
+            open={isWorkspacesOpen}
+            onOpenChange={setIsWorkspacesOpen}
+          >
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]">
+              <WorkspaceTree collapsed={false} />
+            </div>
+          </SidebarCollapsibleSection>
 
-        <SidebarCollapsibleSection
-          title="Ferramentas"
-          className="mt-8"
-          open={isToolsOpen}
-          onOpenChange={setIsToolsOpen}
-        >
-          <div className="flex flex-col gap-2">
-            {toolsNavigation.map((item) => (
-              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                <item.icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </NavLink>
-            ))}
-          </div>
-        </SidebarCollapsibleSection>
+          <SidebarCollapsibleSection
+            title="Ferramentas"
+            className="mt-8"
+            open={isToolsOpen}
+            onOpenChange={setIsToolsOpen}
+          >
+            <div className="flex flex-col gap-2">
+              {toolsNavigation.map((item) => (
+                <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </NavLink>
+              ))}
+            </div>
+          </SidebarCollapsibleSection>
 
-        <SidebarCollapsibleSection
-          title="Configurações"
-          className="mt-8"
-          open={isSettingsOpen}
-          onOpenChange={setIsSettingsOpen}
-        >
-          <div className="flex flex-col gap-2">
-            {settingsNav.map((item) => (
-              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                <item.icon className="h-4 w-4" />
-                <span>{item.title}</span>
-              </NavLink>
-            ))}
-          </div>
-        </SidebarCollapsibleSection>
-      </div>
+          <SidebarCollapsibleSection
+            title="Configurações"
+            className="mt-8"
+            open={isSettingsOpen}
+            onOpenChange={setIsSettingsOpen}
+          >
+            <div className="flex flex-col gap-2">
+              {settingsNav.map((item) => (
+                <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </NavLink>
+              ))}
+            </div>
+          </SidebarCollapsibleSection>
+        </div>
+      </ScrollArea>
     </aside>
   );
 }
