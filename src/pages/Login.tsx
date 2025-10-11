@@ -58,6 +58,26 @@ export default function Login() {
     }
   };
 
+  const featureCards = [
+    {
+      title: "Painel de Projetos",
+      description:
+        "Visualize cronogramas, responsáveis e riscos em um painel único e vivo.",
+    },
+    {
+      title: "Suporte BCODE",
+      description: "Equipe especializada para orientar implantações e rotinas diárias.",
+    },
+    {
+      title: "Universidade BCODE",
+      description: "Capacitação contínua com trilhas de conhecimento e boas práticas.",
+    },
+    {
+      title: "Insights Estratégicos",
+      description: "Dashboards conectados aos OKRs e resultados das iniciativas.",
+    },
+  ];
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-gradient-hero px-4 py-10">
       <header>
@@ -77,26 +97,24 @@ export default function Login() {
             <div className="absolute -bottom-12 left-0 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="relative space-y-8">
               <div className="flex items-center gap-4">
-                <img src="/baumgratz-code-logo.svg" alt="Baumgratz Code" className="h-12" />
+                <img src="/baumgratz-code-logo.svg" alt="Baumfratz Code" className="h-12" />
               </div>
               <div className="space-y-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.45em] text-white/80">
-                  Hospitalar 4.0
+                  Painel BCODE
                 </span>
                 <h2 className="text-3xl font-semibold leading-snug lg:text-4xl">
-                  Painéis Gerenciais Hospitalares que unem dados, equipes e decisões
+                  Painel de Acompanhamento de Projetos que une dados, equipes e decisões
                 </h2>
                 <p className="text-base text-white/80">
-                  Acompanhe farmácia, centro cirúrgico e indicadores financeiros em um ambiente seguro, integrado e atualizado em tempo real.
+                  Acompanhe portfólios, squads e resultados em um ambiente seguro, integrado e atualizado em tempo real.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                {["Painéis Integrados", "Dados em Tempo Real", "Análises Detalhadas", "Desempenho por Equipe"].map((feature) => (
-                  <div key={feature} className="rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-white/80">
-                    <span className="text-white">{feature}</span>
-                    <p className="mt-2 text-xs leading-relaxed text-white/70">
-                      Insights confiáveis para decisões ágeis e gestão humanizada.
-                    </p>
+                {featureCards.map((feature) => (
+                  <div key={feature.title} className="rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-white/80">
+                    <span className="text-white">{feature.title}</span>
+                    <p className="mt-2 text-xs leading-relaxed text-white/70">{feature.description}</p>
                   </div>
                 ))}
               </div>
@@ -110,7 +128,7 @@ export default function Login() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-[0_15px_40px_rgba(27,95,140,0.25)]">
                   <FolderKanban className="h-8 w-8" />
                 </div>
-                <h2 className="text-2xl font-semibold text-foreground">Acesse sua central Baumgratz Code</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Acesse sua central Baumfratz Code</h2>
                 <p className="text-sm text-muted-foreground">
                   {isSignup ? "Crie sua conta para iniciar a gestão integrada" : "Entre com suas credenciais para continuar"}
                 </p>

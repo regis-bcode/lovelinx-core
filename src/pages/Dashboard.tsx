@@ -14,9 +14,9 @@ import {
   TrendingUp,
   Calendar,
   HelpCircle,
-  Activity,
-  RadioTower,
-  BarChart3,
+  LayoutDashboard,
+  LifeBuoy,
+  GraduationCap,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
@@ -43,19 +43,19 @@ export default function Dashboard() {
   const { counts, recentProjects: rp } = useDashboardStats();
   const heroHighlights = [
     {
-      title: "Painéis Integrados",
-      description: "Monitoramento completo da farmácia, centro cirúrgico e indicadores financeiros.",
-      icon: Activity,
+      title: "Painel Unificado de Projetos",
+      description: "Acompanhe etapas, status e entregas em uma visão única do portfólio.",
+      icon: LayoutDashboard,
     },
     {
-      title: "Dados em Tempo Real",
-      description: "Atualizações constantes para decisões imediatas em operações críticas do hospital.",
-      icon: RadioTower,
+      title: "Suporte Especializado BCODE",
+      description: "Time dedicado para orientar squads, PMOs e lideranças em cada fase.",
+      icon: LifeBuoy,
     },
     {
-      title: "Análises Detalhadas",
-      description: "Visualização por período, especialidade e profissionais com filtros personalizados.",
-      icon: BarChart3,
+      title: "Universidade BCODE",
+      description: "Trilhas de conhecimento e boas práticas para acelerar maturidade em projetos.",
+      icon: GraduationCap,
     },
   ];
   const statsUI = [
@@ -104,18 +104,18 @@ export default function Dashboard() {
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-xl space-y-4">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.35em] text-white/80">
-                Visão Geral
+                Portfólio BCODE
               </span>
               <h1 className="text-3xl font-semibold leading-tight lg:text-4xl">
-                Painéis Gerenciais Hospitalares
+                Painel de Acompanhamento de Projetos
               </h1>
               <p className="text-base text-white/80">
-                Soluções integradas para gestão eficiente de estoques, centro cirúrgico e indicadores financeiros com atualização em tempo real.
+                Solução completa para monitorar iniciativas, OKRs e entregas em tempo real, conectando times e patrocinadores em um fluxo único de trabalho.
               </p>
               <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
                 <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2">
                   <span className="h-2 w-2 rounded-full bg-accent shadow-glow" />
-                  Atualizado em tempo real
+                  Atualizado com dados de squads e PMOs
                 </div>
                 <div className="flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-2">
                   <Calendar className="h-3.5 w-3.5" />
@@ -195,7 +195,7 @@ export default function Dashboard() {
               <div>
                 <CardTitle className="text-xl font-semibold text-foreground">Projetos Recentes</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Monitoramento das iniciativas estratégicas do hospital
+                  Monitoramento das iniciativas estratégicas do portfólio
                 </p>
               </div>
               <Tooltip>

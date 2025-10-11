@@ -127,15 +127,15 @@ export function AppSidebar() {
           <div className="flex items-center gap-3 min-w-0">
             <img
               src="/baumgratz-code-mark.svg"
-              alt="Baumgratz Code"
+              alt="Baumfratz Code"
               className="h-11 w-11 flex-shrink-0 drop-shadow-[0_6px_12px_rgba(41,163,229,0.35)]"
             />
             {state !== "collapsed" && (
               <div className="flex flex-col leading-tight text-white">
-                <span className="text-xs font-semibold tracking-[0.48em] text-white/70 uppercase">Baumgratz</span>
+                <span className="text-xs font-semibold tracking-[0.48em] text-white/70 uppercase">Baumfratz</span>
                 <span className="text-lg font-semibold text-orange-300">CODE</span>
                 <span className="text-[10px] font-medium uppercase tracking-[0.36em] text-white/50">
-                  Painéis Gerenciais
+                  Painel de Projetos
                 </span>
               </div>
             )}
