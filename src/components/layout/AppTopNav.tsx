@@ -17,26 +17,26 @@ export function AppTopNav() {
     );
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              className="inline-flex items-center gap-2 rounded-full border-primary/20 bg-white/70 text-primary hover:border-primary/40 hover:bg-white"
-            >
-              <span>Workspaces</span>
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-[320px] p-0" align="start">
-            <div className="max-h-[420px] overflow-y-auto p-3">
-              <WorkspaceTree collapsed={false} />
-            </div>
-          </PopoverContent>
-        </Popover>
+    <div className="flex flex-col gap-3 rounded-3xl border border-white/40 bg-white/70 p-3 shadow-soft backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/70 md:flex-row md:items-center md:gap-4 md:p-4">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="inline-flex items-center gap-2 rounded-full border-primary/20 bg-white/80 text-primary shadow-soft hover:border-primary/40 hover:bg-white"
+          >
+            <span>Workspaces</span>
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[320px] p-0" align="start">
+          <div className="max-h-[420px] overflow-y-auto p-3">
+            <WorkspaceTree collapsed={false} />
+          </div>
+        </PopoverContent>
+      </Popover>
 
-        <div className="flex flex-1 gap-2 overflow-x-auto pb-1">
+      <div className="flex-1 overflow-hidden">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {navigation.map((item) => (
             <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls(isActive)}>
               <item.icon className="h-4 w-4" />
@@ -46,7 +46,7 @@ export function AppTopNav() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 md:justify-end">
         {settingsNav.map((item) => (
           <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls(isActive)}>
             <item.icon className="h-4 w-4" />
