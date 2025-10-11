@@ -486,7 +486,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const priorityOptions = ['Baixa', 'Média', 'Alta', 'Crítica'];
       const statusOptions = filteredStatuses.map(status => status.nome.toLowerCase());
 
-      const formattedRows = rows.map((row) => {
+      const formattedRows = rows.map<TaskRow | null>((row) => {
         const nome = String(row['Nome da Tarefa'] ?? row['Nome'] ?? '').trim();
         if (!nome) {
           return null;
@@ -584,7 +584,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
         return {
           nome,
-          prioridade,
+          prioridade: prioridade as Task["prioridade"],
           status,
           cliente: clienteValue || defaultClient || undefined,
           responsavel: responsavelValue || undefined,
@@ -598,7 +598,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           nivel: 0,
           ordem: tasks.length,
           custom_fields: customFieldValues,
-        };
+        } as TaskRow;
       }).filter((row): row is TaskRow => row !== null);
 
       if (formattedRows.length === 0) {
@@ -709,11 +709,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 <SelectValue placeholder="Selecionar" />
               </SelectTrigger>
               <SelectContent>
-                {(field.field_options || []).map(option => (
-                  <SelectItem key={option} value={option}>
-                    {option}
-                  </SelectItem>
-                ))}
+                {Array.from(new Set((field.field_options || [])
+                  .filter((opt): opt is string => typeof opt === 'string' && opt.trim().length > 0)))
+                  .map(option => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           );
@@ -850,11 +852,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <SelectValue placeholder={placeholder} />
           </SelectTrigger>
           <SelectContent>
-            {filteredStatuses.map(status => (
-              <SelectItem key={status.id} value={status.nome}>
-                {status.nome}
-              </SelectItem>
-            ))}
+            {filteredStatuses
+              .filter(status => typeof status.nome === 'string' && status.nome.trim().length > 0)
+              .map(status => (
+                <SelectItem key={status.id} value={status.nome}>
+                  {status.nome}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       );
