@@ -26,7 +26,7 @@ import { useCategorias } from '@/hooks/useCategorias';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
-import { useTeams } from '@/hooks/useTeams';
+import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import * as XLSX from 'xlsx';
 
 interface TaskManagementSystemProps {
@@ -109,7 +109,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
   const { getTaskTotalTime } = useTimeLogs(projectId);
-  const { teams } = useTeams(projectId);
+  const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
   
@@ -135,6 +135,50 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
     return '';
   }, [projectClient, tap?.cod_cliente]);
+
+  const activeTeamMembers = useMemo(() => {
+    if (!projectAllocations.length) {
+      return [] as Array<{ id: string; name: string }>;
+    }
+
+    const normalizedClient = defaultClient.trim().toLowerCase();
+    const membersMap = new Map<string, { id: string; name: string }>();
+
+    projectAllocations.forEach(allocation => {
+      if (allocation.status_participacao !== 'Ativo') {
+        return;
+      }
+
+      if (allocation.project_id !== projectId) {
+        return;
+      }
+
+      const allocationClient = allocation.project?.cliente?.trim().toLowerCase();
+      const allocationClientName = allocation.client?.nome?.trim().toLowerCase();
+
+      if (
+        normalizedClient &&
+        allocationClient &&
+        allocationClient !== normalizedClient &&
+        allocationClientName !== normalizedClient
+      ) {
+        return;
+      }
+
+      const memberId = allocation.allocated_user_id;
+      const memberName = allocation.user?.nome_completo?.trim();
+
+      if (!memberId || !memberName) {
+        return;
+      }
+
+      if (!membersMap.has(memberId)) {
+        membersMap.set(memberId, { id: memberId, name: memberName });
+      }
+    });
+
+    return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [projectAllocations, projectId, defaultClient]);
 
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
@@ -914,23 +958,36 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     if (column.key === 'responsavel') {
+      const responsavelOptions = activeTeamMembers;
+      const currentValue = typeof value === 'string' ? value : '';
+      const hasMatchingMember = responsavelOptions.some(member => member.name === currentValue);
+
       return (
         <Select
-          value={(value as string) || 'unassigned'}
+          value={hasMatchingMember ? currentValue : currentValue ? 'custom' : 'unassigned'}
           onValueChange={(val) =>
-            updateCell(rowIndex, column.key, val === 'unassigned' ? undefined : val)
+            updateCell(
+              rowIndex,
+              column.key,
+              val === 'unassigned' || val === 'custom' ? undefined : val
+            )
           }
         >
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder={teams.length ? 'Selecione' : 'Sem membros disponíveis'} />
+            <SelectValue placeholder={responsavelOptions.length ? 'Selecione' : 'Sem membros disponíveis'} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="unassigned">Sem responsável</SelectItem>
-            {teams.map((team) => (
-              <SelectItem key={team.id} value={team.nome}>
-                {team.nome}
+            {responsavelOptions.map((member) => (
+              <SelectItem key={member.id} value={member.name}>
+                {member.name}
               </SelectItem>
             ))}
+            {!hasMatchingMember && currentValue ? (
+              <SelectItem disabled value="custom">
+                {currentValue} (fora da equipe ativa)
+              </SelectItem>
+            ) : null}
           </SelectContent>
         </Select>
       );
