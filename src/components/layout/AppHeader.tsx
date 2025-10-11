@@ -154,7 +154,7 @@ export function AppHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="absolute right-0 top-0 hidden md:block">
+            <div className="absolute right-0 -top-2 hidden md:block">
               {collapseToggleButton}
             </div>
           </div>
