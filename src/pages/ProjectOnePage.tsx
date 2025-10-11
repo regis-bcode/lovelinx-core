@@ -12,6 +12,8 @@ import {
   MessageSquare,
   Clock,
   Layers,
+  PrinterCheck,
+  TrendingUp,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend,
+  Line,
+  LineChart,
+  PolarAngleAxis,
+  RadialBar,
+  RadialBarChart,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useProjects } from "@/hooks/useProjects";
 import { useTasks } from "@/hooks/useTasks";
 import { useRisks } from "@/hooks/useRisks";
@@ -58,6 +80,48 @@ const isCompletedTask = (task: Task) => {
 
 const getTaskOwner = (task: Task) =>
   task.responsavel || task.responsavel_consultoria || task.responsavel_cliente || "Não atribuído";
+
+type PrintSectionKey =
+  | "progress"
+  | "schedule"
+  | "finance"
+  | "team"
+  | "executiveSummary"
+  | "issues"
+  | "risks"
+  | "deliveries"
+  | "sCurve"
+  | "stakeholders"
+  | "communications";
+
+const defaultPrintSelection: Record<PrintSectionKey, boolean> = {
+  progress: true,
+  schedule: true,
+  finance: true,
+  team: true,
+  executiveSummary: true,
+  issues: true,
+  risks: true,
+  deliveries: true,
+  sCurve: true,
+  stakeholders: true,
+  communications: true,
+};
+
+const slugify = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "sem_status";
+
+const normalizeStatusLabel = (status?: string | null) => {
+  if (!status) return "Sem status";
+  const normalized = status.trim();
+  if (!normalized) return "Sem status";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 export default function ProjectOnePage() {
   const { id } = useParams<{ id: string }>();
@@ -117,6 +181,8 @@ export default function ProjectOnePage() {
     return Math.round((completed / tasks.length) * 100);
   }, [tasks]);
 
+  const [printSelection, setPrintSelection] = useState<Record<PrintSectionKey, boolean>>(defaultPrintSelection);
+
   const attentionTasks = useMemo(() => {
     const now = new Date();
     return tasks
@@ -144,6 +210,59 @@ export default function ProjectOnePage() {
     return Array.from(map.entries())
       .map(([owner, count]) => ({ owner, count }))
       .sort((a, b) => b.count - a.count);
+  }, [attentionTasks]);
+
+  const issuesByOwnerChart = useMemo(() => {
+    if (!attentionTasks.length) {
+      return {
+        data: [],
+        statuses: [] as Array<{ key: string; label: string }>,
+        config: {} as ChartConfig,
+      };
+    }
+
+    const statusMap = new Map<string, { key: string; label: string }>();
+    const dataMap = new Map<string, Map<string, number>>();
+
+    attentionTasks.forEach((task) => {
+      const owner = getTaskOwner(task);
+      const label = normalizeStatusLabel(task.status);
+      const key = slugify(label);
+      if (!statusMap.has(key)) {
+        statusMap.set(key, { key, label });
+      }
+      if (!dataMap.has(owner)) {
+        dataMap.set(owner, new Map());
+      }
+      const ownerMap = dataMap.get(owner)!;
+      ownerMap.set(key, (ownerMap.get(key) ?? 0) + 1);
+    });
+
+    const statuses = Array.from(statusMap.values());
+
+    const data = Array.from(dataMap.entries()).map(([owner, map]) => {
+      const entry: Record<string, string | number> = { owner };
+      statuses.forEach(({ key }) => {
+        entry[key] = map.get(key) ?? 0;
+      });
+      entry.total = Array.from(map.values()).reduce((total, value) => total + value, 0);
+      return entry;
+    });
+
+    const config = statuses.reduce((acc, { key, label }, index) => {
+      const colorIndex = (index % 5) + 1;
+      acc[key] = {
+        label,
+        color: `hsl(var(--chart-${colorIndex}))`,
+      };
+      return acc;
+    }, {} as ChartConfig);
+
+    return {
+      data,
+      statuses,
+      config,
+    };
   }, [attentionTasks]);
 
   const upcomingDeliveries = useMemo(() => {
@@ -178,6 +297,111 @@ export default function ProjectOnePage() {
 
   const keyStakeholders = useMemo(() => stakeholders.slice(0, 4), [stakeholders]);
   const keyCommunications = useMemo(() => communicationPlans.slice(0, 4), [communicationPlans]);
+
+  const sCurveData = useMemo(() => {
+    if (!tasks.length) return [] as Array<{ label: string; planned: number; actual: number }>;
+
+    const plannedMap = new Map<string, number>();
+    const actualMap = new Map<string, number>();
+
+    tasks.forEach((task) => {
+      if (task.data_vencimento) {
+        const due = new Date(task.data_vencimento);
+        if (!Number.isNaN(due.getTime())) {
+          const key = due.toISOString().slice(0, 10);
+          plannedMap.set(key, (plannedMap.get(key) ?? 0) + 1);
+        }
+      }
+
+      if (isCompletedTask(task)) {
+        const completionDate = task.data_entrega || task.updated_at;
+        if (completionDate) {
+          const completed = new Date(completionDate);
+          if (!Number.isNaN(completed.getTime())) {
+            const key = completed.toISOString().slice(0, 10);
+            actualMap.set(key, (actualMap.get(key) ?? 0) + 1);
+          }
+        }
+      }
+    });
+
+    const allDates = Array.from(new Set([...plannedMap.keys(), ...actualMap.keys()])).sort();
+
+    if (!allDates.length) return [] as Array<{ label: string; planned: number; actual: number }>;
+
+    const totalTasks = tasks.length;
+    let cumulativePlanned = 0;
+    let cumulativeActual = 0;
+
+    return allDates.map((dateKey) => {
+      cumulativePlanned += plannedMap.get(dateKey) ?? 0;
+      cumulativeActual += actualMap.get(dateKey) ?? 0;
+
+      const dateLabel = new Intl.DateTimeFormat("pt-BR").format(new Date(`${dateKey}T00:00:00`));
+
+      return {
+        label: dateLabel,
+        planned: Number(((cumulativePlanned / totalTasks) * 100).toFixed(2)),
+        actual: Number(((cumulativeActual / totalTasks) * 100).toFixed(2)),
+      };
+    });
+  }, [tasks]);
+
+  const sCurveConfig: ChartConfig = useMemo(
+    () => ({
+      planned: {
+        label: "Planejado",
+        color: "hsl(var(--chart-2))",
+      },
+      actual: {
+        label: "Realizado",
+        color: "hsl(var(--chart-1))",
+      },
+    }),
+    [],
+  );
+
+  const gaugeConfig: ChartConfig = useMemo(
+    () => ({
+      progress: {
+        label: "Entrega do projeto",
+        color: "hsl(var(--chart-1))",
+      },
+    }),
+    [],
+  );
+
+  const gaugeData = useMemo(
+    () => [
+      {
+        name: "progress",
+        value: progress,
+      },
+    ],
+    [progress],
+  );
+
+  const handleTogglePrint = (section: PrintSectionKey, value: boolean | "indeterminate") => {
+    setPrintSelection((prev) => ({
+      ...prev,
+      [section]: value === true,
+    }));
+  };
+
+  const renderPrintToggle = (section: PrintSectionKey) => (
+    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <Checkbox
+        id={`print-${section}`}
+        checked={printSelection[section]}
+        onCheckedChange={(value) => handleTogglePrint(section, value)}
+        className="h-4 w-4"
+      />
+      <label htmlFor={`print-${section}`} className="flex cursor-pointer items-center gap-1 select-none">
+        <PrinterCheck className="h-3.5 w-3.5" />
+        Imprimir
+      </label>
+    </div>
+  );
 
   const isLoading = projectsLoading || tasksLoading || isFetchingProject;
 
@@ -229,12 +453,44 @@ export default function ProjectOnePage() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Card>
+          <Card data-print-section="progress" data-print-selected={printSelection.progress ? "true" : "false"}>
             <CardHeader className="pb-2">
-              <CardDescription>Progresso geral</CardDescription>
-              <CardTitle className="text-3xl font-bold">{progress}%</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardDescription>Progresso geral</CardDescription>
+                  <CardTitle className="text-3xl font-bold">Entrega consolidada</CardTitle>
+                </div>
+                {renderPrintToggle("progress")}
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="relative mx-auto flex h-48 w-full max-w-[260px] flex-col items-center justify-center">
+                <ChartContainer
+                  config={gaugeConfig}
+                  className="h-48 w-full max-w-[260px] [&_.recharts-wrapper]:overflow-visible"
+                >
+                  <RadialBarChart
+                    data={gaugeData}
+                    startAngle={210}
+                    endAngle={-30}
+                    innerRadius="70%"
+                    outerRadius="100%"
+                  >
+                    <PolarAngleAxis type="number" domain={[0, 100]} tick={false} angleAxisId={0} />
+                    <RadialBar
+                      dataKey="value"
+                      cornerRadius={12}
+                      fill="var(--color-progress)"
+                      background
+                      clockWise
+                    />
+                  </RadialBarChart>
+                </ChartContainer>
+                <div className="absolute top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
+                  <span className="text-4xl font-bold">{progress}%</span>
+                  <span className="text-xs text-muted-foreground">% de entrega do projeto</span>
+                </div>
+              </div>
               <Progress value={progress} className="h-2" />
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ClipboardList className="h-4 w-4" />
@@ -243,10 +499,15 @@ export default function ProjectOnePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-print-section="schedule" data-print-selected={printSelection.schedule ? "true" : "false"}>
             <CardHeader className="pb-2">
-              <CardDescription>Cronograma</CardDescription>
-              <CardTitle className="text-lg">Linha do tempo</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardDescription>Cronograma</CardDescription>
+                  <CardTitle className="text-lg">Linha do tempo</CardTitle>
+                </div>
+                {renderPrintToggle("schedule")}
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
@@ -266,10 +527,15 @@ export default function ProjectOnePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-print-section="finance" data-print-selected={printSelection.finance ? "true" : "false"}>
             <CardHeader className="pb-2">
-              <CardDescription>Financeiro</CardDescription>
-              <CardTitle className="text-lg">Resumo</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardDescription>Financeiro</CardDescription>
+                  <CardTitle className="text-lg">Resumo</CardTitle>
+                </div>
+                {renderPrintToggle("finance")}
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
@@ -289,10 +555,15 @@ export default function ProjectOnePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-print-section="team" data-print-selected={printSelection.team ? "true" : "false"}>
             <CardHeader className="pb-2">
-              <CardDescription>Equipe principal</CardDescription>
-              <CardTitle className="text-lg">Responsáveis</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <CardDescription>Equipe principal</CardDescription>
+                  <CardTitle className="text-lg">Responsáveis</CardTitle>
+                </div>
+                {renderPrintToggle("team")}
+              </div>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="flex items-center gap-2">
@@ -311,10 +582,15 @@ export default function ProjectOnePage() {
           </Card>
         </div>
 
-        <Card>
+        <Card data-print-section="executiveSummary" data-print-selected={printSelection.executiveSummary ? "true" : "false"}>
           <CardHeader>
-            <CardTitle>Resumo executivo</CardTitle>
-            <CardDescription>Escopo, objetivos e observações principais do projeto</CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle>Resumo executivo</CardTitle>
+                <CardDescription>Escopo, objetivos e observações principais do projeto</CardDescription>
+              </div>
+              {renderPrintToggle("executiveSummary")}
+            </div>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -339,15 +615,40 @@ export default function ProjectOnePage() {
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
+          <Card data-print-section="issues" data-print-selected={printSelection.issues ? "true" : "false"}>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                <CardTitle>Questões por responsável</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-4 w-4 text-primary" />
+                    <CardTitle>Questões por responsável</CardTitle>
+                  </div>
+                  <CardDescription>Pontos de atenção em aberto organizados por responsável</CardDescription>
+                </div>
+                {renderPrintToggle("issues")}
               </div>
-              <CardDescription>Pontos de atenção em aberto organizados por responsável</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {issuesByOwnerChart.data.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold uppercase text-muted-foreground">
+                    Distribuição por status
+                  </h4>
+                  <ChartContainer config={issuesByOwnerChart.config} className="h-72 w-full">
+                    <BarChart data={issuesByOwnerChart.data}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="owner" tickLine={false} axisLine={false} />
+                      <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Legend />
+                      {issuesByOwnerChart.statuses.map(({ key }) => (
+                        <Bar key={key} dataKey={key} stackId="issues" fill={`var(--color-${key})`} radius={[4, 4, 0, 0]} />
+                      ))}
+                    </BarChart>
+                  </ChartContainer>
+                </div>
+              )}
+
               {issuesByOwner.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   Nenhum ponto de atenção aberto até o momento.
@@ -396,13 +697,18 @@ export default function ProjectOnePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-print-section="risks" data-print-selected={printSelection.risks ? "true" : "false"}>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                <CardTitle>Riscos críticos</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                    <CardTitle>Riscos críticos</CardTitle>
+                  </div>
+                  <CardDescription>Principais riscos acompanhados pelo time do projeto</CardDescription>
+                </div>
+                {renderPrintToggle("risks")}
               </div>
-              <CardDescription>Principais riscos acompanhados pelo time do projeto</CardDescription>
             </CardHeader>
             <CardContent>
               {criticalRisks.length === 0 ? (
@@ -433,13 +739,18 @@ export default function ProjectOnePage() {
           </Card>
         </div>
 
-        <Card>
+        <Card data-print-section="deliveries" data-print-selected={printSelection.deliveries ? "true" : "false"}>
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-primary" />
-              <CardTitle>Entregas e próximos passos</CardTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" />
+                  <CardTitle>Entregas e próximos passos</CardTitle>
+                </div>
+                <CardDescription>Visão consolidada das entregas concluídas e futuras</CardDescription>
+              </div>
+              {renderPrintToggle("deliveries")}
             </div>
-            <CardDescription>Visão consolidada das entregas concluídas e futuras</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-6 lg:grid-cols-2">
             <div>
@@ -512,14 +823,68 @@ export default function ProjectOnePage() {
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-primary" />
-                <CardTitle>Stakeholders chave</CardTitle>
+        <Card data-print-section="sCurve" data-print-selected={printSelection.sCurve ? "true" : "false"}>
+          <CardHeader>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <CardTitle>Curva S do projeto</CardTitle>
+                </div>
+                <CardDescription>Evolução acumulada das entregas planejadas x realizadas</CardDescription>
               </div>
-              <CardDescription>Principais envolvidos e nível de influência</CardDescription>
+              {renderPrintToggle("sCurve")}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {sCurveData.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Ainda não há dados suficientes para calcular a curva S.
+              </p>
+            ) : (
+              <ChartContainer config={sCurveConfig} className="h-80 w-full">
+                <LineChart data={sCurveData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                  <YAxis domain={[0, 100]} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}%`} />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        formatter={(value, name) => {
+                          const numeric = typeof value === "number" ? value : Number(value);
+                          const percentage = Number.isFinite(numeric)
+                            ? `${numeric.toFixed(2)}%`
+                            : `${value}%`;
+                          const label =
+                            sCurveConfig[name as keyof typeof sCurveConfig]?.label || name;
+                          return [percentage, label];
+                        }}
+                        labelFormatter={(label) => `Data: ${label}`}
+                      />
+                    }
+                  />
+                  <Legend />
+                  <Line type="monotone" dataKey="planned" stroke="var(--color-planned)" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="actual" stroke="var(--color-actual)" strokeWidth={2} dot />
+                </LineChart>
+              </ChartContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card data-print-section="stakeholders" data-print-selected={printSelection.stakeholders ? "true" : "false"}>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" />
+                    <CardTitle>Stakeholders chave</CardTitle>
+                  </div>
+                  <CardDescription>Principais envolvidos e nível de influência</CardDescription>
+                </div>
+                {renderPrintToggle("stakeholders")}
+              </div>
             </CardHeader>
             <CardContent>
               {keyStakeholders.length === 0 ? (
@@ -541,13 +906,18 @@ export default function ProjectOnePage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-print-section="communications" data-print-selected={printSelection.communications ? "true" : "false"}>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4 text-primary" />
-                <CardTitle>Comunicações planejadas</CardTitle>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <CardTitle>Comunicações planejadas</CardTitle>
+                  </div>
+                  <CardDescription>Principais comunicações e responsáveis</CardDescription>
+                </div>
+                {renderPrintToggle("communications")}
               </div>
-              <CardDescription>Principais comunicações e responsáveis</CardDescription>
             </CardHeader>
             <CardContent>
               {keyCommunications.length === 0 ? (
