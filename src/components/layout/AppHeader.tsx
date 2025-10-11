@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export function AppHeader() {
   const { user, logout } = useAuth();
@@ -21,7 +22,16 @@ export function AppHeader() {
   return (
     <TooltipProvider>
       <div className="flex h-full flex-1 items-center justify-between gap-6">
-        <div className="flex flex-1 items-center gap-6">
+        <div className="flex flex-1 items-center gap-4 md:gap-6">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SidebarTrigger className="h-11 w-11 rounded-full border border-primary/20 bg-white/70 text-primary shadow-soft hover:border-primary/40 hover:bg-white md:hidden" />
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              <p>Abrir menu</p>
+            </TooltipContent>
+          </Tooltip>
+
           <div className="hidden md:flex flex-col gap-0.5">
             <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
               Baumfratz Code
