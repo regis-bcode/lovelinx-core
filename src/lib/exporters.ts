@@ -8,6 +8,8 @@ type ScriptKey = keyof typeof SCRIPT_SOURCES;
 
 const scriptPromises = new Map<ScriptKey, Promise<void>>();
 
+type ExtendedWindow = Window & { pptxgen?: unknown };
+
 const ensureScript = (key: ScriptKey) => {
   if (typeof window === "undefined") {
     return Promise.resolve();
@@ -16,7 +18,7 @@ const ensureScript = (key: ScriptKey) => {
   const existingGlobal =
     (key === "html2canvas" && window.html2canvas) ||
     (key === "jspdf" && window.jspdf?.jsPDF) ||
-    (key === "pptxgenjs" && window.PptxGenJS);
+    (key === "pptxgenjs" && (window.PptxGenJS || (window as ExtendedWindow).pptxgen));
 
   if (existingGlobal) {
     return Promise.resolve();
@@ -72,7 +74,13 @@ export const loadJsPDF = async () => {
 
 export const loadPptxGenJS = async () => {
   await ensureScript("pptxgenjs");
-  return window.PptxGenJS ?? null;
+  const pptxGlobal = window.PptxGenJS ?? (window as ExtendedWindow).pptxgen;
+  if (!pptxGlobal || typeof pptxGlobal !== "function") {
+    console.error("PptxGenJS global constructor not available after script load", pptxGlobal);
+    return null;
+  }
+
+  return pptxGlobal as new () => unknown;
 };
 
 export {}; // Ensure this file is treated as a module
