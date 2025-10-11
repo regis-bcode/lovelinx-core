@@ -20,8 +20,14 @@ export function AppHeader() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-full flex-1 flex-col gap-6">
-        <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div className="relative overflow-hidden rounded-[32px] border border-white/60 bg-white/40 p-6 shadow-[0_25px_65px_-20px_rgba(15,65,120,0.45)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/30 dark:border-white/10 dark:bg-background/70">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-16 top-[-4rem] h-56 w-56 rounded-full bg-primary/30 blur-3xl" />
+          <div className="absolute right-[-3rem] top-[-2rem] h-40 w-40 rounded-full bg-[#29A3E5]/25 blur-3xl" />
+          <div className="absolute bottom-[-4rem] left-1/2 h-48 w-72 -translate-x-1/2 rounded-full bg-white/40 blur-3xl" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" />
+        </div>
+        <div className="relative flex flex-1 flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
           <div className="flex flex-1 flex-col gap-3">
             <div className="flex flex-col gap-0.5">
               <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
@@ -38,10 +44,10 @@ export function AppHeader() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <div className="relative flex items-center">
-                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/80" />
                   <Input
                     placeholder="Buscar projetos, equipes ou indicadores"
-                    className="h-11 w-full rounded-full border border-primary/20 bg-white/70 pl-11 pr-4 text-sm text-foreground shadow-soft focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/40"
+                    className="h-12 w-full rounded-full border border-white/50 bg-white/40 pl-11 pr-4 text-sm text-foreground shadow-[0_12px_30px_-15px_rgba(15,65,120,0.45)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/70 focus:border-primary/50 focus:bg-white/60 focus:ring-2 focus:ring-primary/40 supports-[backdrop-filter]:bg-white/30"
                   />
                 </div>
               </TooltipTrigger>
@@ -59,7 +65,7 @@ export function AppHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="relative h-10 w-10 rounded-full border border-primary/20 bg-white/40 text-primary hover:border-primary/40 hover:bg-white/70"
+                  className="relative h-11 w-11 rounded-full border border-white/50 bg-white/40 text-primary shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
                 >
                   <Bell className="h-5 w-5" />
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-0 bg-accent p-0 text-[11px] font-semibold text-accent-foreground shadow-glow">
@@ -78,9 +84,9 @@ export function AppHeader() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
-                      className="relative flex h-11 items-center gap-3 rounded-full border border-primary/20 bg-white/40 px-1.5 pr-3 text-left text-foreground hover:border-primary/40 hover:bg-white/70"
+                      className="relative flex h-12 items-center gap-3 rounded-full border border-white/50 bg-white/40 px-1.5 pr-3 text-left text-foreground shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
                     >
-                      <Avatar className="h-9 w-9 border border-primary/25 shadow-soft">
+                      <Avatar className="h-10 w-10 border border-white/60 shadow-soft supports-[backdrop-filter]:bg-white/20">
                         <AvatarImage src={user?.avatar} alt={user?.name} />
                         <AvatarFallback className="bg-primary text-primary-foreground">
                           {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
