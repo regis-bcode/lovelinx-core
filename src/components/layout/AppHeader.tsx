@@ -1,4 +1,4 @@
-import { Bell, Search, LogOut } from "lucide-react";
+import { Bell, Search, LogOut, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -58,6 +58,22 @@ export function AppHeader() {
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-center">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl border border-white/40 bg-white/40 text-primary shadow-[0_10px_25px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
+                  aria-label="Minimizar painel"
+                >
+                  <Minus className="h-[1.1rem] w-[1.1rem]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Minimizar painel</p>
+              </TooltipContent>
+            </Tooltip>
+
             <ThemeToggle />
 
             <Tooltip>
