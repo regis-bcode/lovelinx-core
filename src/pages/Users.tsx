@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useUsers, CreateUserData, UserType, ProfileType } from "@/hooks/useUsers";
 import { useToast } from "@/hooks/use-toast";
 import { ClientSelectWithCreate } from "@/components/users/ClientSelectWithCreate";
+import { DashboardLayout } from "@/components/layout/DashboardLayout";
 
 const userTypeLabels: Record<UserType, string> = {
   cliente: "Cliente",
@@ -123,150 +124,152 @@ export default function Users() {
   };
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Cadastro de Usuários</h1>
-          <p className="text-muted-foreground">Gerencie os usuários do sistema</p>
-        </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Usuário
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
-              <DialogDescription>
-                {editingUser ? "Atualize os dados do usuário" : "Preencha os dados do novo usuário"}
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold">Cadastro de Usuários</h1>
+            <p className="text-muted-foreground">Gerencie os usuários do sistema</p>
+          </div>
+          
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => resetForm()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Novo Usuário
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>{editingUser ? "Editar Usuário" : "Novo Usuário"}</DialogTitle>
+                <DialogDescription>
+                  {editingUser ? "Atualize os dados do usuário" : "Preencha os dados do novo usuário"}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="nome_completo">Nome Completo *</Label>
+                    <Input
+                      id="nome_completo"
+                      value={formData.nome_completo}
+                      onChange={(e) => setFormData({ ...formData, nome_completo: e.target.value })}
+                      placeholder="Nome completo do usuário"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cpf">CPF *</Label>
+                    <Input
+                      id="cpf"
+                      value={formData.cpf}
+                      onChange={(e) => {
+                        const formatted = formatCPF(e.target.value);
+                        if (formatted.length <= 14) {
+                          setFormData({ ...formData, cpf: formatted });
+                        }
+                      }}
+                      placeholder="000.000.000-00"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="usuario@email.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="telefone">Telefone Contato (Cel) *</Label>
+                    <Input
+                      id="telefone"
+                      value={formData.telefone}
+                      onChange={(e) => {
+                        const formatted = formatPhone(e.target.value);
+                        if (formatted.length <= 15) {
+                          setFormData({ ...formData, telefone: formatted });
+                        }
+                      }}
+                      placeholder="(00) 00000-0000"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_usuario">Tipo de Usuário</Label>
+                    <Select
+                      value={formData.tipo_usuario}
+                      onValueChange={(value) => setFormData({ ...formData, tipo_usuario: value as UserType })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(userTypeLabels).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tipo_perfil">Tipo de Perfil</Label>
+                    <Select
+                      value={formData.tipo_perfil}
+                      onValueChange={(value) => setFormData({ ...formData, tipo_perfil: value as ProfileType })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(profileTypeLabels).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="nome_completo">Nome Completo *</Label>
-                  <Input
-                    id="nome_completo"
-                    value={formData.nome_completo}
-                    onChange={(e) => setFormData({ ...formData, nome_completo: e.target.value })}
-                    placeholder="Nome completo do usuário"
-                    required
+                  <Label>Cliente</Label>
+                  <ClientSelectWithCreate
+                    value={formData.client_id}
+                    onChange={(value) => setFormData({ ...formData, client_id: value })}
                   />
                 </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="cpf">CPF *</Label>
-                  <Input
-                    id="cpf"
-                    value={formData.cpf}
-                    onChange={(e) => {
-                      const formatted = formatCPF(e.target.value);
-                      if (formatted.length <= 14) {
-                        setFormData({ ...formData, cpf: formatted });
-                      }
-                    }}
-                    placeholder="000.000.000-00"
-                    required
+                  <Label htmlFor="observacoes">Observações</Label>
+                  <Textarea
+                    id="observacoes"
+                    value={formData.observacoes}
+                    onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
+                    placeholder="Observações adicionais sobre o usuário"
+                    rows={3}
                   />
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="usuario@email.com"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="telefone">Telefone Contato (Cel) *</Label>
-                  <Input
-                    id="telefone"
-                    value={formData.telefone}
-                    onChange={(e) => {
-                      const formatted = formatPhone(e.target.value);
-                      if (formatted.length <= 15) {
-                        setFormData({ ...formData, telefone: formatted });
-                      }
-                    }}
-                    placeholder="(00) 00000-0000"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="tipo_usuario">Tipo de Usuário</Label>
-                  <Select
-                    value={formData.tipo_usuario}
-                    onValueChange={(value) => setFormData({ ...formData, tipo_usuario: value as UserType })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(userTypeLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="flex justify-end gap-3">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={isCreating}>
+                    {editingUser ? "Atualizar" : "Criar"} Usuário
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tipo_perfil">Tipo de Perfil</Label>
-                  <Select
-                    value={formData.tipo_perfil}
-                    onValueChange={(value) => setFormData({ ...formData, tipo_perfil: value as ProfileType })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(profileTypeLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Cliente</Label>
-                <ClientSelectWithCreate
-                  value={formData.client_id}
-                  onChange={(value) => setFormData({ ...formData, client_id: value })}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="observacoes">Observações</Label>
-                <Textarea
-                  id="observacoes"
-                  value={formData.observacoes}
-                  onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
-                  placeholder="Observações adicionais sobre o usuário"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex justify-end gap-3">
-                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isCreating}>
-                  {editingUser ? "Atualizar" : "Criar"} Usuário
-                </Button>
-              </div>
             </form>
           </DialogContent>
         </Dialog>
@@ -379,6 +382,7 @@ export default function Users() {
           )}
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
