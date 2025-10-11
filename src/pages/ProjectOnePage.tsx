@@ -23,7 +23,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -71,6 +70,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Project } from "@/types/project";
 import type { Task } from "@/types/task";
 import { loadHtml2Canvas, loadJsPDF, loadPptxGenJS } from "@/lib/exporters";
+import { cn } from "@/lib/utils";
 
 const formatDate = (date?: string | null) => {
   if (!date) return "—";
@@ -478,26 +478,38 @@ export default function ProjectOnePage() {
     [plannedProgress, progress],
   );
 
-  const handleTogglePrint = (section: PrintSectionKey, value: boolean | "indeterminate") => {
+  const handleTogglePrint = (section: PrintSectionKey, value: boolean) => {
     setPrintSelection((prev) => ({
       ...prev,
-      [section]: value === true,
+      [section]: value,
     }));
   };
 
   const renderPrintToggle = (section: PrintSectionKey) => (
-    <div data-print-control="true" className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-      <Checkbox
-        id={`print-${section}`}
-        checked={printSelection[section]}
-        onCheckedChange={(value) => handleTogglePrint(section, value)}
-        className="h-4 w-4"
-      />
-      <label htmlFor={`print-${section}`} className="flex cursor-pointer items-center gap-1 select-none">
-        <PrinterCheck className="h-3.5 w-3.5" />
-        Imprimir
-      </label>
-    </div>
+    <button
+      type="button"
+      data-print-control="true"
+      onClick={() => handleTogglePrint(section, !printSelection[section])}
+      className={cn(
+        "flex h-8 w-8 items-center justify-center rounded-full border text-muted-foreground transition",
+        printSelection[section]
+          ? "border-primary/40 bg-primary/10 text-primary shadow-sm"
+          : "border-transparent bg-muted/40 hover:bg-muted/60",
+      )}
+      aria-pressed={printSelection[section]}
+      aria-label={
+        printSelection[section]
+          ? "Remover seção da impressão"
+          : "Adicionar seção à impressão"
+      }
+      title={
+        printSelection[section]
+          ? "Remover seção da impressão"
+          : "Adicionar seção à impressão"
+      }
+    >
+      <PrinterCheck className="h-4 w-4" />
+    </button>
   );
 
   const getSelectedSections = () => {
