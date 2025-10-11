@@ -6,13 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
@@ -1315,65 +1315,68 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-auto max-h-[600px]">
-            <Table>
-              <TableHeader className="sticky top-0 bg-background z-10">
-                <TableRow>
-                  <TableHead className="w-[50px]">Ações</TableHead>
-                  {visibleColumns.map(col => (
-                    <TableHead key={col.key} style={{ minWidth: col.width }}>
-                      {col.label}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+          <ScrollArea className="max-h-[600px]">
+            <div className="min-w-max w-full">
+              <table className="w-full caption-bottom text-sm">
+                <TableHeader className="sticky top-0 z-10 bg-background">
                   <TableRow>
-                    <TableCell colSpan={visibleColumns.length + 1} className="text-center py-8">
-                      Carregando...
-                    </TableCell>
+                    <TableHead className="w-[50px]">Ações</TableHead>
+                    {visibleColumns.map(col => (
+                      <TableHead key={col.key} style={{ minWidth: col.width }}>
+                        {col.label}
+                      </TableHead>
+                    ))}
                   </TableRow>
-                ) : editableRows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={visibleColumns.length + 1} className="text-center py-8">
-                      <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  editableRows.map((row, index) => (
-                    <TableRow key={row.id || row._tempId || index} className="hover:bg-muted/50">
-                      <TableCell className="p-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteRow(index)}
-                          className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center">
+                        Carregando...
                       </TableCell>
-                      {visibleColumns.map(col => (
-                        <TableCell key={col.key} className="p-1">
-                          {renderEditableCell(row, index, col)}
-                        </TableCell>
-                      ))}
                     </TableRow>
-                  ))
-                )}
-                {!loading && (
-                  <TableRow className="hover:bg-muted/40 cursor-pointer" onClick={addNewRow}>
-                    <TableCell colSpan={visibleColumns.length + 1} className="p-3 text-sm text-primary">
-                      <div className="flex items-center gap-2">
-                        <PlusCircle className="h-4 w-4" />
-                        <span>Adicionar Tarefa</span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
+                  ) : editableRows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center">
+                        <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    editableRows.map((row, index) => (
+                      <TableRow key={row.id || row._tempId || index} className="hover:bg-muted/50">
+                        <TableCell className="p-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteRow(index)}
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </TableCell>
+                        {visibleColumns.map(col => (
+                          <TableCell key={col.key} className="p-1">
+                            {renderEditableCell(row, index, col)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                  {!loading && (
+                    <TableRow className="cursor-pointer hover:bg-muted/40" onClick={addNewRow}>
+                      <TableCell colSpan={visibleColumns.length + 1} className="p-3 text-sm text-primary">
+                        <div className="flex items-center gap-2">
+                          <PlusCircle className="h-4 w-4" />
+                          <span>Adicionar Tarefa</span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </table>
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
         </CardContent>
       </Card>
 
