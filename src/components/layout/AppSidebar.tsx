@@ -1,144 +1,97 @@
-import { NavLink, useLocation } from "react-router-dom"
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
-} from "@/components/ui/sidebar"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { WorkspaceTree } from "./WorkspaceTree"
-import { cn } from "@/lib/utils"
+import { NavLink } from "react-router-dom";
 
-import { navigation, settingsNav } from "./navigation-data"
+import { navigation, settingsNav } from "./navigation-data";
+import { WorkspaceTree } from "./WorkspaceTree";
+import { cn } from "@/lib/utils";
+
+const mainNavigation = navigation.slice(0, 2);
+const toolsNavigation = navigation.slice(2);
 
 export function AppSidebar() {
-  const { state } = useSidebar();
-  const location = useLocation();
-  const currentPath = location.pathname;
-
-  const isActive = (path: string) => currentPath === path;
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-300",
+      "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200",
       isActive
-        ? "bg-white/10 text-white shadow-[0_18px_40px_rgba(4,20,45,0.35)] ring-1 ring-white/20 backdrop-blur"
-        : "text-sidebar-foreground/80 hover:bg-white/5 hover:text-white"
+        ? "bg-white/15 text-white shadow-[0_12px_35px_rgba(0,0,0,0.35)]"
+        : "text-white/70 hover:bg-white/10 hover:text-white"
     );
 
   return (
-    <TooltipProvider>
-      <Sidebar
-        collapsible="icon"
-        className="relative overflow-hidden border-r border-sidebar-border bg-sidebar text-sidebar-foreground"
-      >
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_120%_at_0%_0%,rgba(41,163,229,0.18),transparent),radial-gradient(120%_120%_at_100%_0%,rgba(255,122,69,0.12),transparent)]" />
-        <div className="relative flex h-full flex-col">
-          <div className="flex h-20 items-center border-b border-white/10 px-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <img
-                src="/baumgratz-code-mark.svg"
-                alt="Baumfratz Code"
-                className="h-11 w-11 flex-shrink-0 drop-shadow-[0_6px_12px_rgba(41,163,229,0.35)]"
-              />
-              {state !== "collapsed" && (
-                <div className="flex flex-col leading-tight text-white">
-                  <span className="text-xs font-semibold uppercase tracking-[0.48em] text-white/70">Baumfratz</span>
-                  <span className="text-lg font-semibold text-orange-300">CODE</span>
-                  <span className="text-[10px] font-medium uppercase tracking-[0.36em] text-white/50">
-                    Painel de Projetos
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <SidebarContent className="relative z-10 flex-1 overflow-y-auto px-3 pb-6 pt-4">
-            {/* Navegação Principal */}
-            <SidebarGroup className="py-2">
-              <div className="flex items-center justify-between px-2 py-1.5">
-                {state !== "collapsed" && (
-                  <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-[0.38em] text-white/45">
-                    Navegação
-                  </SidebarGroupLabel>
-                )}
-                <SidebarTrigger className="h-7 w-7 rounded-full border border-white/10 bg-white/5 text-white/70 transition hover:bg-white/10 hover:text-white" />
-              </div>
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">
-                  {navigation.slice(0, 2).map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild className="w-full justify-start">
-                        <NavLink to={item.url} end className={getNavCls}>
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Meus Workspaces */}
-            <SidebarGroup className="py-2">
-              <SidebarGroupLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.38em] text-white/45">
-                Meus Workspaces
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <WorkspaceTree collapsed={state === "collapsed"} />
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Ferramentas */}
-            <SidebarGroup className="py-2">
-              <SidebarGroupLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.38em] text-white/45">
-                Ferramentas
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">
-                  {navigation.slice(2).map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild className="w-full justify-start">
-                        <NavLink to={item.url} end className={getNavCls}>
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-
-            {/* Configurações */}
-            <SidebarGroup className="py-2">
-              <SidebarGroupLabel className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.38em] text-white/45">
-                Configurações
-              </SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu className="space-y-1">
-                  {settingsNav.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton asChild className="w-full justify-start">
-                        <NavLink to={item.url} end className={getNavCls}>
-                          <item.icon className="h-4 w-4 flex-shrink-0" />
-                          <span className="truncate">{item.title}</span>
-                        </NavLink>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          </SidebarContent>
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-80 flex-col overflow-hidden border-r border-white/10 bg-[radial-gradient(120%_120%_at_0%_0%,#1C6DD1,transparent),radial-gradient(120%_120%_at_100%_0%,rgba(12,39,89,0.95),rgba(8,24,54,0.95))] text-white shadow-2xl lg:flex">
+      <div className="flex items-center gap-3 px-7 pt-8">
+        <img
+          src="/baumgratz-code-mark.svg"
+          alt="Baumfratz Code"
+          className="h-12 w-12 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(41,163,229,0.35)]"
+        />
+        <div className="flex flex-col leading-tight">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.48em] text-white/70">
+            Baumfratz
+          </span>
+          <span className="text-xl font-semibold text-orange-300">CODE</span>
+          <span className="text-[10px] font-medium uppercase tracking-[0.36em] text-white/60">
+            Painel de Projetos
+          </span>
         </div>
-      </Sidebar>
-    </TooltipProvider>
+      </div>
+
+      <div className="flex flex-1 flex-col overflow-y-auto px-6 pb-6 pt-8">
+        <SidebarSection title="Navegação">
+          <div className="flex flex-col gap-2">
+            {mainNavigation.map((item) => (
+              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        </SidebarSection>
+
+        <SidebarSection title="Meus Workspaces" className="mt-8">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]">
+            <WorkspaceTree collapsed={false} />
+          </div>
+        </SidebarSection>
+
+        <SidebarSection title="Ferramentas" className="mt-8">
+          <div className="flex flex-col gap-2">
+            {toolsNavigation.map((item) => (
+              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        </SidebarSection>
+      </div>
+
+      <div className="border-t border-white/10 px-6 py-6">
+        <SidebarSection title="Configurações">
+          <div className="flex flex-col gap-2">
+            {settingsNav.map((item) => (
+              <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                <item.icon className="h-4 w-4" />
+                <span>{item.title}</span>
+              </NavLink>
+            ))}
+          </div>
+        </SidebarSection>
+      </div>
+    </aside>
+  );
+}
+
+interface SidebarSectionProps {
+  title: string;
+  children: React.ReactNode;
+  className?: string;
+}
+
+function SidebarSection({ title, children, className }: SidebarSectionProps) {
+  return (
+    <section className={cn("w-full", className)}>
+      <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/50">{title}</p>
+      <div className="mt-4">{children}</div>
+    </section>
   );
 }

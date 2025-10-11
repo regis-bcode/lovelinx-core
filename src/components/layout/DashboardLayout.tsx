@@ -1,5 +1,6 @@
 import { AppHeader } from "./AppHeader";
-import { AppTopMenu } from "./AppTopMenu";
+import { AppSidebar } from "./AppSidebar";
+import { AppMobileNav } from "./AppMobileNav";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -10,11 +11,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="relative min-h-screen bg-transparent">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_100%_at_0%_0%,rgba(41,163,229,0.14),transparent),radial-gradient(90%_140%_at_80%_0%,rgba(11,46,90,0.32),transparent),radial-gradient(120%_120%_at_20%_80%,rgba(255,122,69,0.12),transparent)]" />
 
-      <div className="fixed inset-x-0 top-0 z-30">
-        <AppTopMenu />
-      </div>
+      <AppSidebar />
 
-      <div className="relative z-10 flex min-h-screen flex-col pt-[16rem] lg:pt-[12rem] xl:pt-[10rem]">
+      <div className="relative z-10 flex min-h-screen flex-col lg:pl-80">
+        <AppMobileNav />
+
         <header className="relative z-20 border-b border-white/40 bg-white/70 px-6 py-6 shadow-soft backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/80 lg:px-10">
           <AppHeader />
         </header>

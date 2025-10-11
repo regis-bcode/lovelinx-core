@@ -3,11 +3,11 @@ import { ChevronDown } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { WorkspaceTree } from "./WorkspaceTree";
 import { navigation, settingsNav } from "./navigation-data";
+import { WorkspaceTree } from "./WorkspaceTree";
 import { cn } from "@/lib/utils";
 
-export function AppTopMenu() {
+export function AppMobileNav() {
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
       "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 whitespace-nowrap",
@@ -17,9 +17,9 @@ export function AppTopMenu() {
     );
 
   return (
-    <div className="border-b border-white/40 bg-white/90 shadow-soft backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-white/10 dark:bg-background/80">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between lg:gap-6 lg:px-10">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6 lg:flex-1">
+    <div className="border-b border-white/40 bg-white/90 shadow-soft backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:border-white/10 dark:bg-background/80 lg:hidden">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <div className="flex items-center gap-3">
             <img
               src="/baumgratz-code-mark.svg"
@@ -53,7 +53,7 @@ export function AppTopMenu() {
           </Popover>
         </div>
 
-        <div className="flex flex-col gap-3 lg:flex-1">
+        <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {navigation.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
@@ -63,7 +63,7 @@ export function AppTopMenu() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 md:justify-end">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
             {settingsNav.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
                 <item.icon className="h-4 w-4" />
