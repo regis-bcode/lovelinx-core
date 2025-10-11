@@ -16,8 +16,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="relative z-10 flex min-h-screen flex-col lg:pl-80">
         <AppMobileNav />
 
-        <header className="relative z-20 border-b border-white/40 bg-white/70 px-6 py-6 shadow-soft backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/80 lg:px-10">
-          <AppHeader />
+        <header className="sticky top-0 z-30 bg-white/80 px-4 pb-6 pt-4 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60 dark:bg-background/80 dark:backdrop-blur">
+          <div className="mx-auto w-full max-w-7xl lg:px-4">
+            <AppHeader />
+          </div>
         </header>
 
         <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden">
