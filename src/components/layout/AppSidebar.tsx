@@ -1,13 +1,23 @@
+import { useState } from "react";
 import { NavLink } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 
 import { navigation, settingsNav } from "./navigation-data";
 import { WorkspaceTree } from "./WorkspaceTree";
 import { cn } from "@/lib/utils";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 const mainNavigation = navigation.slice(0, 2);
 const toolsNavigation = navigation.slice(2);
 
 export function AppSidebar() {
+  const [isNavigationOpen, setIsNavigationOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
       "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition duration-200",
@@ -36,7 +46,11 @@ export function AppSidebar() {
       </div>
 
       <div className="flex flex-1 flex-col overflow-y-auto px-6 pb-6 pt-8">
-        <SidebarSection title="Navegação">
+        <SidebarCollapsibleSection
+          title="Navegação"
+          open={isNavigationOpen}
+          onOpenChange={setIsNavigationOpen}
+        >
           <div className="flex flex-col gap-2">
             {mainNavigation.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
@@ -45,7 +59,7 @@ export function AppSidebar() {
               </NavLink>
             ))}
           </div>
-        </SidebarSection>
+        </SidebarCollapsibleSection>
 
         <SidebarSection title="Meus Workspaces" className="mt-8">
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]">
@@ -66,7 +80,11 @@ export function AppSidebar() {
       </div>
 
       <div className="border-t border-white/10 px-6 py-6">
-        <SidebarSection title="Configurações">
+        <SidebarCollapsibleSection
+          title="Configurações"
+          open={isSettingsOpen}
+          onOpenChange={setIsSettingsOpen}
+        >
           <div className="flex flex-col gap-2">
             {settingsNav.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
@@ -75,7 +93,7 @@ export function AppSidebar() {
               </NavLink>
             ))}
           </div>
-        </SidebarSection>
+        </SidebarCollapsibleSection>
       </div>
     </aside>
   );
@@ -93,5 +111,40 @@ function SidebarSection({ title, children, className }: SidebarSectionProps) {
       <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/50">{title}</p>
       <div className="mt-4">{children}</div>
     </section>
+  );
+}
+
+interface SidebarCollapsibleSectionProps extends SidebarSectionProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function SidebarCollapsibleSection({
+  title,
+  children,
+  className,
+  open,
+  onOpenChange,
+}: SidebarCollapsibleSectionProps) {
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <section className={cn("w-full", className)}>
+        <CollapsibleTrigger
+          type="button"
+          className="group flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-[0.32em] text-white/50 transition-colors hover:text-white focus:outline-none focus-visible:text-white"
+        >
+          <span>{title}</span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 text-white/50 transition-transform duration-200 group-hover:text-white",
+              open ? "rotate-180" : "rotate-0"
+            )}
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          <div className="mt-4">{children}</div>
+        </CollapsibleContent>
+      </section>
+    </Collapsible>
   );
 }
