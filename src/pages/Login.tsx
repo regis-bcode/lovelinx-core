@@ -97,13 +97,17 @@ export default function Login() {
             <div className="absolute -bottom-12 left-0 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="relative space-y-8">
               <div className="flex items-center gap-4">
-                <img src="/baumgratz-code-logo.svg" alt="Baumfratz Code" className="h-12" />
+                <img src="/baumgratz-code-mark.svg" alt="Logotipo Baumgratz Code" className="h-12 w-12" />
+                <div className="text-2xl font-semibold tracking-[0.2em] text-white/90 sm:text-3xl">
+                  <span className="text-white">BAUMGRATZ</span>{" "}
+                  <span className="text-[#FF7A45]">CODE</span>
+                </div>
               </div>
               <div className="space-y-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.45em] text-white/80">
                   Painel BCODE
                 </span>
-                <h2 className="text-3xl font-semibold leading-snug lg:text-4xl">
+                <h2 className="text-3xl font-semibold leading-snug text-[#FF7A45] lg:text-4xl">
                   Painel de Acompanhamento de Projetos que une dados, equipes e decisões
                 </h2>
                 <p className="text-base text-white/80">
@@ -194,6 +198,14 @@ export default function Login() {
                       disabled={isLoading}
                     >
                       {isLoading ? (isSignup ? "Enviando..." : "Entrando...") : (isSignup ? "Criar conta" : "Entrar")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled
+                      className="h-11 w-full rounded-full border border-dashed border-primary/40 bg-white/60 text-sm font-semibold uppercase tracking-[0.2em] text-primary shadow-none"
+                    >
+                      Sou Cliente (Em Breve)
                     </Button>
                   </form>
 
