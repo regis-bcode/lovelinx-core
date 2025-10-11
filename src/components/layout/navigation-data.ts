@@ -1,5 +1,19 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart, Building2, Calendar, CheckCircle, FileText, FolderKanban, Grid3x3, Home, Map, Package, Settings, Tags, Users } from "lucide-react";
+import {
+  BarChart,
+  Building2,
+  Calendar,
+  CheckCircle,
+  FileText,
+  FolderKanban,
+  Grid3x3,
+  Home,
+  Map,
+  Package,
+  Settings,
+  Tags,
+  Users
+} from "lucide-react";
 
 type NavigationItem = {
   title: string;
@@ -31,46 +45,6 @@ export const navigation: NavigationItem[] = [
     icon: Users,
   },
   {
-    title: "Usuários",
-    url: "/users",
-    icon: Users,
-  },
-  {
-    title: "Clientes",
-    url: "/clients",
-    icon: Building2,
-  },
-  {
-    title: "Produtos",
-    url: "/products",
-    icon: Package,
-  },
-  {
-    title: "Serviços",
-    url: "/services",
-    icon: Package,
-  },
-  {
-    title: "Status",
-    url: "/status",
-    icon: CheckCircle,
-  },
-  {
-    title: "Módulos",
-    url: "/modulos",
-    icon: Grid3x3,
-  },
-  {
-    title: "Áreas",
-    url: "/areas",
-    icon: Map,
-  },
-  {
-    title: "Categorias",
-    url: "/categorias",
-    icon: Tags,
-  },
-  {
     title: "Relatórios",
     url: "/reports",
     icon: BarChart,
@@ -92,5 +66,45 @@ export const settingsNav: SettingsItem[] = [
     title: "Configurações",
     url: "/settings",
     icon: Settings,
+  },
+  {
+    title: "Usuários",
+    url: "/settings/users",
+    icon: Users,
+  },
+  {
+    title: "Clientes",
+    url: "/settings/clients",
+    icon: Building2,
+  },
+  {
+    title: "Produtos",
+    url: "/settings/products",
+    icon: Package,
+  },
+  {
+    title: "Serviços",
+    url: "/settings/services",
+    icon: Package,
+  },
+  {
+    title: "Status",
+    url: "/settings/status",
+    icon: CheckCircle,
+  },
+  {
+    title: "Módulos",
+    url: "/settings/modulos",
+    icon: Grid3x3,
+  },
+  {
+    title: "Áreas",
+    url: "/settings/areas",
+    icon: Map,
+  },
+  {
+    title: "Categorias",
+    url: "/settings/categorias",
+    icon: Tags,
   },
 ];
