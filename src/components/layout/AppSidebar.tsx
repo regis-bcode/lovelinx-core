@@ -16,6 +16,8 @@ const toolsNavigation = navigation.slice(2);
 
 export function AppSidebar() {
   const [isNavigationOpen, setIsNavigationOpen] = useState(true);
+  const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(true);
+  const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
@@ -61,13 +63,23 @@ export function AppSidebar() {
           </div>
         </SidebarCollapsibleSection>
 
-        <SidebarSection title="Meus Workspaces" className="mt-8">
+        <SidebarCollapsibleSection
+          title="Meus Workspaces"
+          className="mt-8"
+          open={isWorkspacesOpen}
+          onOpenChange={setIsWorkspacesOpen}
+        >
           <div className="rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]">
             <WorkspaceTree collapsed={false} />
           </div>
-        </SidebarSection>
+        </SidebarCollapsibleSection>
 
-        <SidebarSection title="Ferramentas" className="mt-8">
+        <SidebarCollapsibleSection
+          title="Ferramentas"
+          className="mt-8"
+          open={isToolsOpen}
+          onOpenChange={setIsToolsOpen}
+        >
           <div className="flex flex-col gap-2">
             {toolsNavigation.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
@@ -76,7 +88,7 @@ export function AppSidebar() {
               </NavLink>
             ))}
           </div>
-        </SidebarSection>
+        </SidebarCollapsibleSection>
       </div>
 
       <div className="border-t border-white/10 px-6 py-6">
