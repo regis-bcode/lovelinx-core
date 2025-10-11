@@ -25,7 +25,7 @@ import {
 
 const projects = [
   {
-    id: 1,
+    id: "1",
     name: "Sistema de E-commerce",
     description: "Plataforma completa de vendas online com painel administrativo",
     progress: 75,
@@ -37,7 +37,7 @@ const projects = [
     color: "bg-blue-500",
   },
   {
-    id: 2,
+    id: "2",
     name: "App Mobile Delivery",
     description: "Aplicativo mobile para delivery de comida com geolocalização", 
     progress: 45,
@@ -49,7 +49,7 @@ const projects = [
     color: "bg-green-500",
   },
   {
-    id: 3,
+    id: "3",
     name: "Dashboard Analytics",
     description: "Dashboard para análise de dados e relatórios gerenciais",
     progress: 90,
@@ -61,7 +61,7 @@ const projects = [
     color: "bg-purple-500",
   },
   {
-    id: 4,
+    id: "4",
     name: "API de Integração",
     description: "API REST para integração com sistemas externos",
     progress: 30,
@@ -73,7 +73,7 @@ const projects = [
     color: "bg-orange-500",
   },
   {
-    id: 5,
+    id: "5",
     name: "Sistema de CRM",
     description: "Customer Relationship Management para vendas",
     progress: 60,
@@ -85,7 +85,7 @@ const projects = [
     color: "bg-red-500",
   },
   {
-    id: 6,
+    id: "6",
     name: "Portal do Cliente",
     description: "Portal web para clientes acessarem suas informações",
     progress: 20,
@@ -133,7 +133,7 @@ export default function Projects() {
   
   // Usar projetos reais se existirem, caso contrário usar dados mock
   const projectsToShow = realProjects.length > 0 ? realProjects.map(p => ({
-    id: parseInt(p.id),
+    id: p.id,
     name: p.nome_projeto,
     description: p.objetivo || p.escopo,
     progress: 0, // Calcular baseado em dados reais
@@ -266,8 +266,8 @@ export default function Projects() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}`)}>
-                        Ver detalhes
+                      <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}/onepage`)}>
+                        ONE PAGE
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate(`/projects-tap/${project.id}/edit`)}>
                         Editar TAP
