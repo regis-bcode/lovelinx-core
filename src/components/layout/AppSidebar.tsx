@@ -1,4 +1,3 @@
-import { Calendar, Home, Settings, Users, FileText, BarChart, FolderKanban, Building2, Package, CheckCircle, Grid3x3, Map, Tags } from "lucide-react"
 import { NavLink, useLocation } from "react-router-dom"
 import {
   Sidebar,
@@ -16,91 +15,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { WorkspaceTree } from "./WorkspaceTree"
 import { cn } from "@/lib/utils"
 
-const navigation = [
-  {
-    title: "Dashboard",
-    url: "/dashboard",
-    icon: Home,
-  },
-  {
-    title: "Workspaces",
-    url: "/workspaces",
-    icon: FolderKanban,
-  },
-  {
-    title: "Projetos",
-    url: "/projects",
-    icon: FolderKanban,
-  },
-  {
-    title: "Equipe",
-    url: "/team",
-    icon: Users,
-  },
-  {
-    title: "Usuários",
-    url: "/users", 
-    icon: Users,
-  },
-  {
-    title: "Clientes",
-    url: "/clients", 
-    icon: Building2,
-  },
-  {
-    title: "Produtos",
-    url: "/products", 
-    icon: Package,
-  },
-  {
-    title: "Serviços",
-    url: "/services", 
-    icon: Package,
-  },
-  {
-    title: "Status",
-    url: "/status", 
-    icon: CheckCircle,
-  },
-  {
-    title: "Módulos",
-    url: "/modulos", 
-    icon: Grid3x3,
-  },
-  {
-    title: "Áreas",
-    url: "/areas", 
-    icon: Map,
-  },
-  {
-    title: "Categorias",
-    url: "/categorias", 
-    icon: Tags,
-  },
-  {
-    title: "Relatórios",
-    url: "/reports",
-    icon: BarChart,
-  },
-  {
-    title: "Calendário",
-    url: "/calendar",
-    icon: Calendar,
-  },
-  {
-    title: "Documentos",
-    url: "/documents",
-    icon: FileText,
-  },
-]
-
-const settingsNav = [
-  {
-    title: "Configurações",
-    url: "/settings",
-    icon: Settings,
-  },
-]
+import { navigation, settingsNav } from "./navigation-data"
 
 export function AppSidebar() {
   const { state } = useSidebar();
