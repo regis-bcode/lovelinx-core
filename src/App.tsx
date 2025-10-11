@@ -11,6 +11,7 @@ import FolderProjects from "./pages/FolderProjects";
 import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
+import ProjectOnePage from "./pages/ProjectOnePage";
 import Users from "./pages/Users";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
@@ -105,13 +106,21 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/projects-tap/:id" 
+      <Route
+        path="/projects-tap/:id"
         element={
           <ProtectedRoute>
             <ProjectDetails />
           </ProtectedRoute>
-        } 
+        }
+      />
+      <Route
+        path="/projects-tap/:id/onepage"
+        element={
+          <ProtectedRoute>
+            <ProjectOnePage />
+          </ProtectedRoute>
+        }
       />
       <Route 
         path="/projects-tap/:id/edit" 

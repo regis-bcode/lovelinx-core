@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Edit2, Trash2, UserCheck, UserX } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Plus, Edit2, Trash2, UserCheck, UserX, Layers, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,11 +33,26 @@ const profileTypeLabels: Record<ProfileType, string> = {
   administrador: "Administrador"
 };
 
+const groupOptions = [
+  { value: "none", label: "Sem agrupamento" },
+  { value: "tipo_usuario", label: "Tipo de usuário" },
+  { value: "tipo_perfil", label: "Tipo de perfil" },
+  { value: "status", label: "Status" },
+  { value: "cliente", label: "Cliente" }
+];
+
 export default function Users() {
   const { users, isLoading, createUser, updateUser, deleteUser, toggleUserStatus, isCreating } = useUsers();
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [userTypeFilter, setUserTypeFilter] = useState<string>("all");
+  const [profileFilter, setProfileFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [groupBy, setGroupBy] = useState<string>("none");
 
   const [formData, setFormData] = useState<CreateUserData>({
     cpf: "",
@@ -123,6 +138,83 @@ export default function Users() {
     return numbers.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
   };
 
+  const clientOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    users.forEach((user) => {
+      if (user.client) {
+        const label = `${user.client.cod_int_cli} - ${user.client.nome}`;
+        map.set(user.client.id, label);
+      }
+    });
+    return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    return users.filter((user) => {
+      const normalizedSearch = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        normalizedSearch.length === 0 ||
+        user.nome_completo.toLowerCase().includes(normalizedSearch) ||
+        user.email.toLowerCase().includes(normalizedSearch) ||
+        user.cpf.replace(/\D/g, "").includes(normalizedSearch.replace(/\D/g, "")) ||
+        user.telefone.replace(/\D/g, "").includes(normalizedSearch.replace(/\D/g, "")) ||
+        (user.client?.nome?.toLowerCase().includes(normalizedSearch) ?? false) ||
+        (user.client?.cod_int_cli?.toLowerCase().includes(normalizedSearch) ?? false);
+
+      const matchesType = userTypeFilter === "all" || user.tipo_usuario === userTypeFilter;
+      const matchesProfile = profileFilter === "all" || user.tipo_perfil === profileFilter;
+      const matchesStatus = statusFilter === "all" || (statusFilter === "ativo" ? user.ativo : !user.ativo);
+      const matchesClient =
+        clientFilter === "all" ||
+        (clientFilter === "sem-cliente" ? !user.client_id : user.client_id === clientFilter);
+
+      return matchesSearch && matchesType && matchesProfile && matchesStatus && matchesClient;
+    });
+  }, [users, searchTerm, userTypeFilter, profileFilter, statusFilter, clientFilter]);
+
+  const groupedUsers = useMemo(() => {
+    if (groupBy === "none") {
+      return [{ key: "Todos os usuários", users: filteredUsers }];
+    }
+
+    const groups = new Map<string, typeof filteredUsers>();
+
+    filteredUsers.forEach((user) => {
+      let groupKey = "";
+      switch (groupBy) {
+        case "tipo_usuario":
+          groupKey = userTypeLabels[user.tipo_usuario];
+          break;
+        case "tipo_perfil":
+          groupKey = profileTypeLabels[user.tipo_perfil];
+          break;
+        case "status":
+          groupKey = user.ativo ? "Ativo" : "Inativo";
+          break;
+        case "cliente":
+          groupKey = user.client?.nome || "Sem cliente";
+          break;
+        default:
+          groupKey = "Outros";
+      }
+
+      if (!groups.has(groupKey)) {
+        groups.set(groupKey, []);
+      }
+      groups.get(groupKey)!.push(user);
+    });
+
+    return Array.from(groups.entries()).map(([key, users]) => ({ key, users }));
+  }, [filteredUsers, groupBy]);
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setUserTypeFilter("all");
+    setProfileFilter("all");
+    setStatusFilter("all");
+    setClientFilter("all");
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -131,7 +223,7 @@ export default function Users() {
             <h1 className="text-3xl font-bold">Cadastro de Usuários</h1>
             <p className="text-muted-foreground">Gerencie os usuários do sistema</p>
           </div>
-          
+
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => resetForm()}>
@@ -277,108 +369,205 @@ export default function Users() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Usuários Cadastrados</CardTitle>
-          <CardDescription>
-            Lista de todos os usuários cadastrados no sistema
-          </CardDescription>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <CardTitle>Usuários Cadastrados</CardTitle>
+              <CardDescription>
+                Lista de todos os usuários cadastrados no sistema
+              </CardDescription>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Buscar por nome, e-mail, documento ou telefone"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  className="pl-9"
+                />
+                <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </div>
+              <div className="flex gap-2">
+                <Select value={groupBy} onValueChange={setGroupBy}>
+                  <SelectTrigger className="min-w-[180px]">
+                    <SelectValue placeholder="Agrupar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={handleClearFilters}>
+                  Limpar
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 pt-4">
+            <Select value={userTypeFilter} onValueChange={setUserTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo de usuário" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {Object.entries(userTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={profileFilter} onValueChange={setProfileFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo de perfil" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os perfis</SelectItem>
+                {Object.entries(profileTypeLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="ativo">Ativos</SelectItem>
+                <SelectItem value="inativo">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={clientFilter} onValueChange={setClientFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Cliente" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os clientes</SelectItem>
+                <SelectItem value="sem-cliente">Sem cliente</SelectItem>
+                {clientOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-6">Carregando usuários...</div>
+          ) : groupedUsers.every((group) => group.users.length === 0) ? (
+            <div className="text-center py-6 text-muted-foreground">
+              Nenhum usuário encontrado com os filtros selecionados
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>CPF</TableHead>
-                  <TableHead>E-mail</TableHead>
-                  <TableHead>Telefone</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Tipo Usuário</TableHead>
-                  <TableHead>Perfil</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.nome_completo}</TableCell>
-                    <TableCell>{user.cpf}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.telefone}</TableCell>
-                    <TableCell>
-                      {user.client ? (
-                        <div>
-                          <div className="font-medium">{user.client.cod_int_cli}</div>
-                          <div className="text-sm text-muted-foreground">{user.client.nome}</div>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{userTypeLabels[user.tipo_usuario]}</TableCell>
-                    <TableCell>
-                      <Badge variant={user.tipo_perfil === 'administrador' ? 'default' : 'secondary'}>
-                        {profileTypeLabels[user.tipo_perfil]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={user.ativo ? 'default' : 'destructive'}>
-                        {user.ativo ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(user)}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleUserStatus({ id: user.id, ativo: !user.ativo })}
-                        >
-                          {user.ativo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir o usuário "{user.nome_completo}"?
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteUser(user.id)}>
-                                Excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {users.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-6">
-                      Nenhum usuário cadastrado
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+            <div className="space-y-6">
+              {groupedUsers.map((group) => (
+                <div key={group.key} className="space-y-3">
+                  {groupBy !== "none" && (
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold">
+                        {group.key} <span className="text-sm text-muted-foreground">({group.users.length})</span>
+                      </h3>
+                    </div>
+                  )}
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Nome</TableHead>
+                          <TableHead>CPF</TableHead>
+                          <TableHead>E-mail</TableHead>
+                          <TableHead>Telefone</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Tipo Usuário</TableHead>
+                          <TableHead>Perfil</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.users.map((user) => (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">{user.nome_completo}</TableCell>
+                            <TableCell>{user.cpf}</TableCell>
+                            <TableCell>{user.email}</TableCell>
+                            <TableCell>{user.telefone}</TableCell>
+                            <TableCell>
+                              {user.client ? (
+                                <div>
+                                  <div className="font-medium">{user.client.cod_int_cli}</div>
+                                  <div className="text-sm text-muted-foreground">{user.client.nome}</div>
+                                </div>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>{userTypeLabels[user.tipo_usuario]}</TableCell>
+                            <TableCell>
+                              <Badge variant={user.tipo_perfil === "administrador" ? "default" : "secondary"}>
+                                {profileTypeLabels[user.tipo_perfil]}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={user.ativo ? "default" : "destructive"}>
+                                {user.ativo ? "Ativo" : "Inativo"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(user)}
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => toggleUserStatus({ id: user.id, ativo: !user.ativo })}
+                                >
+                                  {user.ativo ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Tem certeza que deseja excluir o usuário "{user.nome_completo}"?
+                                        Esta ação não pode ser desfeita.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => deleteUser(user.id)}>
+                                        Excluir
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>
