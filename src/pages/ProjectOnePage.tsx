@@ -1028,24 +1028,12 @@ export default function ProjectOnePage() {
                 >
                   Exportar em PDF
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isExporting || isGoogleSheetsSubmitting}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    void handleExport("pptx");
-                  }}
-                >
-                  Exportar em PPTX
+                <DropdownMenuItem disabled>
+                  Exportar em PPTX <span className="ml-1 text-xs font-medium text-muted-foreground">EM BREVE</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={isExporting || isGoogleSheetsSubmitting}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    handleOpenGoogleSheetsDialog();
-                  }}
-                >
-                  Enviar para Google Planilhas
+                <DropdownMenuItem disabled>
+                  Enviar para Google Planilhas <span className="ml-1 text-xs font-medium text-muted-foreground">EM BREVE</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
