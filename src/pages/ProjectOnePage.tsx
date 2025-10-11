@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   Layers,
   PrinterCheck,
   TrendingUp,
+  Download,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   ChartContainer,
   ChartTooltip,
@@ -46,9 +53,12 @@ import { useTasks } from "@/hooks/useTasks";
 import { useRisks } from "@/hooks/useRisks";
 import { useStakeholders } from "@/hooks/useStakeholders";
 import { useCommunicationPlan } from "@/hooks/useCommunicationPlan";
+import { useTAP } from "@/hooks/useTAP";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import type { Project } from "@/types/project";
 import type { Task } from "@/types/task";
+import { loadHtml2Canvas, loadJsPDF, loadPptxGenJS } from "@/lib/exporters";
 
 const formatDate = (date?: string | null) => {
   if (!date) return "—";
@@ -72,6 +82,12 @@ const formatPercentage = (value?: number | null) => {
   if (typeof value !== "number") return "—";
   return `${value.toFixed(1)}%`;
 };
+
+const formatDateTime = (value: Date) =>
+  new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(value);
 
 const isCompletedTask = (task: Task) => {
   const normalized = task.status?.toLowerCase() ?? "";
@@ -131,12 +147,16 @@ export default function ProjectOnePage() {
   const { risks } = useRisks(id ?? "");
   const { stakeholders } = useStakeholders(id ?? "");
   const { communicationPlans } = useCommunicationPlan(id ?? "");
+  const { tap } = useTAP(id);
+  const { toast } = useToast();
 
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
   const [isFetchingProject, setIsFetchingProject] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const projectFromStore = id ? getProject(id) : null;
   const project = projectFromStore ?? fetchedProject;
+  const printContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -179,6 +199,28 @@ export default function ProjectOnePage() {
     if (!tasks.length) return 0;
     const completed = tasks.filter(isCompletedTask).length;
     return Math.round((completed / tasks.length) * 100);
+  }, [tasks]);
+
+  const plannedProgress = useMemo(() => {
+    if (!tasks.length) return 0;
+    const now = new Date();
+    const tasksWithDueDate = tasks.filter((task) => {
+      if (!task.data_vencimento) return false;
+      const due = new Date(task.data_vencimento);
+      return !Number.isNaN(due.getTime());
+    });
+
+    if (!tasksWithDueDate.length) {
+      return 0;
+    }
+
+    const plannedCount = tasksWithDueDate.filter((task) => {
+      const due = new Date(task.data_vencimento as string);
+      return due.getTime() <= now.getTime();
+    }).length;
+
+    const ratio = (plannedCount / tasksWithDueDate.length) * 100;
+    return Math.min(100, Math.max(0, Math.round(ratio)));
   }, [tasks]);
 
   const [printSelection, setPrintSelection] = useState<Record<PrintSectionKey, boolean>>(defaultPrintSelection);
@@ -363,8 +405,12 @@ export default function ProjectOnePage() {
 
   const gaugeConfig: ChartConfig = useMemo(
     () => ({
-      progress: {
-        label: "Entrega do projeto",
+      planned: {
+        label: "Previsto",
+        color: "hsl(var(--chart-2))",
+      },
+      actual: {
+        label: "Realizado",
         color: "hsl(var(--chart-1))",
       },
     }),
@@ -375,10 +421,11 @@ export default function ProjectOnePage() {
     () => [
       {
         name: "progress",
-        value: progress,
+        planned: plannedProgress,
+        actual: progress,
       },
     ],
-    [progress],
+    [plannedProgress, progress],
   );
 
   const handleTogglePrint = (section: PrintSectionKey, value: boolean | "indeterminate") => {
@@ -389,7 +436,7 @@ export default function ProjectOnePage() {
   };
 
   const renderPrintToggle = (section: PrintSectionKey) => (
-    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+    <div data-print-control="true" className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
       <Checkbox
         id={`print-${section}`}
         checked={printSelection[section]}
@@ -402,6 +449,256 @@ export default function ProjectOnePage() {
       </label>
     </div>
   );
+
+  const getSelectedSections = () => {
+    if (!printContainerRef.current) {
+      return [] as HTMLElement[];
+    }
+
+    return Array.from(
+      printContainerRef.current.querySelectorAll<HTMLElement>(
+        '[data-print-section][data-print-selected="true"]',
+      ),
+    );
+  };
+
+  const createExportContainer = (sections: HTMLElement[]) => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const exportRoot = document.createElement("div");
+    exportRoot.setAttribute("data-export-root", "true");
+    exportRoot.style.width = "1024px";
+    exportRoot.style.backgroundColor = "#ffffff";
+    exportRoot.style.color = "#0f172a";
+    exportRoot.style.padding = "40px";
+    exportRoot.style.display = "flex";
+    exportRoot.style.flexDirection = "column";
+    exportRoot.style.gap = "24px";
+    exportRoot.style.fontFamily =
+      "'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.flexDirection = "column";
+    header.style.gap = "12px";
+    header.style.borderBottom = "1px solid #e2e8f0";
+    header.style.paddingBottom = "16px";
+
+    const title = document.createElement("h1");
+    title.textContent = `One Page - ${project.nome_projeto}`;
+    title.style.margin = "0";
+    title.style.fontSize = "28px";
+    title.style.fontWeight = "700";
+    title.style.color = "#0f172a";
+    header.appendChild(title);
+
+    const subtitle = document.createElement("div");
+    subtitle.textContent = `Cliente: ${project.cliente || "—"} · Código: ${
+      tap?.cod_cliente ?? project.cod_cliente ?? "—"
+    }`;
+    subtitle.style.fontSize = "14px";
+    subtitle.style.color = "#475569";
+    subtitle.style.fontWeight = "500";
+    header.appendChild(subtitle);
+
+    const infoGrid = document.createElement("div");
+    infoGrid.style.display = "grid";
+    infoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
+    infoGrid.style.gap = "8px 16px";
+
+    const infoItems = [
+      { label: "Data", value: formatDate(tap?.data ?? project.data) },
+      { label: "Cliente", value: project.cliente ?? "—" },
+      { label: "Código do Cliente", value: tap?.cod_cliente ?? project.cod_cliente ?? "—" },
+      { label: "Tipo", value: tap?.tipo ?? "—" },
+      { label: "GPP", value: tap?.gpp ?? project.gpp ?? "—" },
+      { label: "Coordenador", value: tap?.coordenador ?? project.coordenador ?? "—" },
+      { label: "Gerente do Projeto", value: tap?.gerente_projeto ?? project.coordenador ?? "—" },
+      { label: "Produto", value: tap?.produto ?? project.produto ?? "—" },
+      { label: "Serviço", value: tap?.servico ?? "—" },
+      { label: "ESN", value: tap?.esn ?? project.esn ?? "—" },
+      { label: "Arquiteto", value: tap?.arquiteto ?? project.arquiteto ?? "—" },
+      { label: "Criticidade TOTVS", value: tap?.criticidade_totvs ?? project.criticidade ?? "—" },
+      { label: "Criticidade Cliente", value: tap?.criticidade_cliente ?? project.criticidade ?? "—" },
+    ];
+
+    infoItems.forEach((item) => {
+      const wrapper = document.createElement("div");
+      wrapper.style.display = "flex";
+      wrapper.style.flexDirection = "column";
+      wrapper.style.gap = "2px";
+
+      const labelEl = document.createElement("span");
+      labelEl.textContent = item.label;
+      labelEl.style.fontSize = "11px";
+      labelEl.style.letterSpacing = "0.04em";
+      labelEl.style.textTransform = "uppercase";
+      labelEl.style.color = "#64748b";
+      labelEl.style.fontWeight = "600";
+
+      const valueEl = document.createElement("span");
+      valueEl.textContent = item.value ?? "—";
+      valueEl.style.fontSize = "14px";
+      valueEl.style.fontWeight = "600";
+      valueEl.style.color = "#0f172a";
+
+      wrapper.appendChild(labelEl);
+      wrapper.appendChild(valueEl);
+      infoGrid.appendChild(wrapper);
+    });
+
+    header.appendChild(infoGrid);
+    exportRoot.appendChild(header);
+
+    sections.forEach((section, index) => {
+      const clonedSection = section.cloneNode(true) as HTMLElement;
+      clonedSection.querySelectorAll<HTMLElement>("[data-print-control='true']").forEach((control) => {
+        control.remove();
+      });
+      clonedSection.removeAttribute("data-print-selected");
+      clonedSection.removeAttribute("data-print-section");
+      clonedSection.style.margin = "0";
+      clonedSection.style.width = "100%";
+      clonedSection.style.breakInside = "avoid";
+      clonedSection.style.pageBreakInside = "avoid";
+      if (index !== sections.length - 1) {
+        clonedSection.style.paddingBottom = "16px";
+        clonedSection.style.marginBottom = "16px";
+        clonedSection.style.borderBottom = "1px solid #e2e8f0";
+      }
+      exportRoot.appendChild(clonedSection);
+    });
+
+    const footer = document.createElement("div");
+    footer.style.marginTop = "auto";
+    footer.style.paddingTop = "12px";
+    footer.style.borderTop = "1px solid #e2e8f0";
+    footer.style.fontSize = "12px";
+    footer.style.color = "#475569";
+    footer.style.display = "flex";
+    footer.style.justifyContent = "space-between";
+    footer.style.alignItems = "center";
+
+    const footerLeft = document.createElement("span");
+    footerLeft.textContent = `Projeto: ${project.nome_projeto}`;
+    footerLeft.style.fontWeight = "600";
+
+    const footerRight = document.createElement("span");
+    footerRight.textContent = `Impresso em ${formatDateTime(new Date())}`;
+
+    footer.appendChild(footerLeft);
+    footer.appendChild(footerRight);
+    exportRoot.appendChild(footer);
+
+    document.body.appendChild(exportRoot);
+
+    return exportRoot;
+  };
+
+  const handleExport = async (format: "pdf" | "pptx") => {
+    if (typeof window === "undefined" || isExporting) {
+      return;
+    }
+
+    const selectedSections = getSelectedSections();
+    if (!selectedSections.length) {
+      toast({
+        title: "Nenhuma seção selecionada",
+        description: "Selecione ao menos uma seção marcada para impressão antes de exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let exportRoot: HTMLElement | null = null;
+
+    try {
+      setIsExporting(true);
+      exportRoot = createExportContainer(selectedSections);
+
+      if (!exportRoot) {
+        throw new Error("Não foi possível preparar o conteúdo para exportação.");
+      }
+
+      const html2canvas = await loadHtml2Canvas();
+      if (!html2canvas) {
+        throw new Error("Não foi possível carregar a biblioteca de captura.");
+      }
+
+      const canvas = await html2canvas(exportRoot, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        logging: false,
+      });
+
+      const imageData = canvas.toDataURL("image/png");
+      const fileSlug = slugify(project.nome_projeto);
+      const today = new Date();
+      const filePrefix = `onepage-${fileSlug}-${today.toISOString().slice(0, 10)}`;
+
+      if (format === "pdf") {
+        const jsPDFConstructor = await loadJsPDF();
+        if (!jsPDFConstructor) {
+          throw new Error("Biblioteca de PDF indisponível.");
+        }
+
+        const orientation = canvas.width > canvas.height ? "landscape" : "portrait";
+        const pdf = new jsPDFConstructor({
+          orientation,
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        });
+
+        pdf.addImage(imageData, "PNG", 0, 0, canvas.width, canvas.height);
+        pdf.save(`${filePrefix}.pdf`);
+      } else {
+        const PptxGenJS = await loadPptxGenJS();
+        if (!PptxGenJS) {
+          throw new Error("Biblioteca de PPTX indisponível.");
+        }
+
+        const pptx = new PptxGenJS();
+        const slide = pptx.addSlide();
+        const slideW = pptx.presLayout.width;
+        const slideH = pptx.presLayout.height;
+
+        let imageWidth = slideW;
+        let imageHeight = (canvas.height / canvas.width) * imageWidth;
+
+        if (imageHeight > slideH) {
+          const scale = slideH / imageHeight;
+          imageHeight = slideH;
+          imageWidth = imageWidth * scale;
+        }
+
+        const x = (slideW - imageWidth) / 2;
+        const y = (slideH - imageHeight) / 2;
+
+        slide.addImage({ data: imageData, x, y, w: imageWidth, h: imageHeight });
+        await pptx.writeFile({ fileName: `${filePrefix}.pptx` });
+      }
+
+      toast({
+        title: "Exportação concluída",
+        description: format === "pdf" ? "Arquivo PDF gerado com sucesso." : "Arquivo PPTX gerado com sucesso.",
+      });
+    } catch (error) {
+      console.error("Erro ao exportar One Page:", error);
+      toast({
+        title: "Erro na exportação",
+        description: "Não foi possível exportar a One Page. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+      if (exportRoot?.parentElement) {
+        exportRoot.parentElement.removeChild(exportRoot);
+      }
+    }
+  };
 
   const isLoading = projectsLoading || tasksLoading || isFetchingProject;
 
@@ -433,10 +730,10 @@ export default function ProjectOnePage() {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div ref={printContainerRef} className="space-y-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-4">
-            <Button variant="outline" size="sm" onClick={() => navigate("/projects")}> 
+            <Button variant="outline" size="sm" onClick={() => navigate("/projects")}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Voltar
             </Button>
@@ -447,9 +744,46 @@ export default function ProjectOnePage() {
               </p>
             </div>
           </div>
-          <Badge variant={project.criticidade === "Crítica" ? "destructive" : project.criticidade === "Alta" ? "secondary" : "outline"}>
-            Criticidade {project.criticidade}
-          </Badge>
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="whitespace-nowrap" disabled={isExporting}>
+                  <Download className="mr-2 h-4 w-4" />
+                  {isExporting ? "Gerando..." : "Exportar One Page"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleExport("pdf");
+                  }}
+                >
+                  Exportar em PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void handleExport("pptx");
+                  }}
+                >
+                  Exportar em PPTX
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Badge
+              className="self-start sm:self-auto"
+              variant={
+                project.criticidade === "Crítica"
+                  ? "destructive"
+                  : project.criticidade === "Alta"
+                  ? "secondary"
+                  : "outline"
+              }
+            >
+              Criticidade {project.criticidade}
+            </Badge>
+          </div>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -464,34 +798,66 @@ export default function ProjectOnePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="relative mx-auto flex h-48 w-full max-w-[260px] flex-col items-center justify-center">
+              <div className="relative mx-auto flex h-48 w-full max-w-[280px] flex-col items-center justify-center">
                 <ChartContainer
                   config={gaugeConfig}
-                  className="h-48 w-full max-w-[260px] [&_.recharts-wrapper]:overflow-visible"
+                  className="h-48 w-full max-w-[280px] [&_.recharts-wrapper]:overflow-visible"
                 >
-                  <RadialBarChart
-                    data={gaugeData}
-                    startAngle={210}
-                    endAngle={-30}
-                    innerRadius="70%"
-                    outerRadius="100%"
-                  >
+                  <RadialBarChart data={gaugeData} startAngle={210} endAngle={-30}>
                     <PolarAngleAxis type="number" domain={[0, 100]} tick={false} angleAxisId={0} />
                     <RadialBar
-                      dataKey="value"
+                      dataKey="planned"
                       cornerRadius={12}
-                      fill="var(--color-progress)"
+                      fill="var(--color-planned)"
                       background
                       clockWise
+                      innerRadius="70%"
+                      outerRadius="100%"
+                    />
+                    <RadialBar
+                      dataKey="actual"
+                      cornerRadius={12}
+                      fill="var(--color-actual)"
+                      clockWise
+                      innerRadius="50%"
+                      outerRadius="80%"
                     />
                   </RadialBarChart>
                 </ChartContainer>
-                <div className="absolute top-1/2 flex -translate-y-1/2 flex-col items-center justify-center">
-                  <span className="text-4xl font-bold">{progress}%</span>
-                  <span className="text-xs text-muted-foreground">% de entrega do projeto</span>
+                <div className="absolute top-1/2 flex -translate-y-1/2 flex-col items-center justify-center gap-1 text-center">
+                  <span className="text-4xl font-bold text-foreground">{progress}%</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Realizado
+                  </span>
+                  <span className="text-xs text-muted-foreground">Previsto: {plannedProgress}%</span>
                 </div>
               </div>
-              <Progress value={progress} className="h-2" />
+              <div className="space-y-3">
+                <div className="relative">
+                  <Progress value={progress} className="h-2" />
+                  <div
+                    className="absolute top-0 h-2 w-0.5 -translate-x-1/2 rounded-full bg-[hsl(var(--chart-2))]"
+                    style={{ left: `${plannedProgress}%` }}
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                    <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-2))]" aria-hidden="true" />
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Previsto</span>
+                      <span className="text-sm font-semibold text-foreground">{plannedProgress}%</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-md border border-border/60 bg-muted/20 p-3">
+                    <span className="h-2 w-2 rounded-full bg-[hsl(var(--chart-1))]" aria-hidden="true" />
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Realizado</span>
+                      <span className="text-sm font-semibold text-foreground">{progress}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ClipboardList className="h-4 w-4" />
                 {tasks.length} atividades monitoradas
