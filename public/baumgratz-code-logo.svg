@@ -1,0 +1,30 @@
+<svg width="220" height="48" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Baumgratz Code</title>
+  <desc id="desc">Marca Baumgratz Code com ícone circular e tipografia moderna</desc>
+  <defs>
+    <linearGradient id="markGradient" x1="6" y1="6" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B2E5A" />
+      <stop offset="1" stop-color="#29A3E5" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="60" y1="12" x2="210" y2="36" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B2E5A" />
+      <stop offset="0.6" stop-color="#1B5F8C" />
+      <stop offset="1" stop-color="#29A3E5" />
+    </linearGradient>
+  </defs>
+  <g filter="url(#glow)">
+    <circle cx="24" cy="24" r="20" stroke="url(#markGradient)" stroke-width="4" />
+    <path d="M16 17c3-3.2 7.2-5 12-5 4.8 0 8.6 1.6 11 4.5m-26 7.5h26m-26 7.5c2.4 2.9 6.2 4.5 11 4.5 4.8 0 9-1.8 12-5" stroke="url(#markGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+  <g font-family="'Space Grotesk', 'Manrope', 'Segoe UI', sans-serif" font-weight="600" letter-spacing="0.04em">
+    <text x="58" y="29" font-size="19" fill="url(#textGradient)">BAUMGRATZ</text>
+    <text x="180" y="29" font-size="19" fill="#FF7A45">CODE</text>
+  </g>
+  <filter id="glow" x="0" y="0" width="48" height="48" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+    <feGaussianBlur stdDeviation="3" result="blur" />
+    <feMerge>
+      <feMergeNode in="blur" />
+      <feMergeNode in="SourceGraphic" />
+    </feMerge>
+  </filter>
+</svg>

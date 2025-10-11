@@ -20,15 +20,27 @@ export function AppHeader() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-full items-center justify-between flex-1 gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex h-full flex-1 items-center justify-between gap-6">
+        <div className="flex flex-1 items-center gap-6">
+          <div className="hidden md:flex flex-col gap-0.5">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
+              Baumgratz Code
+            </span>
+            <span className="text-sm font-semibold text-foreground">
+              Painéis Gerenciais Hospitalares
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Soluções integradas para decisões em tempo real
+            </span>
+          </div>
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="relative hidden md:flex">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <div className="relative hidden flex-1 items-center md:flex">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/70" />
                 <Input
-                  placeholder="Buscar projetos, tarefas..."
-                  className="pl-9 w-80 bg-muted/50 border-border/50 focus:bg-background transition-all"
+                  placeholder="Buscar projetos, equipes ou indicadores"
+                  className="h-11 w-full rounded-full border border-primary/20 bg-white/70 pl-11 pr-4 text-sm text-foreground shadow-soft focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/40"
                 />
               </div>
             </TooltipTrigger>
@@ -40,13 +52,17 @@ export function AppHeader() {
 
         <div className="flex items-center gap-3">
           <ThemeToggle />
-          
+
           {/* Notifications */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hover:bg-accent/50">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10 rounded-full border border-primary/20 bg-white/40 text-primary hover:border-primary/40 hover:bg-white/70"
+              >
                 <Bell className="h-5 w-5" />
-                <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs bg-primary border-0">
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-0 bg-accent p-0 text-[11px] font-semibold text-accent-foreground shadow-glow">
                   3
                 </Badge>
               </Button>
@@ -61,13 +77,17 @@ export function AppHeader() {
             <Tooltip>
               <TooltipTrigger asChild>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="relative h-9 w-9 rounded-full hover:bg-accent/50">
-                    <Avatar className="h-9 w-9">
+                  <Button
+                    variant="ghost"
+                    className="relative flex h-11 items-center gap-3 rounded-full border border-primary/20 bg-white/40 px-1.5 pr-3 text-left text-foreground hover:border-primary/40 hover:bg-white/70"
+                  >
+                    <Avatar className="h-9 w-9 border border-primary/25 shadow-soft">
                       <AvatarImage src={user?.avatar} alt={user?.name} />
                       <AvatarFallback className="bg-primary text-primary-foreground">
                         {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
+                    {statefulUserInfo(user)}
                   </Button>
                 </DropdownMenuTrigger>
               </TooltipTrigger>
@@ -104,5 +124,20 @@ export function AppHeader() {
         </div>
       </div>
     </TooltipProvider>
+  );
+}
+
+function statefulUserInfo(user: { name?: string | null; email?: string | null } | null) {
+  if (!user?.name && !user?.email) {
+    return null;
+  }
+
+  return (
+    <div className="hidden flex-col leading-tight sm:flex">
+      <span className="text-sm font-semibold text-foreground">
+        {user?.name || 'Usuário'}
+      </span>
+      <span className="text-xs text-muted-foreground">{user?.email}</span>
+    </div>
   );
 }
