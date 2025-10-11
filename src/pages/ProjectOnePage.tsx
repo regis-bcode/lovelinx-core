@@ -15,6 +15,7 @@ import {
   PrinterCheck,
   TrendingUp,
   Download,
+  Loader2,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -27,8 +28,19 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   ChartContainer,
   ChartTooltip,
@@ -124,6 +136,23 @@ const defaultPrintSelection: Record<PrintSectionKey, boolean> = {
   communications: true,
 };
 
+const printSectionLabels: Record<PrintSectionKey, string> = {
+  progress: "Resumo do progresso",
+  schedule: "Cronograma",
+  finance: "Financeiro",
+  team: "Equipe",
+  executiveSummary: "Resumo executivo",
+  issues: "Pendências",
+  risks: "Riscos",
+  deliveries: "Entregas",
+  sCurve: "Curva S",
+  stakeholders: "Stakeholders",
+  communications: "Comunicações",
+};
+
+const GOOGLE_SHEET_ID_STORAGE_KEY = "lovelinx:last-google-sheet-id";
+const GOOGLE_SHEET_RANGE_STORAGE_KEY = "lovelinx:last-google-sheet-range";
+
 const slugify = (value: string) =>
   value
     .normalize("NFD")
@@ -153,10 +182,31 @@ export default function ProjectOnePage() {
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
   const [isFetchingProject, setIsFetchingProject] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isGoogleSheetsDialogOpen, setIsGoogleSheetsDialogOpen] = useState(false);
+  const [googleSheetId, setGoogleSheetId] = useState("");
+  const [googleSheetRange, setGoogleSheetRange] = useState("Página1!A1");
+  const [isGoogleSheetsSubmitting, setIsGoogleSheetsSubmitting] = useState(false);
 
   const projectFromStore = id ? getProject(id) : null;
   const project = projectFromStore ?? fetchedProject;
   const printContainerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const storedSheetId = localStorage.getItem(GOOGLE_SHEET_ID_STORAGE_KEY);
+    const storedRange = localStorage.getItem(GOOGLE_SHEET_RANGE_STORAGE_KEY);
+
+    if (storedSheetId) {
+      setGoogleSheetId(storedSheetId);
+    }
+
+    if (storedRange) {
+      setGoogleSheetRange(storedRange);
+    }
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -462,6 +512,34 @@ export default function ProjectOnePage() {
     );
   };
 
+  const getProjectInfoItems = () => {
+    if (!project) {
+      return [] as Array<{ label: string; value: string }>;
+    }
+
+    return [
+      { label: "Data", value: formatDate(tap?.data ?? project.data) },
+      { label: "Cliente", value: project.cliente ?? "—" },
+      { label: "Código do Cliente", value: tap?.cod_cliente ?? project.cod_cliente ?? "—" },
+      { label: "Tipo", value: tap?.tipo ?? "—" },
+      { label: "GPP", value: tap?.gpp ?? project.gpp ?? "—" },
+      { label: "Coordenador", value: tap?.coordenador ?? project.coordenador ?? "—" },
+      { label: "Gerente do Projeto", value: tap?.gerente_projeto ?? project.coordenador ?? "—" },
+      { label: "Produto", value: tap?.produto ?? project.produto ?? "—" },
+      { label: "Serviço", value: tap?.servico ?? "—" },
+      { label: "ESN", value: tap?.esn ?? project.esn ?? "—" },
+      { label: "Arquiteto", value: tap?.arquiteto ?? project.arquiteto ?? "—" },
+      {
+        label: "Criticidade TOTVS",
+        value: tap?.criticidade_totvs ?? project.criticidade ?? "—",
+      },
+      {
+        label: "Criticidade Cliente",
+        value: tap?.criticidade_cliente ?? project.criticidade ?? "—",
+      },
+    ];
+  };
+
   const createExportContainer = (sections: HTMLElement[]) => {
     if (typeof window === "undefined") {
       return null;
@@ -508,21 +586,7 @@ export default function ProjectOnePage() {
     infoGrid.style.gridTemplateColumns = "repeat(auto-fit, minmax(220px, 1fr))";
     infoGrid.style.gap = "8px 16px";
 
-    const infoItems = [
-      { label: "Data", value: formatDate(tap?.data ?? project.data) },
-      { label: "Cliente", value: project.cliente ?? "—" },
-      { label: "Código do Cliente", value: tap?.cod_cliente ?? project.cod_cliente ?? "—" },
-      { label: "Tipo", value: tap?.tipo ?? "—" },
-      { label: "GPP", value: tap?.gpp ?? project.gpp ?? "—" },
-      { label: "Coordenador", value: tap?.coordenador ?? project.coordenador ?? "—" },
-      { label: "Gerente do Projeto", value: tap?.gerente_projeto ?? project.coordenador ?? "—" },
-      { label: "Produto", value: tap?.produto ?? project.produto ?? "—" },
-      { label: "Serviço", value: tap?.servico ?? "—" },
-      { label: "ESN", value: tap?.esn ?? project.esn ?? "—" },
-      { label: "Arquiteto", value: tap?.arquiteto ?? project.arquiteto ?? "—" },
-      { label: "Criticidade TOTVS", value: tap?.criticidade_totvs ?? project.criticidade ?? "—" },
-      { label: "Criticidade Cliente", value: tap?.criticidade_cliente ?? project.criticidade ?? "—" },
-    ];
+    const infoItems = getProjectInfoItems();
 
     infoItems.forEach((item) => {
       const wrapper = document.createElement("div");
@@ -595,6 +659,144 @@ export default function ProjectOnePage() {
     document.body.appendChild(exportRoot);
 
     return exportRoot;
+  };
+
+  const buildGoogleSheetValues = (sections: HTMLElement[]) => {
+    if (!project) {
+      return [] as string[][];
+    }
+
+    const rows: string[][] = [];
+
+    rows.push([`One Page - ${project.nome_projeto}`]);
+    rows.push([`Cliente`, project.cliente ?? "—"]);
+    rows.push([`Código do Cliente`, tap?.cod_cliente ?? project.cod_cliente ?? "—"]);
+    rows.push([`Gerado em`, formatDateTime(new Date())]);
+    rows.push([]);
+
+    const infoItems = getProjectInfoItems();
+    infoItems.forEach((item) => {
+      rows.push([item.label, item.value]);
+    });
+
+    if (infoItems.length) {
+      rows.push([]);
+    }
+
+    sections.forEach((section) => {
+      const datasetKey = section.getAttribute("data-print-section") as PrintSectionKey | null;
+      const headingElement = section.querySelector<HTMLElement>("h1, h2, h3, h4, h5, h6");
+      const fallbackHeading = datasetKey ? printSectionLabels[datasetKey] : undefined;
+      const heading = headingElement?.textContent?.trim() || fallbackHeading || "Seção";
+
+      rows.push([heading]);
+
+      const textLines = section.innerText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0 && line.toLowerCase() !== "imprimir");
+
+      textLines.forEach((line) => {
+        if (line === heading) {
+          return;
+        }
+
+        rows.push([line]);
+      });
+
+      rows.push([]);
+    });
+
+    return rows;
+  };
+
+  const handleOpenGoogleSheetsDialog = () => {
+    const selectedSections = getSelectedSections();
+
+    if (!selectedSections.length) {
+      toast({
+        title: "Nenhuma seção selecionada",
+        description: "Selecione ao menos uma seção marcada para impressão antes de exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGoogleSheetsDialogOpen(true);
+  };
+
+  const handleGoogleSheetsSubmit = async () => {
+    if (!project) {
+      return;
+    }
+
+    const trimmedId = googleSheetId.trim();
+    const trimmedRange = googleSheetRange.trim() || "Página1!A1";
+
+    if (!trimmedId) {
+      toast({
+        title: "Informe o ID da planilha",
+        description: "Digite o identificador da planilha do Google antes de exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const selectedSections = getSelectedSections();
+    if (!selectedSections.length) {
+      toast({
+        title: "Nenhuma seção selecionada",
+        description: "Selecione ao menos uma seção marcada para impressão antes de exportar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const values = buildGoogleSheetValues(selectedSections);
+    if (!values.length) {
+      toast({
+        title: "Nada para exportar",
+        description: "Não foi possível montar os dados para enviar à planilha.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setIsGoogleSheetsSubmitting(true);
+      const { error } = await supabase.functions.invoke("export-google-sheet", {
+        body: {
+          spreadsheetId: trimmedId,
+          range: trimmedRange,
+          valueInputOption: "USER_ENTERED",
+          values,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem(GOOGLE_SHEET_ID_STORAGE_KEY, trimmedId);
+        localStorage.setItem(GOOGLE_SHEET_RANGE_STORAGE_KEY, trimmedRange);
+      }
+
+      toast({
+        title: "Planilha atualizada",
+        description: "Os dados foram enviados para o Google Planilhas com sucesso.",
+      });
+      setIsGoogleSheetsDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao exportar para Google Planilhas:", error);
+      toast({
+        title: "Erro ao enviar para planilha",
+        description: "Não foi possível atualizar a planilha. Verifique as credenciais e tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleSheetsSubmitting(false);
+    }
   };
 
   const handleExport = async (format: "pdf" | "pptx") => {
@@ -799,13 +1001,26 @@ export default function ProjectOnePage() {
           <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" className="whitespace-nowrap" disabled={isExporting}>
-                  <Download className="mr-2 h-4 w-4" />
-                  {isExporting ? "Gerando..." : "Exportar One Page"}
+                <Button
+                  size="sm"
+                  className="whitespace-nowrap"
+                  disabled={isExporting || isGoogleSheetsSubmitting}
+                >
+                  {isExporting || isGoogleSheetsSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isExporting
+                    ? "Gerando..."
+                    : isGoogleSheetsSubmitting
+                    ? "Sincronizando..."
+                    : "Exportar One Page"}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
+                  disabled={isExporting || isGoogleSheetsSubmitting}
                   onSelect={(event) => {
                     event.preventDefault();
                     void handleExport("pdf");
@@ -814,12 +1029,23 @@ export default function ProjectOnePage() {
                   Exportar em PDF
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  disabled={isExporting || isGoogleSheetsSubmitting}
                   onSelect={(event) => {
                     event.preventDefault();
                     void handleExport("pptx");
                   }}
                 >
                   Exportar em PPTX
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={isExporting || isGoogleSheetsSubmitting}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    handleOpenGoogleSheetsDialog();
+                  }}
+                >
+                  Enviar para Google Planilhas
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -1360,6 +1586,62 @@ export default function ProjectOnePage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={isGoogleSheetsDialogOpen}
+        onOpenChange={(open) => {
+          if (isGoogleSheetsSubmitting) {
+            return;
+          }
+          setIsGoogleSheetsDialogOpen(open);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar para Google Planilhas</DialogTitle>
+            <DialogDescription>
+              Informe o ID da planilha e o intervalo que devem ser atualizados. Garanta que as
+              credenciais de serviço estejam configuradas no Supabase para autorizar o acesso.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="google-sheet-id">ID da planilha</Label>
+              <Input
+                id="google-sheet-id"
+                value={googleSheetId}
+                onChange={(event) => setGoogleSheetId(event.target.value)}
+                placeholder="Ex: 1AbCdEfGhIjKlMnOpQrStUv"
+                disabled={isGoogleSheetsSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="google-sheet-range">Intervalo</Label>
+              <Input
+                id="google-sheet-range"
+                value={googleSheetRange}
+                onChange={(event) => setGoogleSheetRange(event.target.value)}
+                placeholder="Ex: Página1!A1"
+                disabled={isGoogleSheetsSubmitting}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsGoogleSheetsDialogOpen(false)}
+              disabled={isGoogleSheetsSubmitting}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => void handleGoogleSheetsSubmit()} disabled={isGoogleSheetsSubmitting}>
+              {isGoogleSheetsSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Enviar dados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
