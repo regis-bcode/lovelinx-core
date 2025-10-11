@@ -135,6 +135,10 @@
     background-attachment: fixed;
   }
 
+  #root {
+    @apply min-h-screen w-full;
+  }
+
   body::before {
     content: "";
     position: fixed;

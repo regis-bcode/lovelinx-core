@@ -24,13 +24,13 @@ export function AppHeader() {
         <div className="flex flex-1 items-center gap-6">
           <div className="hidden md:flex flex-col gap-0.5">
             <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
-              Baumgratz Code
+              Baumfratz Code
             </span>
             <span className="text-sm font-semibold text-foreground">
-              Painéis Gerenciais Hospitalares
+              Painel de Acompanhamento de Projetos
             </span>
             <span className="text-xs text-muted-foreground">
-              Soluções integradas para decisões em tempo real
+              Gestão centralizada para squads, PMOs e lideranças
             </span>
           </div>
 
