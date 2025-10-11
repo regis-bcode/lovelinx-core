@@ -60,7 +60,7 @@ export function AppHeader() {
         )}
         {!isCollapsed ? (
           <div className="relative flex flex-1 flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-6">
-            <div className="flex flex-1 flex-col gap-4">
+            <div className="flex flex-1 flex-col gap-4 pr-4 md:pr-24">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
@@ -74,7 +74,6 @@ export function AppHeader() {
                   </span>
                 </div>
 
-                {collapseToggleButton}
               </div>
 
               <Tooltip>
@@ -94,6 +93,7 @@ export function AppHeader() {
             </div>
 
             <div className="flex items-center gap-3 self-start md:self-center">
+              <div className="md:hidden">{collapseToggleButton}</div>
               <ThemeToggle />
 
               <Tooltip>
@@ -153,6 +153,9 @@ export function AppHeader() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            </div>
+            <div className="absolute right-0 top-0 hidden md:block">
+              {collapseToggleButton}
             </div>
           </div>
         ) : (
