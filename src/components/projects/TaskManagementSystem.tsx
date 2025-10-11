@@ -912,14 +912,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (column.key === 'responsavel') {
       return (
         <Select
-          value={(value as string) || ''}
-          onValueChange={(val) => updateCell(rowIndex, column.key, val || undefined)}
+          value={(value as string) || 'unassigned'}
+          onValueChange={(val) =>
+            updateCell(rowIndex, column.key, val === 'unassigned' ? undefined : val)
+          }
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue placeholder={teams.length ? 'Selecione' : 'Sem membros disponíveis'} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Sem responsável</SelectItem>
+            <SelectItem value="unassigned">Sem responsável</SelectItem>
             {teams.map((team) => (
               <SelectItem key={team.id} value={team.nome}>
                 {team.nome}
