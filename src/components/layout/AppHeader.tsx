@@ -23,12 +23,31 @@ export function AppHeader() {
 
   const toggleCollapse = () => setIsCollapsed((prev) => !prev);
 
+  const collapseToggleButton = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-10 w-10 shrink-0 rounded-xl border border-white/40 bg-white/60 text-primary shadow-[0_10px_25px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/80 supports-[backdrop-filter]:bg-white/30"
+          aria-label={isCollapsed ? "Maximizar painel" : "Minimizar painel"}
+          onClick={toggleCollapse}
+        >
+          {isCollapsed ? <Maximize2 className="h-[1.1rem] w-[1.1rem]" /> : <Minus className="h-[1.1rem] w-[1.1rem]" />}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{isCollapsed ? "Maximizar painel" : "Minimizar painel"}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+
   return (
     <TooltipProvider>
       <div
         className={cn(
           "relative overflow-hidden rounded-[32px] border border-white/60 bg-white/40 p-6 shadow-[0_25px_65px_-20px_rgba(15,65,120,0.45)] backdrop-blur-2xl transition-all duration-300 supports-[backdrop-filter]:bg-white/30 dark:border-white/10 dark:bg-background/70",
-          isCollapsed && "flex min-h-[72px] items-center justify-end p-4"
+          isCollapsed && "flex min-h-[72px] items-center justify-between gap-4 p-4"
         )}
       >
         {!isCollapsed && (
@@ -39,37 +58,23 @@ export function AppHeader() {
             <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-white/20 to-transparent" />
           </div>
         )}
-        <div className="absolute right-5 top-5 z-20">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-xl border border-white/40 bg-white/60 text-primary shadow-[0_10px_25px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/80 supports-[backdrop-filter]:bg-white/30"
-                aria-label={isCollapsed ? "Maximizar painel" : "Minimizar painel"}
-                onClick={toggleCollapse}
-              >
-                {isCollapsed ? <Maximize2 className="h-[1.1rem] w-[1.1rem]" /> : <Minus className="h-[1.1rem] w-[1.1rem]" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{isCollapsed ? "Maximizar painel" : "Minimizar painel"}</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-        {!isCollapsed && (
-          <div className="relative flex flex-1 flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
-            <div className="flex flex-1 flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
-                  Baumfratz Code
-                </span>
-                <span className="text-sm font-semibold text-foreground">
-                  Painel de Acompanhamento de Projetos
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Gestão centralizada para squads, PMOs e lideranças
-                </span>
+        {!isCollapsed ? (
+          <div className="relative flex flex-1 flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-6">
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
+                    Baumfratz Code
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    Painel de Acompanhamento de Projetos
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Gestão centralizada para squads, PMOs e lideranças
+                  </span>
+                </div>
+
+                {collapseToggleButton}
               </div>
 
               <Tooltip>
@@ -149,6 +154,11 @@ export function AppHeader() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
+        ) : (
+          <div className="flex w-full items-center justify-between gap-4">
+            <span className="text-sm font-semibold text-foreground">Painel de Acompanhamento de Projetos</span>
+            {collapseToggleButton}
           </div>
         )}
       </div>
