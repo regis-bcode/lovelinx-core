@@ -20,6 +20,7 @@ import Status from "./pages/Status";
 import Modulos from "./pages/Modulos";
 import Areas from "./pages/Areas";
 import Categorias from "./pages/Categorias";
+import Settings from "./pages/Settings";
 import TeamManagement from "./pages/TeamManagement";
 import TeamAddMembers from "./pages/TeamAddMembers";
 import NotFound from "./pages/NotFound";
@@ -170,78 +171,86 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/users" 
-        element={
-          <ProtectedRoute>
-            <Users />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/clients" 
-        element={
-          <ProtectedRoute>
-            <Clients />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/products" 
-        element={
-          <ProtectedRoute>
-            <Products />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/services" 
-        element={
-          <ProtectedRoute>
-            <Services />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/status" 
-        element={
-          <ProtectedRoute>
-            <Status />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/modulos" 
-        element={
-          <ProtectedRoute>
-            <Modulos />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/areas" 
-        element={
-          <ProtectedRoute>
-            <Areas />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/categorias" 
-        element={
-          <ProtectedRoute>
-            <Categorias />
-          </ProtectedRoute>
-        } 
-      />
       <Route
         path="/settings"
         element={
           <ProtectedRoute>
-            <div className="p-6">Settings page - Em desenvolvimento</div>
+            <Settings />
           </ProtectedRoute>
-        } 
+        }
       />
+      <Route
+        path="/settings/users"
+        element={
+          <ProtectedRoute>
+            <Users />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/clients"
+        element={
+          <ProtectedRoute>
+            <Clients />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/products"
+        element={
+          <ProtectedRoute>
+            <Products />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/services"
+        element={
+          <ProtectedRoute>
+            <Services />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/status"
+        element={
+          <ProtectedRoute>
+            <Status />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/modulos"
+        element={
+          <ProtectedRoute>
+            <Modulos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/areas"
+        element={
+          <ProtectedRoute>
+            <Areas />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/categorias"
+        element={
+          <ProtectedRoute>
+            <Categorias />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/users" element={<Navigate to="/settings/users" replace />} />
+      <Route path="/clients" element={<Navigate to="/settings/clients" replace />} />
+      <Route path="/products" element={<Navigate to="/settings/products" replace />} />
+      <Route path="/services" element={<Navigate to="/settings/services" replace />} />
+      <Route path="/status" element={<Navigate to="/settings/status" replace />} />
+      <Route path="/modulos" element={<Navigate to="/settings/modulos" replace />} />
+      <Route path="/areas" element={<Navigate to="/settings/areas" replace />} />
+      <Route path="/categorias" element={<Navigate to="/settings/categorias" replace />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
