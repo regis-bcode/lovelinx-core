@@ -1,0 +1,11 @@
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">Símbolo Baumgratz Code</title>
+  <defs>
+    <linearGradient id="markGradient" x1="6" y1="6" x2="42" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B2E5A" />
+      <stop offset="1" stop-color="#29A3E5" />
+    </linearGradient>
+  </defs>
+  <circle cx="24" cy="24" r="20" stroke="url(#markGradient)" stroke-width="4" />
+  <path d="M16 17c3-3.2 7.2-5 12-5 4.8 0 8.6 1.6 11 4.5m-26 7.5h26m-26 7.5c2.4 2.9 6.2 4.5 11 4.5 4.8 0 9-1.8 12-5" stroke="url(#markGradient)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+</svg>

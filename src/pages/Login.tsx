@@ -59,140 +59,187 @@ export default function Login() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gradient-hero p-4">
+    <main className="relative min-h-screen overflow-hidden bg-gradient-hero px-4 py-10">
       <header>
         <h1 className="sr-only">Login e Criar conta | Sistema de Projetos</h1>
         <link rel="canonical" href={window.location.href} />
-        <meta name="description" content="Acesse ou crie sua conta no Sistema de Projetos para gerenciar Workspaces, Pastas e Projetos." />
+        <meta
+          name="description"
+          content="Acesse ou crie sua conta no Sistema de Projetos para gerenciar Workspaces, Pastas e Projetos."
+        />
       </header>
-      <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <div className="mx-auto w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center shadow-glow">
-            <FolderKanban className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="mt-6 text-3xl font-bold text-foreground">Sistema de Projetos</h1>
-          <p className="mt-2 text-muted-foreground">
-            Entre com suas credenciais para acessar
-          </p>
-        </div>
-        
-        <Card className="shadow-large border-0 bg-gradient-card">
-          <CardHeader className="space-y-1 pb-6">
-            <CardTitle className="text-2xl text-center">{isSignup ? "Criar conta" : "Login"}</CardTitle>
-            <CardDescription className="text-center">
-              {isSignup ? "Cadastre-se com email e senha para começar" : "Entre com email e senha para continuar"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="bg-background/50"
-                />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_100%_at_0%_0%,rgba(41,163,229,0.22),transparent),radial-gradient(85%_120%_at_100%_0%,rgba(11,46,90,0.38),transparent),radial-gradient(120%_120%_at_50%_80%,rgba(255,122,69,0.18),transparent)]" />
+      <div className="relative z-10 mx-auto flex min-h-[80vh] max-w-6xl flex-col justify-center">
+        <div className="grid gap-6 rounded-3xl border border-white/30 bg-white/20 p-6 shadow-large backdrop-blur-xl lg:grid-cols-[1.35fr,1fr] lg:p-12">
+          {/* Left column: Brand introduction */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-primary p-8 text-white shadow-soft">
+            <div className="absolute -right-20 top-10 h-56 w-56 rounded-full border border-white/30 bg-white/10 blur-3xl" />
+            <div className="absolute -bottom-12 left-0 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
+            <div className="relative space-y-8">
+              <div className="flex items-center gap-4">
+                <img src="/baumgratz-code-logo.svg" alt="Baumgratz Code" className="h-12" />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Digite sua senha"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    className="bg-background/50 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <Button 
-                type="submit" 
-                className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-                disabled={isLoading}
-              >
-                {isLoading ? (isSignup ? "Enviando..." : "Entrando...") : (isSignup ? "Criar conta" : "Entrar")}
-              </Button>
-              </form>
-              
-              {isSignup && (
-                <div className="mt-4 text-center">
-                  <button
-                    type="button"
-                    className="text-sm underline underline-offset-4 text-foreground hover:opacity-80"
-                    onClick={async () => {
-                      if (!email) return;
-                      setIsLoading(true);
-                      try {
-                        await resendConfirmationEmail(email);
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    disabled={!email || isLoading}
-                  >
-                    Reenviar e-mail de confirmação
-                  </button>
-                </div>
-              )}
-              
-              {!isSignup && (
-                <div className="mt-4">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={async () => {
-                      setEmail("admin@admin");
-                      setPassword("admin");
-                      setIsLoading(true);
-                      try {
-                        await login("admin@admin", "admin");
-                      } finally {
-                        setIsLoading(false);
-                      }
-                    }}
-                    disabled={isLoading}
-                  >
-                    Entrar como Admin (padrão)
-                  </Button>
-                </div>
-              )}
-              
-              <div className="mt-6 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {isSignup ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
-                  <button
-                    type="button"
-                    className="underline underline-offset-4 text-foreground hover:opacity-80"
-                    onClick={() => setIsSignup((v) => !v)}
-                  >
-                    {isSignup ? "Entrar" : "Criar conta"}
-                  </button>
+              <div className="space-y-4">
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.45em] text-white/80">
+                  Hospitalar 4.0
+                </span>
+                <h2 className="text-3xl font-semibold leading-snug lg:text-4xl">
+                  Painéis Gerenciais Hospitalares que unem dados, equipes e decisões
+                </h2>
+                <p className="text-base text-white/80">
+                  Acompanhe farmácia, centro cirúrgico e indicadores financeiros em um ambiente seguro, integrado e atualizado em tempo real.
                 </p>
               </div>
-          </CardContent>
-        </Card>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {["Painéis Integrados", "Dados em Tempo Real", "Análises Detalhadas", "Desempenho por Equipe"].map((feature) => (
+                  <div key={feature} className="rounded-2xl border border-white/15 bg-white/10 p-4 text-sm text-white/80">
+                    <span className="text-white">{feature}</span>
+                    <p className="mt-2 text-xs leading-relaxed text-white/70">
+                      Insights confiáveis para decisões ágeis e gestão humanizada.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right column: Authentication form */}
+          <div className="flex items-center justify-center">
+            <div className="w-full max-w-md space-y-8 rounded-3xl border border-primary/10 bg-white/80 p-8 shadow-soft backdrop-blur-md dark:bg-background/80">
+              <div className="space-y-3 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-[0_15px_40px_rgba(27,95,140,0.25)]">
+                  <FolderKanban className="h-8 w-8" />
+                </div>
+                <h2 className="text-2xl font-semibold text-foreground">Acesse sua central Baumgratz Code</h2>
+                <p className="text-sm text-muted-foreground">
+                  {isSignup ? "Crie sua conta para iniciar a gestão integrada" : "Entre com suas credenciais para continuar"}
+                </p>
+              </div>
+
+              <Card className="border border-primary/10 shadow-none">
+                <CardHeader className="space-y-1 pb-6">
+                  <CardTitle className="text-2xl text-center">
+                    {isSignup ? "Criar conta" : "Login"}
+                  </CardTitle>
+                  <CardDescription className="text-center">
+                    {isSignup
+                      ? "Cadastre-se com email e senha para começar"
+                      : "Entre com email e senha para continuar"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        className="h-11 rounded-xl border border-primary/15 bg-white/70 pl-4"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Senha</Label>
+                      <div className="relative">
+                        <Input
+                          id="password"
+                          type={showPassword ? "text" : "password"}
+                          placeholder="Digite sua senha"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="h-11 rounded-xl border border-primary/15 bg-white/70 pr-12 pl-4"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-full text-muted-foreground hover:bg-primary/10"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="submit"
+                      className="h-11 w-full rounded-full bg-gradient-to-r from-[#0B2E5A] via-[#1B5F8C] to-[#29A3E5] text-white shadow-soft transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-large"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (isSignup ? "Enviando..." : "Entrando...") : (isSignup ? "Criar conta" : "Entrar")}
+                    </Button>
+                  </form>
+
+                  {isSignup && (
+                    <div className="mt-4 text-center">
+                      <button
+                        type="button"
+                        className="text-sm font-medium text-primary underline underline-offset-4 hover:text-accent"
+                        onClick={async () => {
+                          if (!email) return;
+                          setIsLoading(true);
+                          try {
+                            await resendConfirmationEmail(email);
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        disabled={!email || isLoading}
+                      >
+                        Reenviar e-mail de confirmação
+                      </button>
+                    </div>
+                  )}
+
+                  {!isSignup && (
+                    <div className="mt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 w-full rounded-full border border-primary/20 bg-white/70 text-primary hover:border-primary/40 hover:bg-white"
+                        onClick={async () => {
+                          setEmail("admin@admin");
+                          setPassword("admin");
+                          setIsLoading(true);
+                          try {
+                            await login("admin@admin", "admin");
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        disabled={isLoading}
+                      >
+                        Entrar como Admin (padrão)
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="mt-6 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {isSignup ? "Já tem uma conta?" : "Ainda não tem conta?"}{" "}
+                      <button
+                        type="button"
+                        className="font-semibold text-primary underline underline-offset-4 hover:text-accent"
+                        onClick={() => setIsSignup((v) => !v)}
+                      >
+                        {isSignup ? "Entrar" : "Criar conta"}
+                      </button>
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
       </div>
     </main>
   );
