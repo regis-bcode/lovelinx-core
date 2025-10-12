@@ -9,11 +9,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -125,6 +125,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isFieldRequired, setIsFieldRequired] = useState(false);
   const [fieldSearch, setFieldSearch] = useState('');
   const [isCreatingField, setIsCreatingField] = useState(false);
+  const [activeTaskDialog, setActiveTaskDialog] = useState<{ mode: 'view' | 'edit'; index: number } | null>(null);
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -276,6 +277,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setEditableRows(tasks.map(t => ({ ...t, custom_fields: t.custom_fields || {} })));
     setHasChanges(false);
   }, [tasks]);
+
+  useEffect(() => {
+    if (!activeTaskDialog) return;
+    if (!editableRows[activeTaskDialog.index]) {
+      setActiveTaskDialog(null);
+    }
+  }, [activeTaskDialog, editableRows]);
 
   const tasksLength = tasks.length;
 
@@ -1065,6 +1073,92 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     );
   };
 
+  const renderTaskSummaryValue = useCallback((row: TaskRow, column: ColumnDefinition): React.ReactNode => {
+    if (!row) {
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    if ('isCustom' in column && column.isCustom) {
+      const customValue = row.custom_fields?.[column.field.field_name];
+
+      if (column.field.field_type === 'checkbox') {
+        return <span>{customValue ? 'Sim' : 'Não'}</span>;
+      }
+
+      if (Array.isArray(customValue)) {
+        return customValue.length > 0
+          ? customValue.join(', ')
+          : <span className="text-muted-foreground">-</span>;
+      }
+
+      if (customValue === undefined || customValue === null || customValue === '') {
+        return <span className="text-muted-foreground">-</span>;
+      }
+
+      if (column.field.field_type === 'monetary' && typeof customValue === 'number') {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(customValue);
+      }
+
+      return <span>{String(customValue)}</span>;
+    }
+
+    const value = row[column.key as keyof TaskRow];
+    const isEmptyString = typeof value === 'string' && value.trim() === '';
+    const isNullish = value === null || value === undefined;
+
+    if (column.key === 'task_id') {
+      if (row._isNew) {
+        return <span className="text-muted-foreground">Novo</span>;
+      }
+      return value ? <span>{String(value)}</span> : <span className="text-muted-foreground">-</span>;
+    }
+
+    if (column.key === 'tempo_total') {
+      if (!row.id) return <span className="text-muted-foreground">-</span>;
+      const minutes = getTaskTotalTime(row.id);
+      const hours = Math.floor(minutes / 60);
+      const mins = minutes % 60;
+      return <span>{`${hours}h ${mins}m`}</span>;
+    }
+
+    if (column.key === 'percentual_conclusao') {
+      if (typeof value === 'number') {
+        return <span>{`${value}%`}</span>;
+      }
+      return <span className="text-muted-foreground">0%</span>;
+    }
+
+    if (column.key === 'data_vencimento') {
+      if (isNullish || isEmptyString) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+
+      const date = new Date(String(value));
+      if (Number.isNaN(date.getTime())) {
+        return <span>{String(value)}</span>;
+      }
+
+      return <span>{format(date, 'dd/MM/yyyy')}</span>;
+    }
+
+    if (column.key === 'escopo') {
+      if (value === 'Sim' || value === 'Não') {
+        return <span>{value}</span>;
+      }
+    }
+
+    if (isNullish || isEmptyString) {
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    return <span>{String(value)}</span>;
+  }, [getTaskTotalTime]);
+
+  const closeTaskDialog = useCallback(() => setActiveTaskDialog(null), []);
+
+  const activeDialogRow = activeTaskDialog ? editableRows[activeTaskDialog.index] : null;
+  const isTaskDialogOpen = Boolean(activeTaskDialog && activeDialogRow);
+
   const resetFieldDialogState = () => {
     setSelectedFieldType(null);
     setFieldName('');
@@ -1315,12 +1409,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <div className="max-h-[60vh] overflow-auto">
+          <ScrollArea className="max-h-[65vh]" style={{ maxHeight: '65vh' }} scrollBarOrientation="both">
             <div className="min-w-max w-full">
               <table className="w-full caption-bottom text-sm">
                 <TableHeader className="sticky top-0 z-10 bg-background">
                   <TableRow>
-                    <TableHead className="w-[50px]">Ações</TableHead>
+                    <TableHead className="w-[140px] min-w-[140px]">Ações</TableHead>
                     {visibleColumns.map(col => (
                       <TableHead key={col.key} style={{ minWidth: col.width }}>
                         {col.label}
@@ -1345,14 +1439,35 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     editableRows.map((row, index) => (
                       <TableRow key={row.id || row._tempId || index} className="hover:bg-muted/50">
                         <TableCell className="p-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteRow(index)}
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+                              aria-label="Visualizar resumo da tarefa"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+                              aria-label="Editar tarefa"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => deleteRow(index)}
+                              aria-label="Excluir tarefa"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                         {visibleColumns.map(col => (
                           <TableCell key={col.key} className="p-1">
@@ -1375,9 +1490,57 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </TableBody>
               </table>
             </div>
-          </div>
+          </ScrollArea>
         </CardContent>
       </Card>
+
+      <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>
+              {activeTaskDialog?.mode === 'view' ? 'Resumo da tarefa' : 'Editar tarefa'}
+            </DialogTitle>
+          </DialogHeader>
+          {activeDialogRow ? (
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {activeDialogRow.nome && activeDialogRow.nome.trim().length > 0
+                    ? activeDialogRow.nome
+                    : 'Tarefa sem título'}
+                </p>
+              </div>
+              <ScrollArea className="max-h-[60vh] pr-2" style={{ maxHeight: '60vh' }}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {visibleColumns.map(column => (
+                    <div key={column.key} className="space-y-1">
+                      <span className="text-xs font-medium text-muted-foreground">{column.label}</span>
+                      {activeTaskDialog?.mode === 'view' ? (
+                        <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                          {renderTaskSummaryValue(activeDialogRow, column)}
+                        </div>
+                      ) : (
+                        <div className="rounded-md border border-border/40 bg-background px-2 py-1">
+                          {renderEditableCell(activeDialogRow, activeTaskDialog.index, column)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : null}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={closeTaskDialog}>Fechar</Button>
+            {activeTaskDialog?.mode === 'edit' && (
+              <Button onClick={saveAllChanges} disabled={!hasChanges || loading}>
+                <Save className="mr-2 h-4 w-4" />
+                Salvar alterações
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {hasChanges && (
         <div className="text-sm text-muted-foreground">
