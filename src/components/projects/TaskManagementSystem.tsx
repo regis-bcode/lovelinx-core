@@ -331,15 +331,34 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: 'prioridade', label: 'Prioridade', width: '120px' },
     { key: 'status', label: 'Status', width: '150px' },
     { key: 'cliente', label: 'Cliente', width: '150px' },
-    { key: 'responsavel', label: 'Responsável', width: '150px' },
-    { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
-    { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
-    { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
-    { key: 'modulo', label: 'Módulo', width: '150px' },
-    { key: 'area', label: 'Área', width: '150px' },
-    { key: 'categoria', label: 'Categoria', width: '150px' },
-    { key: 'criticidade', label: 'Criticidade', width: '120px' },
-    { key: 'escopo', label: 'Escopo', width: '150px' },
+    { key: 'responsavel', label: 'Responsável', width: '180px' },
+    { key: 'data_vencimento', label: 'Vencimento', width: '140px' },
+    { key: 'percentual_conclusao', label: '% Conclusão', width: '120px' },
+    { key: 'tempo_total', label: 'Tempo Total', width: '140px' },
+    { key: 'modulo', label: 'Módulo', width: '180px' },
+    { key: 'area', label: 'Área', width: '180px' },
+    { key: 'categoria', label: 'Categoria', width: '180px' },
+    { key: 'criticidade', label: 'Criticidade', width: '140px' },
+    { key: 'escopo', label: 'Escopo', width: '140px' },
+    { key: 'etapa_projeto', label: 'Etapa do Projeto', width: '200px' },
+    { key: 'descricao_detalhada', label: 'Descrição Detalhada', width: '280px' },
+    { key: 'retorno_acao', label: 'Retorno da Ação', width: '260px' },
+    { key: 'acao_realizada', label: 'Ação Realizada', width: '260px' },
+    { key: 'gp_consultoria', label: 'GP Consultoria', width: '200px' },
+    { key: 'responsavel_consultoria', label: 'Responsável Consultoria', width: '240px' },
+    { key: 'responsavel_cliente', label: 'Responsável Cliente', width: '220px' },
+    { key: 'numero_ticket', label: 'Número do Ticket', width: '200px' },
+    { key: 'descricao_ticket', label: 'Descrição do Ticket', width: '280px' },
+    { key: 'data_identificacao_ticket', label: 'Data Identificação Ticket', width: '220px' },
+    { key: 'responsavel_ticket', label: 'Responsável Ticket', width: '220px' },
+    { key: 'status_ticket', label: 'Status do Ticket', width: '200px' },
+    { key: 'link', label: 'Link', width: '220px' },
+    { key: 'validado_por', label: 'Validado por', width: '200px' },
+    { key: 'data_prevista_entrega', label: 'Data Prevista Entrega', width: '200px' },
+    { key: 'data_entrega', label: 'Data Entrega', width: '180px' },
+    { key: 'data_prevista_validacao', label: 'Data Prevista Validação', width: '220px' },
+    { key: 'dias_para_concluir', label: 'Dias para Concluir', width: '180px' },
+    { key: 'link_drive', label: 'Link Drive', width: '220px' },
   ]), []);
 
   const customFieldColumns = useMemo<ColumnDefinition[]>(() => (
@@ -351,6 +370,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       field,
     }))
   ), [customFields]);
+
+  const longTextColumns = useMemo(() => (
+    new Set([
+      'descricao_detalhada',
+      'retorno_acao',
+      'acao_realizada',
+      'descricao_ticket',
+    ])
+  ), []);
 
   const allColumns = useMemo<ColumnDefinition[]>(() => ([
     ...baseColumns,
@@ -736,7 +764,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setHasChanges(true);
   };
 
-  const renderEditableCell = (row: TaskRow, rowIndex: number, column: ColumnDefinition) => {
+  const renderEditableCell = (
+    row: TaskRow,
+    rowIndex: number,
+    column: ColumnDefinition,
+    options: { isDialog?: boolean } = {},
+  ) => {
+    const isDialog = options.isDialog ?? false;
     if ('isCustom' in column && column.isCustom) {
       const field = column.field;
       const customValue = row.custom_fields?.[field.field_name];
@@ -851,6 +885,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const hours = Math.floor(minutes / 60);
       const mins = minutes % 60;
       return <span className="text-xs">{hours}h {mins}m</span>;
+    }
+
+    if (longTextColumns.has(column.key)) {
+      return (
+        <Textarea
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+          className={`text-xs ${isDialog ? 'min-h-[120px]' : 'min-h-[60px]'} resize-y`}
+          rows={isDialog ? 5 : 3}
+        />
+      );
     }
 
     if (column.key === 'prioridade') {
@@ -1012,6 +1057,46 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
     }
 
+    if (column.key === 'data_identificacao_ticket'
+      || column.key === 'data_prevista_entrega'
+      || column.key === 'data_entrega'
+      || column.key === 'data_prevista_validacao') {
+      return (
+        <Input
+          type="date"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+          className="h-8 text-xs"
+        />
+      );
+    }
+
+    if (column.key === 'dias_para_concluir') {
+      return (
+        <Input
+          type="number"
+          value={typeof value === 'number' || typeof value === 'string' ? String(value ?? '') : ''}
+          onChange={(e) => {
+            const parsed = e.target.value === '' ? undefined : Number(e.target.value);
+            updateCell(rowIndex, column.key, Number.isNaN(parsed) ? undefined : parsed);
+          }}
+          className="h-8 text-xs"
+        />
+      );
+    }
+
+    if (column.key === 'link' || column.key === 'link_drive') {
+      return (
+        <Input
+          type="url"
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+          className="h-8 text-xs"
+          placeholder="https://"
+        />
+      );
+    }
+
     if (column.key === 'modulo') {
       return (
         <CreatableSelect
@@ -1139,6 +1224,52 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       return <span>{format(date, 'dd/MM/yyyy')}</span>;
+    }
+
+    if (column.key === 'data_identificacao_ticket'
+      || column.key === 'data_prevista_entrega'
+      || column.key === 'data_entrega'
+      || column.key === 'data_prevista_validacao') {
+      if (isNullish || isEmptyString) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+
+      const date = new Date(String(value));
+      if (Number.isNaN(date.getTime())) {
+        return <span>{String(value)}</span>;
+      }
+
+      return <span>{format(date, 'dd/MM/yyyy')}</span>;
+    }
+
+    if (column.key === 'dias_para_concluir') {
+      if (typeof value === 'number') {
+        return <span>{`${value} dia${value === 1 ? '' : 's'}`}</span>;
+      }
+
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return <span>{value}</span>;
+      }
+
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    if (column.key === 'link' || column.key === 'link_drive') {
+      if (typeof value === 'string' && value.trim().length > 0) {
+        const href = value.startsWith('http') ? value : `https://${value}`;
+        return (
+          <a
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="text-primary underline"
+          >
+            Abrir link
+          </a>
+        );
+      }
+
+      return <span className="text-muted-foreground">-</span>;
     }
 
     if (column.key === 'escopo') {
@@ -1521,7 +1652,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         </div>
                       ) : (
                         <div className="rounded-md border border-border/40 bg-background px-2 py-1">
-                          {renderEditableCell(activeDialogRow, activeTaskDialog.index, column)}
+                          {renderEditableCell(activeDialogRow, activeTaskDialog.index, column, { isDialog: true })}
                         </div>
                       )}
                     </div>
