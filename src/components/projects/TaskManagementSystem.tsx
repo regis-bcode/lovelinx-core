@@ -1315,7 +1315,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[600px]" type="always" scrollBarOrientation="both">
+          <div className="max-h-[60vh] overflow-auto">
             <div className="min-w-max w-full">
               <table className="w-full caption-bottom text-sm">
                 <TableHeader className="sticky top-0 z-10 bg-background">
@@ -1375,7 +1375,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </TableBody>
               </table>
             </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
 
