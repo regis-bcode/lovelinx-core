@@ -12,7 +12,7 @@ import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
@@ -1315,7 +1315,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[600px]" type="always">
+          <ScrollArea className="max-h-[600px]" type="always" scrollBarOrientation="both">
             <div className="min-w-max w-full">
               <table className="w-full caption-bottom text-sm">
                 <TableHeader className="sticky top-0 z-10 bg-background">
@@ -1375,7 +1375,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </TableBody>
               </table>
             </div>
-            <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </CardContent>
       </Card>
