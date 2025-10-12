@@ -1459,9 +1459,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   return (
     // Container alinhado ao layout dos demais menus (largura total e altura mínima)
-    <div className="flex h-full w-full flex-col space-y-4">
+    <div className="flex h-full min-w-0 flex-col space-y-4">
       {/* Header com ações */}
-      <Card className="overflow-hidden rounded-3xl">
+      <Card className="min-w-0 overflow-hidden rounded-3xl">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-1">
             <CardTitle>Gestão de Tarefas</CardTitle>
@@ -1685,11 +1685,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         </CardHeader>
       </Card>
       {/* Tabela estilo Excel */}
-      <Card className="flex flex-1 flex-col overflow-hidden rounded-3xl">
-        <CardContent className="flex-1 p-0">
+      <Card className="flex flex-1 min-w-0 flex-col overflow-hidden rounded-3xl">
+        <CardContent className="flex-1 min-w-0 p-0">
           {/* ScrollArea ajustado para permitir rolagem horizontal e altura consistente */}
           <div className="h-full min-h-[420px] w-full">
-            <ScrollArea className="h-full" scrollBarOrientation="both">
+            <ScrollArea className="h-full min-w-0" scrollBarOrientation="both">
               {/* min-w atualizado para acomodar todas as colunas sem quebra visual */}
               {/* Densidade compacta aplicada (tipografia menor, paddings enxutos e altura controlada) */}
               <Table className={cn("min-w-[1600px]", isCondensedView ? "text-[12px]" : "text-[13px]")}>
