@@ -29,6 +29,7 @@ import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 interface TaskManagementSystemProps {
   projectId: string;
@@ -113,9 +114,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
-  
+
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  const [columnOrder, setColumnOrder] = useState<string[]>([]);
+  const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
+  const [draggingColumn, setDraggingColumn] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -137,6 +143,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
     return '';
   }, [projectClient, tap?.cod_cliente]);
+
+  const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -181,6 +189,56 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [projectAllocations, projectId, defaultClient]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(preferencesStorageKey);
+      if (!stored) {
+        setIsLoadedPreferences(true);
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as {
+        hiddenColumns?: string[];
+        order?: string[];
+        widths?: Record<string, number>;
+      } | null;
+
+      if (parsed?.hiddenColumns && Array.isArray(parsed.hiddenColumns)) {
+        setHiddenColumns(parsed.hiddenColumns);
+      }
+
+      if (parsed?.order && Array.isArray(parsed.order)) {
+        setColumnOrder(parsed.order);
+      }
+
+      if (parsed?.widths && typeof parsed.widths === 'object') {
+        setColumnWidths(parsed.widths);
+      }
+    } catch (error) {
+      console.warn('Não foi possível carregar preferências da tabela de tarefas:', error);
+    } finally {
+      setIsLoadedPreferences(true);
+    }
+  }, [preferencesStorageKey]);
+
+  useEffect(() => {
+    if (!isLoadedPreferences || typeof window === 'undefined') {
+      return;
+    }
+
+    const payload = JSON.stringify({
+      hiddenColumns,
+      order: columnOrder,
+      widths: columnWidths,
+    });
+
+    window.localStorage.setItem(preferencesStorageKey, payload);
+  }, [hiddenColumns, columnOrder, columnWidths, preferencesStorageKey, isLoadedPreferences]);
 
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
@@ -358,15 +416,189 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     ...customFieldColumns,
   ]), [baseColumns, customFieldColumns]);
 
-  const visibleColumns = allColumns.filter(col => !hiddenColumns.includes(col.key));
+  useEffect(() => {
+    const columnKeys = allColumns.map(column => column.key);
+
+    setColumnOrder(prev => {
+      if (!prev.length) {
+        return columnKeys;
+      }
+
+      const filtered = prev.filter(key => columnKeys.includes(key));
+      const missing = columnKeys.filter(key => !filtered.includes(key));
+      const next = [...filtered, ...missing];
+
+      if (next.length === prev.length && next.every((key, index) => key === prev[index])) {
+        return prev;
+      }
+
+      return next;
+    });
+
+    setColumnWidths(prev => {
+      const validEntries = Object.entries(prev).filter(([key]) => columnKeys.includes(key));
+      if (validEntries.length === Object.entries(prev).length) {
+        return prev;
+      }
+
+      return validEntries.reduce<Record<string, number>>((accumulator, [key, value]) => {
+        accumulator[key] = value;
+        return accumulator;
+      }, {});
+    });
+  }, [allColumns]);
+
+  const orderedColumnKeys = useMemo(() => {
+    if (!columnOrder.length) {
+      return allColumns.map(column => column.key);
+    }
+
+    const keys = allColumns.map(column => column.key);
+    const filtered = columnOrder.filter(key => keys.includes(key));
+    const missing = keys.filter(key => !filtered.includes(key));
+    return [...filtered, ...missing];
+  }, [allColumns, columnOrder]);
+
+  const orderedColumns = useMemo(
+    () =>
+      orderedColumnKeys
+        .map(key => allColumns.find(column => column.key === key) ?? null)
+        .filter((column): column is ColumnDefinition => Boolean(column)),
+    [orderedColumnKeys, allColumns],
+  );
+
+  const visibleColumns = orderedColumns.filter(col => !hiddenColumns.includes(col.key));
 
   const toggleColumn = (columnKey: string) => {
-    setHiddenColumns(prev => 
-      prev.includes(columnKey) 
+    setHiddenColumns(prev =>
+      prev.includes(columnKey)
         ? prev.filter(k => k !== columnKey)
         : [...prev, columnKey]
     );
   };
+
+  const getColumnBaseWidth = useCallback(
+    (columnKey: string) => {
+      const column = allColumns.find(item => item.key === columnKey);
+      if (column?.width) {
+        const parsed = Number.parseInt(column.width, 10);
+        if (!Number.isNaN(parsed)) {
+          return parsed;
+        }
+      }
+      return 140;
+    },
+    [allColumns],
+  );
+
+  const getColumnWidth = useCallback(
+    (columnKey: string) => {
+      const storedWidth = columnWidths[columnKey];
+      return storedWidth ?? getColumnBaseWidth(columnKey);
+    },
+    [columnWidths, getColumnBaseWidth],
+  );
+
+  const handleResizeStart = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>, columnKey: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const initialX = event.clientX;
+      const initialWidth = getColumnWidth(columnKey);
+
+      const handleMouseMove = (moveEvent: MouseEvent) => {
+        const delta = moveEvent.clientX - initialX;
+        const nextWidth = Math.max(80, initialWidth + delta);
+        setColumnWidths(prev => {
+          if (prev[columnKey] === nextWidth) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            [columnKey]: nextWidth,
+          };
+        });
+      };
+
+      const handleMouseUp = () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    },
+    [getColumnWidth],
+  );
+
+  const handleDragStart = useCallback((event: React.DragEvent<HTMLTableCellElement>, columnKey: string) => {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', columnKey);
+    setDraggingColumn(columnKey);
+  }, []);
+
+  const handleDragEnter = useCallback(
+    (event: React.DragEvent<HTMLTableCellElement>, targetKey: string) => {
+      event.preventDefault();
+      if (!draggingColumn || draggingColumn === targetKey) {
+        return;
+      }
+      setDragOverColumn(targetKey);
+    },
+    [draggingColumn],
+  );
+
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLTableCellElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLTableCellElement>, targetKey: string) => {
+      event.preventDefault();
+      const sourceKey = event.dataTransfer.getData('text/plain') || draggingColumn;
+
+      if (!sourceKey || sourceKey === targetKey) {
+        setDraggingColumn(null);
+        setDragOverColumn(null);
+        return;
+      }
+
+      setColumnOrder(prev => {
+        if (!prev.length) {
+          return prev;
+        }
+
+        const next = [...prev];
+        const sourceIndex = next.indexOf(sourceKey);
+        const targetIndex = next.indexOf(targetKey);
+
+        if (sourceIndex === -1 || targetIndex === -1) {
+          return prev;
+        }
+
+        next.splice(sourceIndex, 1);
+        next.splice(targetIndex, 0, sourceKey);
+
+        if (next.length === prev.length && next.every((key, index) => key === prev[index])) {
+          return prev;
+        }
+
+        return next;
+      });
+
+      setDraggingColumn(null);
+      setDragOverColumn(null);
+    },
+    [draggingColumn],
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingColumn(null);
+    setDragOverColumn(null);
+  }, []);
 
   const updateCell = (index: number, field: string, value: unknown) => {
     setEditableRows(prev => {
@@ -1219,7 +1451,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [fieldSearch]);
 
   return (
-    <div className="space-y-4">
+    // Container alinhado ao layout dos demais menus (largura total e altura mínima)
+    <div className="flex w-full min-h-[720px] flex-col space-y-4">
       {/* Header com ações */}
       <Card className="overflow-hidden rounded-3xl">
         <CardHeader className="space-y-4">
@@ -1437,41 +1670,79 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card className="overflow-hidden rounded-3xl">
         <CardContent className="p-0">
+          {/* ScrollArea ajustado para permitir rolagem horizontal e altura consistente */}
           <ScrollArea
-            className="max-h-[65vh] w-full"
+            className="h-[460px] w-full"
             scrollBarOrientation="both"
             type="always"
           >
-            <div className="w-fit min-w-full [&>div]:overflow-visible">
-              <Table className="w-fit min-w-[1200px]">
-                <TableHeader className="sticky top-0 z-10 bg-background">
-                  <TableRow>
-                    <TableHead className="w-[140px] min-w-[140px]">Ações</TableHead>
-                    {visibleColumns.map(col => (
-                      <TableHead key={col.key} style={{ minWidth: col.width }}>
-                        {col.label}
-                      </TableHead>
-                    ))}
+            <div className="min-w-full">
+              {/* min-w atualizado para acomodar todas as colunas sem quebra visual */}
+              {/* Densidade compacta aplicada (tipografia menor, paddings enxutos e altura controlada) */}
+              <Table className="min-w-[1600px] text-[13px]">
+                <TableHeader className="sticky top-0 z-20 bg-background">
+                  <TableRow className="h-10">
+                    {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
+                    <TableHead
+                      className="sticky left-0 z-30 h-10 select-none border-r border-border/60 bg-background px-2 py-2 text-[13px] font-semibold text-muted-foreground"
+                      style={{ width: '140px', minWidth: '140px' }}
+                    >
+                      Ações
+                    </TableHead>
+                    {/* Cabeçalhos com suporte a reordenação e redimensionamento persistente */}
+                    {visibleColumns.map(column => {
+                      const width = getColumnWidth(column.key);
+                      return (
+                        <TableHead
+                          key={column.key}
+                          draggable
+                          onDragStart={event => handleDragStart(event, column.key)}
+                          onDragEnter={event => handleDragEnter(event, column.key)}
+                          onDragOver={handleDragOver}
+                          onDrop={event => handleDrop(event, column.key)}
+                          onDragEnd={handleDragEnd}
+                          className={cn(
+                            'group relative h-10 select-none border-r border-border/60 bg-background px-2 py-2 text-left text-[13px] font-semibold text-muted-foreground transition-colors',
+                            draggingColumn === column.key && 'opacity-70',
+                            dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
+                          )}
+                          style={{ width: `${width}px`, minWidth: `${width}px` }}
+                        >
+                          {column.label}
+                          {/* Handle para redimensionamento manual das colunas */}
+                          <div
+                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none rounded-sm bg-transparent transition-colors group-hover:bg-primary/30"
+                            onMouseDown={event => handleResizeStart(event, column.key)}
+                          />
+                        </TableHead>
+                      );
+                    })}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center">
+                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center text-[13px]">
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : editableRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center">
+                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center text-[13px]">
                         <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     editableRows.map((row, index) => (
-                      <TableRow key={row.id || row._tempId || index} className="hover:bg-muted/50">
-                        <TableCell className="p-1">
-                          <div className="flex items-center gap-1">
+                      <TableRow
+                        key={row.id || row._tempId || index}
+                        className="h-9 border-b border-border/60 bg-background text-[13px] hover:bg-muted/40"
+                      >
+                        <TableCell
+                          className="sticky left-0 z-20 bg-background px-2 py-1"
+                          style={{ width: '140px', minWidth: '140px' }}
+                        >
+                          <div className="flex items-center gap-1.5">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -1479,7 +1750,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onClick={() => setActiveTaskDialog({ mode: 'view', index })}
                               aria-label="Visualizar resumo da tarefa"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -1488,7 +1759,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
                               aria-label="Editar tarefa"
                             >
-                              <Pencil className="h-4 w-4" />
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost"
@@ -1497,24 +1768,31 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onClick={() => deleteRow(index)}
                               aria-label="Excluir tarefa"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
-                        {visibleColumns.map(col => (
-                          <TableCell key={col.key} className="p-1">
-                            {renderEditableCell(row, index, col)}
-                          </TableCell>
-                        ))}
+                        {visibleColumns.map(col => {
+                          const width = getColumnWidth(col.key);
+                          return (
+                            <TableCell
+                              key={col.key}
+                              className="px-2 py-1 align-middle text-[13px]"
+                              style={{ width: `${width}px`, minWidth: `${width}px` }}
+                            >
+                              {renderEditableCell(row, index, col)}
+                            </TableCell>
+                          );
+                        })}
                       </TableRow>
                     ))
                   )}
                   {!loading && (
-                    <TableRow className="cursor-pointer hover:bg-muted/40" onClick={addNewRow}>
-                      <TableCell colSpan={visibleColumns.length + 1} className="p-3 text-sm text-primary">
+                    <TableRow className="h-9 cursor-pointer border-b border-border/60 bg-background text-[13px] hover:bg-muted/30" onClick={addNewRow}>
+                      <TableCell colSpan={visibleColumns.length + 1} className="px-3 py-2 text-primary">
                         <div className="flex items-center gap-2">
-                          <PlusCircle className="h-4 w-4" />
-                          <span>Adicionar Tarefa</span>
+                          <PlusCircle className="h-3.5 w-3.5" />
+                          <span className="font-medium">Adicionar Tarefa</span>
                         </div>
                       </TableCell>
                     </TableRow>
