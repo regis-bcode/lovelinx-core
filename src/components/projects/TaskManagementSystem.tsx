@@ -1409,7 +1409,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[65vh]" style={{ maxHeight: '65vh' }} scrollBarOrientation="both">
+          <div className="max-h-[65vh] overflow-x-auto overflow-y-auto" style={{ maxHeight: '65vh' }}>
             <div className="min-w-max w-full">
               <table className="w-full caption-bottom text-sm">
                 <TableHeader className="sticky top-0 z-10 bg-background">
@@ -1490,7 +1490,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </TableBody>
               </table>
             </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
 
