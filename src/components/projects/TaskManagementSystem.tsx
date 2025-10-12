@@ -1221,7 +1221,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   return (
     <div className="space-y-4">
       {/* Header com ações */}
-      <Card>
+      <Card className="overflow-hidden rounded-3xl">
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-1">
             <CardTitle>Gestão de Tarefas</CardTitle>
@@ -1435,11 +1435,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         </CardHeader>
       </Card>
       {/* Tabela estilo Excel */}
-      <Card>
+      <Card className="overflow-hidden rounded-3xl">
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[65vh]" scrollBarOrientation="both">
-            <div className="min-w-[1200px] [&>div]:overflow-visible">
-              <Table className="min-w-full">
+          <ScrollArea
+            className="max-h-[65vh] w-full"
+            scrollBarOrientation="both"
+            type="always"
+          >
+            <div className="w-fit min-w-full [&>div]:overflow-visible">
+              <Table className="w-fit min-w-[1200px]">
                 <TableHeader className="sticky top-0 z-10 bg-background">
                   <TableRow>
                     <TableHead className="w-[140px] min-w-[140px]">Ações</TableHead>
