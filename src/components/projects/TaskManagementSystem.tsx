@@ -1671,12 +1671,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       <Card className="overflow-hidden rounded-3xl">
         <CardContent className="p-0">
           {/* ScrollArea ajustado para permitir rolagem horizontal e altura consistente */}
-          <ScrollArea
-            className="h-[460px] w-full"
-            scrollBarOrientation="both"
-            type="always"
-          >
-            <div className="min-w-full">
+          <div className="h-[460px] w-full">
+            <ScrollArea className="h-full" scrollBarOrientation="both">
               {/* min-w atualizado para acomodar todas as colunas sem quebra visual */}
               {/* Densidade compacta aplicada (tipografia menor, paddings enxutos e altura controlada) */}
               <Table className="min-w-[1600px] text-[13px]">
@@ -1799,8 +1795,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </ScrollArea>
+            </ScrollArea>
+          </div>
         </CardContent>
       </Card>
       <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
