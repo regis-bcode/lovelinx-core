@@ -192,14 +192,7 @@ export default function ProjectDetails() {
           </TabsContent>
 
           <TabsContent value="tasks" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Tarefas</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
-              </CardContent>
-            </Card>
+            <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
           </TabsContent>
 
           <TabsContent value="time" className="space-y-4">
