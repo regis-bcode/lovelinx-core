@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -123,6 +123,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isCondensedView, setIsCondensedView] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
@@ -206,6 +207,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         hiddenColumns?: string[];
         order?: string[];
         widths?: Record<string, number>;
+        density?: 'comfortable' | 'condensed';
       } | null;
 
       if (parsed?.hiddenColumns && Array.isArray(parsed.hiddenColumns)) {
@@ -218,6 +220,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       if (parsed?.widths && typeof parsed.widths === 'object') {
         setColumnWidths(parsed.widths);
+      }
+
+      if (parsed?.density === 'condensed') {
+        setIsCondensedView(true);
       }
     } catch (error) {
       console.warn('Não foi possível carregar preferências da tabela de tarefas:', error);
@@ -235,10 +241,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       hiddenColumns,
       order: columnOrder,
       widths: columnWidths,
+      density: isCondensedView ? 'condensed' : 'comfortable',
     });
 
     window.localStorage.setItem(preferencesStorageKey, payload);
-  }, [hiddenColumns, columnOrder, columnWidths, preferencesStorageKey, isLoadedPreferences]);
+  }, [hiddenColumns, columnOrder, columnWidths, isCondensedView, preferencesStorageKey, isLoadedPreferences]);
 
   // Filtrar status baseado no tipo da TAP
   const filteredStatuses = useMemo(() => {
@@ -1452,7 +1459,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   return (
     // Container alinhado ao layout dos demais menus (largura total e altura mínima)
-    <div className="flex w-full min-h-[720px] flex-col space-y-4">
+    <div className="flex h-full w-full flex-col space-y-4">
       {/* Header com ações */}
       <Card className="overflow-hidden rounded-3xl">
         <CardHeader className="space-y-4">
@@ -1639,6 +1646,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </PopoverContent>
               </Popover>
 
+              <Button
+                size="sm"
+                variant={isCondensedView ? 'default' : 'outline'}
+                onClick={() => setIsCondensedView(prev => !prev)}
+                aria-pressed={isCondensedView}
+              >
+                <TableIcon className="h-4 w-4 mr-2" />
+                {isCondensedView ? 'Visão padrão' : 'Visão condensada'}
+              </Button>
+
               <Button size="sm" variant="outline" onClick={handleExportTemplate}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar modelo
@@ -1668,19 +1685,22 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         </CardHeader>
       </Card>
       {/* Tabela estilo Excel */}
-      <Card className="overflow-hidden rounded-3xl">
-        <CardContent className="p-0">
+      <Card className="flex flex-1 flex-col overflow-hidden rounded-3xl">
+        <CardContent className="flex-1 p-0">
           {/* ScrollArea ajustado para permitir rolagem horizontal e altura consistente */}
-          <div className="h-[460px] w-full">
+          <div className="h-full min-h-[420px] w-full">
             <ScrollArea className="h-full" scrollBarOrientation="both">
               {/* min-w atualizado para acomodar todas as colunas sem quebra visual */}
               {/* Densidade compacta aplicada (tipografia menor, paddings enxutos e altura controlada) */}
-              <Table className="min-w-[1600px] text-[13px]">
+              <Table className={cn("min-w-[1600px]", isCondensedView ? "text-[12px]" : "text-[13px]")}>
                 <TableHeader className="sticky top-0 z-20 bg-background">
-                  <TableRow className="h-10">
+                  <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
                     {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
                     <TableHead
-                      className="sticky left-0 z-30 h-10 select-none border-r border-border/60 bg-background px-2 py-2 text-[13px] font-semibold text-muted-foreground"
+                      className={cn(
+                        'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground',
+                        isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]'
+                      )}
                       style={{ width: '140px', minWidth: '140px' }}
                     >
                       Ações
@@ -1698,7 +1718,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           onDrop={event => handleDrop(event, column.key)}
                           onDragEnd={handleDragEnd}
                           className={cn(
-                            'group relative h-10 select-none border-r border-border/60 bg-background px-2 py-2 text-left text-[13px] font-semibold text-muted-foreground transition-colors',
+                            'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors',
+                            isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]',
                             draggingColumn === column.key && 'opacity-70',
                             dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
                           )}
@@ -1718,13 +1739,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center text-[13px]">
+                      <TableCell
+                        colSpan={visibleColumns.length + 1}
+                        className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                      >
                         Carregando...
                       </TableCell>
                     </TableRow>
                   ) : editableRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={visibleColumns.length + 1} className="py-8 text-center text-[13px]">
+                      <TableCell
+                        colSpan={visibleColumns.length + 1}
+                        className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                      >
                         <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
                       </TableCell>
                     </TableRow>
@@ -1732,10 +1759,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     editableRows.map((row, index) => (
                       <TableRow
                         key={row.id || row._tempId || index}
-                        className="h-9 border-b border-border/60 bg-background text-[13px] hover:bg-muted/40"
+                        className={cn(
+                          'border-b border-border/60 bg-background hover:bg-muted/40',
+                          isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                        )}
                       >
                         <TableCell
-                          className="sticky left-0 z-20 bg-background px-2 py-1"
+                          className={cn(
+                            'sticky left-0 z-20 bg-background px-2',
+                            isCondensedView ? 'py-1' : 'py-1.5'
+                          )}
                           style={{ width: '140px', minWidth: '140px' }}
                         >
                           <div className="flex items-center gap-1.5">
@@ -1773,7 +1806,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           return (
                             <TableCell
                               key={col.key}
-                              className="px-2 py-1 align-middle text-[13px]"
+                              className={cn(
+                                'px-2 align-middle',
+                                isCondensedView ? 'py-0.5 text-[12px]' : 'py-1 text-[13px]'
+                              )}
                               style={{ width: `${width}px`, minWidth: `${width}px` }}
                             >
                               {renderEditableCell(row, index, col)}
@@ -1784,8 +1820,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     ))
                   )}
                   {!loading && (
-                    <TableRow className="h-9 cursor-pointer border-b border-border/60 bg-background text-[13px] hover:bg-muted/30" onClick={addNewRow}>
-                      <TableCell colSpan={visibleColumns.length + 1} className="px-3 py-2 text-primary">
+                    <TableRow
+                      className={cn(
+                        'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30',
+                        isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                      )}
+                      onClick={addNewRow}
+                    >
+                      <TableCell
+                        colSpan={visibleColumns.length + 1}
+                        className={cn('px-3 text-primary', isCondensedView ? 'py-1.5' : 'py-2')}
+                      >
                         <div className="flex items-center gap-2">
                           <PlusCircle className="h-3.5 w-3.5" />
                           <span className="font-medium">Adicionar Tarefa</span>

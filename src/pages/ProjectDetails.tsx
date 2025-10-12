@@ -106,11 +106,14 @@ export default function ProjectDetails() {
     }
   };
 
+  const tabTriggerClass =
+    "flex h-12 w-[140px] flex-none items-center justify-center gap-2 rounded-xl border border-border/60 bg-white/80 px-4 text-[0.7rem] font-semibold uppercase tracking-wide text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:bg-primary/5 focus-visible:ring-0 data-[state=active]:border-primary data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-none";
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="flex min-h-[calc(100vh-220px)] flex-col gap-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Button
               variant="outline"
@@ -139,103 +142,107 @@ export default function ProjectDetails() {
         </div>
 
         {/* Tabs */}
-        <Tabs defaultValue="tasks" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-9 gap-1 h-auto">
-            <TabsTrigger value="tap" className="text-xs p-2">
-              <FileText className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">TAP</span>
-            </TabsTrigger>
-            <TabsTrigger value="stakeholders" className="text-xs p-2">
-              <Users className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Stakeholders</span>
-            </TabsTrigger>
-            <TabsTrigger value="tasks" className="text-xs p-2">
-              <ClipboardList className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Tarefas</span>
-            </TabsTrigger>
-            <TabsTrigger value="time" className="text-xs p-2">
-              <Calendar className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Tempo</span>
-            </TabsTrigger>
-            <TabsTrigger value="communication" className="text-xs p-2">
-              <MessageCircle className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Comunicação</span>
-            </TabsTrigger>
-            <TabsTrigger value="risks" className="text-xs p-2">
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Riscos</span>
-            </TabsTrigger>
-            <TabsTrigger value="gaps" className="text-xs p-2">
-              <FileX className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Gaps</span>
-            </TabsTrigger>
-            <TabsTrigger value="turnover" className="text-xs p-2">
-              <RotateCw className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Virada</span>
-            </TabsTrigger>
-            <TabsTrigger value="documents" className="text-xs p-2">
-              <FolderOpen className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Documentos</span>
-            </TabsTrigger>
-          </TabsList>
+        <div className="flex flex-1 overflow-hidden rounded-3xl border border-border/40 bg-background/80 shadow-sm">
+          <Tabs defaultValue="tasks" className="flex h-full flex-1 flex-col">
+            <TabsList className="!flex sticky top-0 z-10 w-full flex-wrap items-center gap-3 rounded-none border-b border-border/40 bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <TabsTrigger value="tap" className={tabTriggerClass}>
+                <FileText className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">TAP</span>
+              </TabsTrigger>
+              <TabsTrigger value="stakeholders" className={tabTriggerClass}>
+                <Users className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Stakeholders</span>
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className={tabTriggerClass}>
+                <ClipboardList className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tarefas</span>
+              </TabsTrigger>
+              <TabsTrigger value="time" className={tabTriggerClass}>
+                <Calendar className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Tempo</span>
+              </TabsTrigger>
+              <TabsTrigger value="communication" className={tabTriggerClass}>
+                <MessageCircle className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Comunicação</span>
+              </TabsTrigger>
+              <TabsTrigger value="risks" className={tabTriggerClass}>
+                <AlertTriangle className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Riscos</span>
+              </TabsTrigger>
+              <TabsTrigger value="gaps" className={tabTriggerClass}>
+                <FileX className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Gaps</span>
+              </TabsTrigger>
+              <TabsTrigger value="turnover" className={tabTriggerClass}>
+                <RotateCw className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Virada</span>
+              </TabsTrigger>
+              <TabsTrigger value="documents" className={tabTriggerClass}>
+                <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Documentos</span>
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="tap" className="space-y-4">
-            <ProjectTabs projectId={project.id} />
-          </TabsContent>
+            <div className="flex-1 overflow-hidden">
+              <TabsContent value="tap" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <ProjectTabs projectId={project.id} />
+              </TabsContent>
 
-          <TabsContent value="risks" className="space-y-4">
-            <RisksList projectId={project.id} />
-          </TabsContent>
+              <TabsContent value="risks" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <RisksList projectId={project.id} />
+              </TabsContent>
 
-          <TabsContent value="stakeholders" className="space-y-4">
-            <StakeholdersList projectId={project.id} />
-          </TabsContent>
+              <TabsContent value="stakeholders" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <StakeholdersList projectId={project.id} />
+              </TabsContent>
 
-          <TabsContent value="tasks" className="space-y-4">
-            <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
-          </TabsContent>
+              <TabsContent value="tasks" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
+              </TabsContent>
 
-          <TabsContent value="time" className="space-y-4">
-            <TimeManagement projectId={project.id} />
-          </TabsContent>
+              <TabsContent value="time" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <TimeManagement projectId={project.id} />
+              </TabsContent>
 
-          <TabsContent value="communication" className="space-y-4">
-            <CommunicationPlanList projectId={project.id} />
-          </TabsContent>
+              <TabsContent value="communication" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <CommunicationPlanList projectId={project.id} />
+              </TabsContent>
 
-          <TabsContent value="gaps" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gaps e Mudanças</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Funcionalidade de gaps e mudanças será implementada em breve.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <TabsContent value="gaps" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gaps e Mudanças</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">Funcionalidade de gaps e mudanças será implementada em breve.</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-          <TabsContent value="turnover" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Plano de Virada</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Funcionalidade de plano de virada será implementada em breve.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              <TabsContent value="turnover" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Plano de Virada</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">Funcionalidade de plano de virada será implementada em breve.</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
 
-          <TabsContent value="documents" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestão de Documentos</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Funcionalidade de gestão de documentos será implementada em breve.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+              <TabsContent value="documents" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Gestão de Documentos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground">Funcionalidade de gestão de documentos será implementada em breve.</p>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
       </div>
     </DashboardLayout>
   );
