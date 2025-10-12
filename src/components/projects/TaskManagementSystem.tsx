@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
@@ -1221,10 +1222,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     <div className="space-y-4">
       {/* Header com ações */}
       <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-1">
             <CardTitle>Gestão de Tarefas</CardTitle>
-            <div className="flex gap-2">
+            <CardDescription>
+              Centralize o cadastro das tarefas, personalize campos e acompanhe o andamento do projeto com uma visão consistente.
+            </CardDescription>
+          </div>
+
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              {hasChanges ? (
+                <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-700">
+                  Alterações não salvas
+                </Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">Tudo sincronizado</span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="file"
                 accept=".xls,.xlsx"
@@ -1233,16 +1250,24 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 onChange={handleFileChange}
               />
 
-              <Dialog open={isCustomFieldDialogOpen} onOpenChange={(open) => {
-                setIsCustomFieldDialogOpen(open);
-                if (!open) {
-                  resetFieldDialogState();
-                }
-              }}>
+              <Button size="sm" onClick={addNewRow} disabled={loading}>
+                <PlusCircle className="h-4 w-4 mr-2" />
+                Nova tarefa
+              </Button>
+
+              <Dialog
+                open={isCustomFieldDialogOpen}
+                onOpenChange={(open) => {
+                  setIsCustomFieldDialogOpen(open);
+                  if (!open) {
+                    resetFieldDialogState();
+                  }
+                }}
+              >
                 <DialogTrigger asChild>
-                  <Button variant="default">
+                  <Button size="sm" variant="outline">
                     <PlusSquare className="h-4 w-4 mr-2" />
-                    Novo Campo
+                    Novo campo
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
@@ -1251,14 +1276,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   </DialogHeader>
                   {!selectedFieldType ? (
                     <div className="space-y-4">
-                      <div>
+                      <div className="space-y-2">
                         <Label htmlFor="field-search">Pesquise campos novos ou existentes</Label>
                         <Input
                           id="field-search"
                           value={fieldSearch}
                           onChange={(event) => setFieldSearch(event.target.value)}
                           placeholder="Digite para filtrar os tipos de campos"
-                          className="mt-2"
                         />
                       </div>
                       <ScrollArea className="h-72 rounded-md border">
@@ -1270,7 +1294,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                                 key={option.type}
                                 type="button"
                                 onClick={() => setSelectedFieldType(option.type)}
-                                className="w-full text-left flex items-start gap-3 rounded-md border border-border/60 p-3 hover:border-primary hover:bg-primary/5 transition"
+                                className="flex w-full items-start gap-3 rounded-md border border-border/60 p-3 text-left transition hover:border-primary hover:bg-primary/5"
                               >
                                 <span className="mt-1">
                                   <Icon className="h-5 w-5 text-primary" />
@@ -1283,7 +1307,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                             );
                           })}
                           {filteredFieldTypes.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center">Nenhum tipo encontrado para sua busca.</p>
+                            <p className="text-center text-sm text-muted-foreground">Nenhum tipo encontrado para sua busca.</p>
                           )}
                         </div>
                       </ScrollArea>
@@ -1296,7 +1320,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           Voltar
                         </Button>
                         <span className="text-sm text-muted-foreground">
-                          Configurando campo do tipo <span className="font-medium">{CUSTOM_FIELD_TYPES.find(option => option.type === selectedFieldType)?.label}</span>
+                          Configurando campo do tipo{' '}
+                          <span className="font-medium">{CUSTOM_FIELD_TYPES.find(option => option.type === selectedFieldType)?.label}</span>
                         </span>
                       </div>
                       <div className="grid gap-4">
@@ -1336,17 +1361,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           />
                         </div>
                       </div>
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => {
-                          resetFieldDialogState();
-                          setIsCustomFieldDialogOpen(false);
-                        }}>
+                      <DialogFooter className="gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            resetFieldDialogState();
+                            setIsCustomFieldDialogOpen(false);
+                          }}
+                        >
                           Cancelar
                         </Button>
                         <Button onClick={handleCreateCustomField} disabled={isCreatingField}>
                           {isCreatingField ? 'Criando...' : 'Criar campo'}
                         </Button>
-                      </div>
+                      </DialogFooter>
                     </div>
                   )}
                 </DialogContent>
@@ -1354,14 +1382,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline">
+                  <Button size="sm" variant="outline">
                     <Settings className="h-4 w-4 mr-2" />
                     Colunas
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 max-h-80 overflow-y-auto">
                   <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Mostrar/Ocultar Colunas</h4>
+                    <h4 className="text-sm font-medium">Mostrar/Ocultar Colunas</h4>
                     {allColumns.map(col => (
                       <div key={col.key} className="flex items-center space-x-2">
                         <Checkbox
@@ -1369,7 +1397,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           checked={!hiddenColumns.includes(col.key)}
                           onCheckedChange={() => toggleColumn(col.key)}
                         />
-                        <label htmlFor={`col-${col.key}`} className="text-sm cursor-pointer">
+                        <label htmlFor={`col-${col.key}`} className="cursor-pointer text-sm">
                           {col.label}
                         </label>
                       </div>
@@ -1378,47 +1406,40 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 </PopoverContent>
               </Popover>
 
-              <Button variant="outline" onClick={handleExportTemplate}>
+              <Button size="sm" variant="outline" onClick={handleExportTemplate}>
                 <Download className="h-4 w-4 mr-2" />
-                Exportar Modelo
+                Exportar modelo
               </Button>
 
-              <Button variant="outline" onClick={handleImportClick} disabled={isImporting}>
+              <Button size="sm" variant="outline" onClick={handleImportClick} disabled={isImporting}>
                 <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'Importando...' : 'Importar Dados'}
+                {isImporting ? 'Importando...' : 'Importar dados'}
               </Button>
 
-              <Button variant="outline" onClick={exportToExcel}>
+              <Button size="sm" variant="outline" onClick={exportToExcel}>
                 <Download className="h-4 w-4 mr-2" />
                 Exportar
               </Button>
 
               <Button
+                size="sm"
                 onClick={saveAllChanges}
                 disabled={!hasChanges || loading}
-                variant={hasChanges ? "default" : "outline"}
+                variant={hasChanges ? 'default' : 'outline'}
               >
                 <Save className="h-4 w-4 mr-2" />
-                Salvar {hasChanges && '(*)'}
+                Salvar alterações
               </Button>
             </div>
           </div>
         </CardHeader>
       </Card>
-
       {/* Tabela estilo Excel */}
       <Card>
         <CardContent className="p-0">
-          <ScrollArea
-            className="max-h-[65vh]"
-            style={{ maxHeight: '65vh' }}
-            scrollBarOrientation="both"
-          >
-            <div
-              className="w-full"
-              style={{ minWidth: 'max(1200px, 100%)' }}
-            >
-              <table className="w-full caption-bottom text-sm">
+          <ScrollArea className="max-h-[65vh]" scrollBarOrientation="both">
+            <div className="min-w-[1200px] [&>div]:overflow-visible">
+              <Table className="min-w-full">
                 <TableHeader className="sticky top-0 z-10 bg-background">
                   <TableRow>
                     <TableHead className="w-[140px] min-w-[140px]">Ações</TableHead>
@@ -1495,12 +1516,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     </TableRow>
                   )}
                 </TableBody>
-              </table>
+              </Table>
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
-
       <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
@@ -1517,7 +1537,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     : 'Tarefa sem título'}
                 </p>
               </div>
-              <ScrollArea className="max-h-[60vh] pr-2" style={{ maxHeight: '60vh' }}>
+              <ScrollArea className="max-h-[60vh] pr-2">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {visibleColumns.map(column => (
                     <div key={column.key} className="space-y-1">
@@ -1549,11 +1569,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         </DialogContent>
       </Dialog>
 
-      {hasChanges && (
-        <div className="text-sm text-muted-foreground">
-          * Você tem alterações não salvas
-        </div>
-      )}
     </div>
   );
 }
