@@ -16,8 +16,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const mainNavigation = navigation.slice(0, 2);
 const toolsNavigation = navigation.slice(2);
 
-export function AppSidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(true);
+interface AppSidebarProps {
+  isCollapsed: boolean;
+  onCollapseChange: (collapsed: boolean) => void;
+}
+
+export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   const [isNavigationOpen, setIsNavigationOpen] = useState(true);
   const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
@@ -43,7 +47,7 @@ export function AppSidebar() {
     >
       <button
         type="button"
-        onClick={() => setIsCollapsed((prev) => !prev)}
+        onClick={() => onCollapseChange(!isCollapsed)}
         className="absolute right-2 top-4 z-50 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
         aria-label={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
       >
