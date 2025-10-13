@@ -225,7 +225,11 @@ export default function ProjectDetails() {
         <div className="absolute right-[-12%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-white/25 blur-3xl" />
         <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
       </div>
-      <ScrollArea className="relative z-10 pb-1" scrollBarOrientation="horizontal" type="scroll">
+      <ScrollArea
+        className="relative z-10 pb-3"
+        scrollBarOrientation="horizontal"
+        type="always"
+      >
         <div className="grid min-w-full grid-flow-col auto-cols-[minmax(150px,1fr)] items-center gap-2">
           {tabItems.map((tab) => {
             const isActive = tab.value === activeTab;
