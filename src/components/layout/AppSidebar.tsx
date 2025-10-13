@@ -29,11 +29,11 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "group flex items-center rounded-xl text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
+      "group flex items-center rounded-xl text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
       isCollapsed ? "h-11 w-11 justify-center" : "w-full justify-start gap-3 px-4 py-3",
       isActive
-        ? "bg-white/15 text-white shadow-[0_12px_35px_rgba(0,0,0,0.35)]"
-        : "text-white/70 hover:bg-white/10 hover:text-white"
+        ? "border border-white/25 bg-white/15 text-white shadow-[0_15px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm"
+        : "text-sky-100/80 hover:bg-white/10 hover:text-white"
     );
 
   const navigationTooltipDelay = isCollapsed ? 0 : 300;
@@ -95,34 +95,41 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
             >
               <div
                 className={cn(
-                  "flex flex-col gap-2",
-                  isCollapsed && "items-center"
+                  "rounded-2xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]",
+                  isCollapsed ? "p-2" : "p-4"
                 )}
               >
-                {mainNavigation.map((item) => (
-                  <Tooltip key={item.title}>
-                    <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4 shrink-0" />
-                        <span
-                          className={cn(
-                            "flex-1 text-left transition-opacity",
-                            isCollapsed && "sr-only"
-                          )}
-                        >
-                          {item.title}
-                        </span>
-                      </NavLink>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="right"
-                      hidden={!isCollapsed}
-                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                    >
-                      {item.title}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+                <div
+                  className={cn(
+                    "flex flex-col gap-1",
+                    isCollapsed && "items-center gap-2"
+                  )}
+                >
+                  {mainNavigation.map((item) => (
+                    <Tooltip key={item.title}>
+                      <TooltipTrigger asChild>
+                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                          <item.icon className="h-4 w-4 shrink-0" />
+                          <span
+                            className={cn(
+                              "flex-1 text-left transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        hidden={!isCollapsed}
+                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                      >
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               </div>
             </SidebarCollapsibleSection>
 
