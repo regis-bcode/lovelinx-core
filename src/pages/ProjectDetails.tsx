@@ -142,54 +142,51 @@ export default function ProjectDetails() {
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-1 overflow-hidden rounded-3xl border border-border/40 bg-background/80 shadow-sm">
+        <div className="flex flex-1 rounded-3xl border border-border/40 bg-background/80 shadow-sm">
           <Tabs defaultValue="tasks" className="flex h-full flex-1 flex-col">
-            <TabsList className="!flex sticky top-0 z-10 w-full flex-wrap items-center gap-3 rounded-none border-b border-border/40 bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-              <TabsTrigger value="tap" className={tabTriggerClass}>
-                <FileText className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">TAP</span>
-              </TabsTrigger>
-              <TabsTrigger value="stakeholders" className={tabTriggerClass}>
-                <Users className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Stakeholders</span>
-              </TabsTrigger>
-              <TabsTrigger value="tasks" className={tabTriggerClass}>
-                <ClipboardList className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Tarefas</span>
-              </TabsTrigger>
-              <TabsTrigger value="time" className={tabTriggerClass}>
-                <Calendar className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Tempo</span>
-              </TabsTrigger>
-              <TabsTrigger value="communication" className={tabTriggerClass}>
-                <MessageCircle className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Comunicação</span>
-              </TabsTrigger>
-              <TabsTrigger value="risks" className={tabTriggerClass}>
-                <AlertTriangle className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Riscos</span>
-              </TabsTrigger>
-              <TabsTrigger value="gaps" className={tabTriggerClass}>
-                <FileX className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Gaps</span>
-              </TabsTrigger>
-              <TabsTrigger value="turnover" className={tabTriggerClass}>
-                <RotateCw className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Virada</span>
-              </TabsTrigger>
-              <TabsTrigger value="documents" className={tabTriggerClass}>
-                <FolderOpen className="mr-2 h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Documentos</span>
-              </TabsTrigger>
-            </TabsList>
-
+            <div className="sticky top-0 z-20 w-full border-b border-border/40 bg-background/95 shadow-[0_6px_16px_-12px_rgb(15_23_42_/_0.45)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <TabsList className="flex w-full flex-wrap items-center gap-3 bg-transparent p-4">
+                <TabsTrigger value="tap" className={tabTriggerClass}>
+                  <FileText className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">TAP</span>
+                </TabsTrigger>
+                <TabsTrigger value="stakeholders" className={tabTriggerClass}>
+                  <Users className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Stakeholders</span>
+                </TabsTrigger>
+                <TabsTrigger value="tasks" className={tabTriggerClass}>
+                  <ClipboardList className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tarefas</span>
+                </TabsTrigger>
+                <TabsTrigger value="time" className={tabTriggerClass}>
+                  <Calendar className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Tempo</span>
+                </TabsTrigger>
+                <TabsTrigger value="communication" className={tabTriggerClass}>
+                  <MessageCircle className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Comunicação</span>
+                </TabsTrigger>
+                <TabsTrigger value="risks" className={tabTriggerClass}>
+                  <AlertTriangle className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Riscos</span>
+                </TabsTrigger>
+                <TabsTrigger value="gaps" className={tabTriggerClass}>
+                  <FileX className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Gaps</span>
+                </TabsTrigger>
+                <TabsTrigger value="turnover" className={tabTriggerClass}>
+                  <RotateCw className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Virada</span>
+                </TabsTrigger>
+                <TabsTrigger value="documents" className={tabTriggerClass}>
+                  <FolderOpen className="mr-2 h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Documentos</span>
+                </TabsTrigger>
+              </TabsList>
+            </div>
             <div className="flex-1 overflow-hidden">
               <TabsContent value="tap" className="mt-0 h-full overflow-auto space-y-4 p-6">
                 <ProjectTabs projectId={project.id} />
-              </TabsContent>
-
-              <TabsContent value="risks" className="mt-0 h-full overflow-auto space-y-4 p-6">
-                <RisksList projectId={project.id} />
               </TabsContent>
 
               <TabsContent value="stakeholders" className="mt-0 h-full overflow-auto space-y-4 p-6">
@@ -206,6 +203,10 @@ export default function ProjectDetails() {
 
               <TabsContent value="communication" className="mt-0 h-full overflow-auto space-y-4 p-6">
                 <CommunicationPlanList projectId={project.id} />
+              </TabsContent>
+
+              <TabsContent value="risks" className="mt-0 h-full overflow-auto space-y-4 p-6">
+                <RisksList projectId={project.id} />
               </TabsContent>
 
               <TabsContent value="gaps" className="mt-0 h-full overflow-auto space-y-4 p-6">
