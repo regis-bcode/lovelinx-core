@@ -1458,20 +1458,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [fieldSearch]);
 
   return (
-    // Container alinhado ao layout dos demais menus (largura total e altura mínima)
-    <div className="flex h-full min-w-0 flex-col space-y-4">
-      {/* Header com ações */}
-      <Card className="min-w-0 overflow-hidden rounded-3xl">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-1">
-            <CardTitle>Gestão de Tarefas</CardTitle>
-            <CardDescription>
-              Centralize o cadastro das tarefas, personalize campos e acompanhe o andamento do projeto com uma visão consistente.
-            </CardDescription>
-          </div>
-
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-4">
+      <Card className="overflow-hidden rounded-3xl">
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-2">
+            <div>
+              <CardTitle>Gestão de Tarefas</CardTitle>
+              <CardDescription>
+                Centralize o cadastro das tarefas, personalize campos e acompanhe o andamento do projeto com uma visão consistente.
+              </CardDescription>
+            </div>
+            <div>
               {hasChanges ? (
                 <Badge variant="outline" className="border-amber-500/50 bg-amber-500/10 text-amber-700">
                   Alterações não salvas
@@ -1480,45 +1477,46 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 <span className="text-sm text-muted-foreground">Tudo sincronizado</span>
               )}
             </div>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="file"
-                accept=".xls,.xlsx"
-                className="hidden"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-              />
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="file"
+              accept=".xls,.xlsx"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+            />
 
-              <Button size="sm" onClick={addNewRow} disabled={loading}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                Nova tarefa
-              </Button>
+            <Button size="sm" onClick={addNewRow} disabled={loading}>
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Nova tarefa
+            </Button>
 
-              <Dialog
-                open={isCustomFieldDialogOpen}
-                onOpenChange={(open) => {
-                  setIsCustomFieldDialogOpen(open);
-                  if (!open) {
-                    resetFieldDialogState();
-                  }
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <PlusSquare className="h-4 w-4 mr-2" />
-                    Novo campo
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Criar campo personalizado</DialogTitle>
-                  </DialogHeader>
-                  {!selectedFieldType ? (
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="field-search">Pesquise campos novos ou existentes</Label>
-                        <Input
+            <Dialog
+              open={isCustomFieldDialogOpen}
+              onOpenChange={(open) => {
+                setIsCustomFieldDialogOpen(open);
+                if (!open) {
+                  resetFieldDialogState();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <PlusSquare className="h-4 w-4 mr-2" />
+                  Novo campo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Criar campo personalizado</DialogTitle>
+                </DialogHeader>
+                {!selectedFieldType ? (
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="field-search">Pesquise campos novos ou existentes</Label>
+                      <Input
                           id="field-search"
                           value={fieldSearch}
                           onChange={(event) => setFieldSearch(event.target.value)}
@@ -1681,61 +1679,55 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 Salvar alterações
               </Button>
             </div>
-          </div>
-        </CardHeader>
-      </Card>
-      {/* Tabela estilo Excel */}
-      <Card className="flex flex-1 min-w-0 flex-col overflow-hidden rounded-3xl">
-        <CardContent className="flex-1 min-w-0 p-0">
-          {/* ScrollArea ajustado para permitir rolagem horizontal e altura consistente */}
-          <div className="h-full min-h-[420px] w-full">
-            <ScrollArea className="h-full min-w-0" scrollBarOrientation="both">
-              {/* min-w atualizado para acomodar todas as colunas sem quebra visual */}
-              {/* Densidade compacta aplicada (tipografia menor, paddings enxutos e altura controlada) */}
-              <Table className={cn("min-w-[1600px]", isCondensedView ? "text-[12px]" : "text-[13px]")}>
-                <TableHeader className="sticky top-0 z-20 bg-background">
-                  <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
-                    {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
-                    <TableHead
-                      className={cn(
-                        'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground',
-                        isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]'
-                      )}
-                      style={{ width: '140px', minWidth: '140px' }}
-                    >
-                      Ações
-                    </TableHead>
-                    {/* Cabeçalhos com suporte a reordenação e redimensionamento persistente */}
-                    {visibleColumns.map(column => {
-                      const width = getColumnWidth(column.key);
-                      return (
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="min-h-[420px] overflow-hidden rounded-2xl border border-border/60">
+              <ScrollArea className="w-full" scrollBarOrientation="both">
+                <div className="min-w-max">
+                  <Table className={cn('min-w-full', isCondensedView ? 'text-[12px]' : 'text-[13px]')}>
+                    <TableHeader className="sticky top-0 z-20 bg-background">
+                      <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
+                        {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
                         <TableHead
-                          key={column.key}
-                          draggable
-                          onDragStart={event => handleDragStart(event, column.key)}
-                          onDragEnter={event => handleDragEnter(event, column.key)}
-                          onDragOver={handleDragOver}
-                          onDrop={event => handleDrop(event, column.key)}
-                          onDragEnd={handleDragEnd}
                           className={cn(
-                            'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors',
-                            isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]',
-                            draggingColumn === column.key && 'opacity-70',
-                            dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
+                            'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground',
+                            isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]'
                           )}
-                          style={{ width: `${width}px`, minWidth: `${width}px` }}
+                          style={{ width: '140px', minWidth: '140px' }}
                         >
-                          {column.label}
-                          {/* Handle para redimensionamento manual das colunas */}
-                          <div
-                            className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none rounded-sm bg-transparent transition-colors group-hover:bg-primary/30"
-                            onMouseDown={event => handleResizeStart(event, column.key)}
-                          />
+                          Ações
                         </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                </TableHeader>
+                        {/* Cabeçalhos com suporte a reordenação e redimensionamento persistente */}
+                        {visibleColumns.map(column => {
+                          const width = getColumnWidth(column.key);
+                          return (
+                            <TableHead
+                              key={column.key}
+                              draggable
+                              onDragStart={event => handleDragStart(event, column.key)}
+                              onDragEnter={event => handleDragEnter(event, column.key)}
+                              onDragOver={handleDragOver}
+                              onDrop={event => handleDrop(event, column.key)}
+                              onDragEnd={handleDragEnd}
+                              className={cn(
+                                'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors',
+                                isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]',
+                                draggingColumn === column.key && 'opacity-70',
+                                dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
+                              )}
+                              style={{ width: `${width}px`, minWidth: `${width}px` }}
+                            >
+                              {column.label}
+                              {/* Handle para redimensionamento manual das colunas */}
+                              <div
+                                className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none rounded-sm bg-transparent transition-colors group-hover:bg-primary/30"
+                                onMouseDown={event => handleResizeStart(event, column.key)}
+                              />
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
@@ -1840,7 +1832,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
+          </ScrollArea>
           </div>
         </CardContent>
       </Card>
