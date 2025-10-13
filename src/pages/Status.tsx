@@ -13,6 +13,7 @@ import { Status, StatusFormData } from '@/types/status';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { GlassPanelHeader } from '@/components/common/GlassPanelHeader';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const StatusPage: React.FC = () => {
   const { statuses, loading, createStatus, updateStatus, deleteStatus } = useStatus();
@@ -41,37 +42,10 @@ const StatusPage: React.FC = () => {
     { value: 'tarefa_avulso', label: 'Tarefa de Avulso' },
   ];
 
-  const kanbanColumns: { key: StatusCategory; title: string; description: string }[] = [
-    {
-      key: 'projeto',
-      title: 'Projeto',
-      description: 'Status aplicáveis a projetos em andamento.',
-    },
-    {
-      key: 'suporte',
-      title: 'Suporte',
-      description: 'Status utilizados no atendimento de suporte.',
-    },
-    {
-      key: 'avulso',
-      title: 'Avulso',
-      description: 'Status para demandas avulsas.',
-    },
-    {
-      key: 'tarefa_suporte',
-      title: 'Tarefa de Suporte',
-      description: 'Status para tarefas individuais de suporte.',
-    },
-    {
-      key: 'tarefa_projeto',
-      title: 'Tarefa de Projeto',
-      description: 'Status aplicáveis às tarefas vinculadas a projetos.',
-    },
-    {
-      key: 'tarefa_avulso',
-      title: 'Tarefa de Avulso',
-      description: 'Status de tarefas avulsas.',
-    },
+  const matrixCategories = [
+    { key: 'suporte', label: 'Suporte', matchers: ['suporte', 'tarefa_suporte'] as StatusCategory[] },
+    { key: 'projeto', label: 'Projeto', matchers: ['projeto', 'tarefa_projeto'] as StatusCategory[] },
+    { key: 'avulso', label: 'Avulso', matchers: ['avulso', 'tarefa_avulso'] as StatusCategory[] },
   ];
 
   const resetForm = () => {
@@ -147,27 +121,18 @@ const StatusPage: React.FC = () => {
     }
   };
 
-  const statusesByCategory = useMemo(() => {
-    const grouped: Record<StatusCategory, Status[]> = {
-      projeto: [],
-      suporte: [],
-      avulso: [],
-      tarefa_suporte: [],
-      tarefa_projeto: [],
-      tarefa_avulso: [],
-    };
+  const sortedStatuses = useMemo(
+    () => [...statuses].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [statuses],
+  );
 
-    statuses.forEach((status) => {
-      status.tipo_aplicacao.forEach((tipo) => {
-        const category = tipo as StatusCategory;
-        if (grouped[category]) {
-          grouped[category].push(status);
-        }
-      });
-    });
+  const statusMatchesCategory = (status: Status, matchers: StatusCategory[]) =>
+    status.tipo_aplicacao.some((tipo) => matchers.includes(tipo as StatusCategory));
 
-    return grouped;
-  }, [statuses]);
+  const getRemainingAplicacoes = (status: Status) =>
+    status.tipo_aplicacao.filter(
+      (tipo) => !matrixCategories.some((category) => category.matchers.includes(tipo as StatusCategory)),
+    );
 
   if (loading) {
     return (
@@ -281,107 +246,110 @@ const StatusPage: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            <div className="overflow-x-auto pb-4">
-              <div className="grid min-w-full gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
-                {kanbanColumns.map((column) => {
-                  const columnStatuses = statusesByCategory[column.key];
+            <Card className="border-white/40 bg-white/65 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
+                  Visualização em Matriz
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Utilize a matriz para identificar rapidamente quais status estão disponíveis para Suporte, Projeto ou Avulso.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="min-w-[220px]">Status</TableHead>
+                      {matrixCategories.map((category) => (
+                        <TableHead key={category.key} className="text-center">
+                          {category.label}
+                        </TableHead>
+                      ))}
+                      <TableHead className="text-center">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedStatuses.map((status) => {
+                      const remainingAplicacoes = getRemainingAplicacoes(status);
 
-                  return (
-                    <Card
-                      key={column.key}
-                      className="border-white/40 bg-white/65 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60"
-                    >
-                      <CardHeader className="pb-4">
-                        <CardTitle className="flex items-center justify-between gap-2 text-lg text-slate-900 dark:text-slate-100">
-                          {column.title}
-                          <span className="rounded-full bg-primary/15 px-3 py-0.5 text-xs font-medium text-primary">
-                            {columnStatuses.length}
-                          </span>
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground">
-                          {column.description}
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        {columnStatuses.length === 0 ? (
-                          <div className="rounded-lg border border-dashed border-slate-200/70 bg-white/40 p-6 text-center text-xs text-muted-foreground dark:border-slate-700/60 dark:bg-slate-900/30">
-                            Nenhum status atribuído.
-                          </div>
-                        ) : (
-                          <div className="space-y-4">
-                            {columnStatuses.map((status) => (
-                              <div
-                                key={`${column.key}-${status.id}`}
-                                className="rounded-xl border border-white/40 bg-white/70 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-slate-700/60 dark:bg-slate-900/60"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                        {status.nome}
-                                      </span>
-                                      {!status.ativo && (
-                                        <Badge variant="outline">Inativo</Badge>
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {status.tipo_aplicacao.map(tipo => (
-                                        <Badge
-                                          key={`${status.id}-${tipo}`}
-                                          variant={getBadgeVariant(tipo)}
-                                          className="text-[10px]"
-                                        >
-                                          {getTipoLabel(tipo)}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="flex shrink-0 flex-col gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => openEditDialog(status)}
-                                    >
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <AlertDialog>
-                                      <AlertDialogTrigger asChild>
-                                        <Button variant="outline" size="icon" className="h-8 w-8">
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </AlertDialogTrigger>
-                                      <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                          <AlertDialogTitle>Excluir Status</AlertDialogTitle>
-                                          <AlertDialogDescription>
-                                            Tem certeza que deseja excluir o status "{status.nome}"?
-                                            Esta ação não pode ser desfeita.
-                                          </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                          <AlertDialogAction
-                                            onClick={() => handleDelete(status.id)}
-                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                          >
-                                            Excluir
-                                          </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                      </AlertDialogContent>
-                                    </AlertDialog>
-                                  </div>
-                                </div>
+                      return (
+                        <TableRow key={status.id} className="border-b-white/40 bg-white/40 dark:border-slate-700/60 dark:bg-slate-900/40">
+                          <TableCell>
+                            <div className="flex flex-col gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                  {status.nome}
+                                </span>
+                                {!status.ativo && <Badge variant="outline">Inativo</Badge>}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
+                              {remainingAplicacoes.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {remainingAplicacoes.map((tipo) => (
+                                    <Badge
+                                      key={`${status.id}-${tipo}`}
+                                      variant={getBadgeVariant(tipo)}
+                                      className="text-[10px]"
+                                    >
+                                      {getTipoLabel(tipo)}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          {matrixCategories.map((category) => (
+                            <TableCell key={`${status.id}-${category.key}`} className="text-center">
+                              <Checkbox
+                                checked={statusMatchesCategory(status, category.matchers)}
+                                disabled
+                                aria-label={`Status ${status.nome} ${statusMatchesCategory(status, category.matchers) ? 'aplicável' : 'não aplicável'} a ${category.label}`}
+                              />
+                            </TableCell>
+                          ))}
+                          <TableCell>
+                            <div className="flex items-center justify-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEditDialog(status)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="icon" className="h-8 w-8">
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir Status</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir o status "{status.nome}"?
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(status.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
