@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,10 +24,54 @@ const StatusPage: React.FC = () => {
     ativo: true,
   });
 
-  const tiposDisponiveis = [
+  type StatusCategory =
+    | 'projeto'
+    | 'suporte'
+    | 'avulso'
+    | 'tarefa_suporte'
+    | 'tarefa_projeto'
+    | 'tarefa_avulso';
+
+  const tiposDisponiveis: { value: StatusCategory; label: string }[] = [
     { value: 'projeto', label: 'Projeto' },
+    { value: 'suporte', label: 'Suporte' },
+    { value: 'avulso', label: 'Avulso' },
     { value: 'tarefa_suporte', label: 'Tarefa de Suporte' },
     { value: 'tarefa_projeto', label: 'Tarefa de Projeto' },
+    { value: 'tarefa_avulso', label: 'Tarefa de Avulso' },
+  ];
+
+  const kanbanColumns: { key: StatusCategory; title: string; description: string }[] = [
+    {
+      key: 'projeto',
+      title: 'Projeto',
+      description: 'Status aplicáveis a projetos em andamento.',
+    },
+    {
+      key: 'suporte',
+      title: 'Suporte',
+      description: 'Status utilizados no atendimento de suporte.',
+    },
+    {
+      key: 'avulso',
+      title: 'Avulso',
+      description: 'Status para demandas avulsas.',
+    },
+    {
+      key: 'tarefa_suporte',
+      title: 'Tarefa de Suporte',
+      description: 'Status para tarefas individuais de suporte.',
+    },
+    {
+      key: 'tarefa_projeto',
+      title: 'Tarefa de Projeto',
+      description: 'Status aplicáveis às tarefas vinculadas a projetos.',
+    },
+    {
+      key: 'tarefa_avulso',
+      title: 'Tarefa de Avulso',
+      description: 'Status de tarefas avulsas.',
+    },
   ];
 
   const resetForm = () => {
@@ -77,10 +121,10 @@ const StatusPage: React.FC = () => {
     await deleteStatus(id);
   };
 
-  const handleTipoChange = (tipo: string, checked: boolean) => {
+  const handleTipoChange = (tipo: StatusCategory, checked: boolean) => {
     setFormData(prev => ({
       ...prev,
-      tipo_aplicacao: checked 
+      tipo_aplicacao: checked
         ? [...prev.tipo_aplicacao, tipo]
         : prev.tipo_aplicacao.filter(t => t !== tipo)
     }));
@@ -94,11 +138,36 @@ const StatusPage: React.FC = () => {
   const getBadgeVariant = (tipo: string) => {
     switch (tipo) {
       case 'projeto': return 'default';
+      case 'suporte': return 'secondary';
+      case 'avulso': return 'destructive';
       case 'tarefa_suporte': return 'secondary';
       case 'tarefa_projeto': return 'outline';
+      case 'tarefa_avulso': return 'default';
       default: return 'default';
     }
   };
+
+  const statusesByCategory = useMemo(() => {
+    const grouped: Record<StatusCategory, Status[]> = {
+      projeto: [],
+      suporte: [],
+      avulso: [],
+      tarefa_suporte: [],
+      tarefa_projeto: [],
+      tarefa_avulso: [],
+    };
+
+    statuses.forEach((status) => {
+      status.tipo_aplicacao.forEach((tipo) => {
+        const category = tipo as StatusCategory;
+        if (grouped[category]) {
+          grouped[category].push(status);
+        }
+      });
+    });
+
+    return grouped;
+  }, [statuses]);
 
   if (loading) {
     return (
@@ -200,7 +269,7 @@ const StatusPage: React.FC = () => {
           </div>
         </GlassPanelHeader>
 
-        <div className="grid gap-4">
+        <div className="space-y-6">
           {statuses.length === 0 ? (
             <Card className="border-white/40 bg-white/65 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60">
               <CardContent className="flex flex-col items-center justify-center py-10 text-center">
@@ -212,71 +281,107 @@ const StatusPage: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            statuses.map((status) => (
-              <Card
-                key={status.id}
-                className="border-white/40 bg-white/65 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur-xl transition hover:shadow-[0_30px_70px_-28px_rgba(15,23,42,0.65)] dark:border-white/10 dark:bg-slate-900/60"
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-xl text-slate-900 dark:text-slate-100">
-                        {status.nome}
-                        {!status.ativo && (
-                          <Badge variant="outline">Inativo</Badge>
-                        )}
-                      </CardTitle>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {status.tipo_aplicacao.map(tipo => (
-                          <Badge
-                            key={tipo}
-                            variant={getBadgeVariant(tipo)}
-                            className="text-xs"
-                          >
-                            {getTipoLabel(tipo)}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(status)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+            <div className="overflow-x-auto pb-4">
+              <div className="grid min-w-full gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+                {kanbanColumns.map((column) => {
+                  const columnStatuses = statusesByCategory[column.key];
 
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Excluir Status</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Tem certeza que deseja excluir o status "{status.nome}"?
-                              Esta ação não pode ser desfeita.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => handleDelete(status.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
-                              Excluir
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </div>
-                </CardHeader>
-              </Card>
-            ))
+                  return (
+                    <Card
+                      key={column.key}
+                      className="border-white/40 bg-white/65 shadow-[0_25px_60px_-30px_rgba(15,23,42,0.6)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60"
+                    >
+                      <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center justify-between gap-2 text-lg text-slate-900 dark:text-slate-100">
+                          {column.title}
+                          <span className="rounded-full bg-primary/15 px-3 py-0.5 text-xs font-medium text-primary">
+                            {columnStatuses.length}
+                          </span>
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground">
+                          {column.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {columnStatuses.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-slate-200/70 bg-white/40 p-6 text-center text-xs text-muted-foreground dark:border-slate-700/60 dark:bg-slate-900/30">
+                            Nenhum status atribuído.
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {columnStatuses.map((status) => (
+                              <div
+                                key={`${column.key}-${status.id}`}
+                                className="rounded-xl border border-white/40 bg-white/70 p-4 shadow-sm transition hover:border-primary/40 hover:shadow-md dark:border-slate-700/60 dark:bg-slate-900/60"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                        {status.nome}
+                                      </span>
+                                      {!status.ativo && (
+                                        <Badge variant="outline">Inativo</Badge>
+                                      )}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {status.tipo_aplicacao.map(tipo => (
+                                        <Badge
+                                          key={`${status.id}-${tipo}`}
+                                          variant={getBadgeVariant(tipo)}
+                                          className="text-[10px]"
+                                        >
+                                          {getTipoLabel(tipo)}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div className="flex shrink-0 flex-col gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => openEditDialog(status)}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="outline" size="icon" className="h-8 w-8">
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                          <AlertDialogTitle>Excluir Status</AlertDialogTitle>
+                                          <AlertDialogDescription>
+                                            Tem certeza que deseja excluir o status "{status.nome}"?
+                                            Esta ação não pode ser desfeita.
+                                          </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                          <AlertDialogAction
+                                            onClick={() => handleDelete(status.id)}
+                                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          >
+                                            Excluir
+                                          </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>
