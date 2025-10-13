@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { Check, Plus, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -72,15 +71,19 @@ export function CreatableSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
+        <button
+          type="button"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", className)}
+          className={cn(
+            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+            "text-left font-normal",
+            className,
+          )}
         >
-          {value || placeholder}
-          <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
+          <span className={cn("block truncate", value ? "text-foreground" : "text-muted-foreground")}>{value || placeholder}</span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+        </button>
       </PopoverTrigger>
       <PopoverContent className="w-full p-0" align="start">
         <Command>
