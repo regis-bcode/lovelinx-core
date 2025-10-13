@@ -1460,7 +1460,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   return (
     <div className="space-y-4">
       <Card className="w-full max-w-full overflow-hidden rounded-3xl">
-        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <CardHeader className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div>
               <CardTitle>Gestão de Tarefas</CardTitle>
@@ -1479,7 +1479,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full max-w-full flex-wrap items-center gap-2 justify-start xl:w-auto xl:justify-end">
             <input
               type="file"
               accept=".xls,.xlsx"
