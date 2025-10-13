@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Edit, Calendar, FileText, Users, AlertTriangle, ClipboardList, MessageCircle, FileX, RotateCw, FolderOpen, type LucideIcon } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
@@ -25,7 +24,7 @@ export default function ProjectDetails() {
 
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
   const [isFetchingProject, setIsFetchingProject] = useState(false);
-  const [activeTab, setActiveTab] = useState("tasks");
+  const [activeTab, setActiveTab] = useState("tap");
   const projectFromStore = id ? getProject(id) : null;
   const project = projectFromStore ?? fetchedProject;
 
@@ -218,7 +217,11 @@ export default function ProjectDetails() {
   ];
 
   const topNavTriggerClass =
-    "inline-flex h-11 flex-shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 bg-white/10 px-5 text-xs font-semibold uppercase tracking-wide text-white/80 transition-all duration-200 hover:border-white/60 hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0 data-[state=active]:border-white data-[state=active]:bg-white/25 data-[state=active]:text-white data-[state=active]:shadow-[0_20px_40px_-20px_rgba(15,65,120,0.55)] sm:text-sm";
+    "inline-flex h-11 flex-shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 px-5 text-xs font-semibold uppercase tracking-wide transition-all duration-200 focus-visible:outline-none sm:text-sm";
+  const activeTopNavTriggerClass =
+    "bg-white/25 text-white shadow-[0_20px_40px_-20px_rgba(15,65,120,0.55)] border-white";
+  const inactiveTopNavTriggerClass =
+    "bg-white/10 text-white/80 hover:border-white/60 hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0";
 
   const projectTopNav = (
     <div className="relative overflow-hidden rounded-[44px] border border-white/25 bg-white/10 p-4 text-white shadow-[0_30px_80px_-40px_rgba(9,30,70,0.9)] backdrop-blur-xl dark:border-white/10 dark:bg-background/60">
@@ -229,64 +232,74 @@ export default function ProjectDetails() {
         <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
       </div>
       <div className="relative z-10 overflow-x-auto pb-1">
-        <TabsList className="flex w-full min-w-max flex-nowrap items-center gap-2 bg-transparent p-0">
-          {tabItems.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className={topNavTriggerClass}>
-              <tab.icon className="h-4 w-4" />
-              <span>{tab.label}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="flex w-full min-w-max flex-nowrap items-center gap-2">
+          {tabItems.map((tab) => {
+            const isActive = tab.value === activeTab;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setActiveTab(tab.value)}
+                className={cn(
+                  topNavTriggerClass,
+                  isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass
+                )}
+              >
+                <tab.icon className="h-4 w-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab}>
-      <DashboardLayout topNav={projectTopNav}>
-        <div className="flex min-h-[calc(100vh-220px)] min-w-0 flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={() => navigate("/projects-tap")}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-              <div>
-                <h1 className="text-3xl font-bold">{project.nome_projeto}</h1>
-                <p className="text-muted-foreground">
-                  Cliente: {project.cliente} | Código: {project.cod_cliente}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={getCriticalityBadge(project.criticidade)}>{project.criticidade}</Badge>
-              <Button onClick={() => navigate(`/projects-tap/${id}/edit`)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Editar
-              </Button>
+    <DashboardLayout topNav={projectTopNav}>
+      <div className="flex min-h-[calc(100vh-220px)] min-w-0 flex-col gap-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={() => navigate("/projects-tap")}>
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Voltar
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold">{project.nome_projeto}</h1>
+              <p className="text-muted-foreground">
+                Cliente: {project.cliente} | Código: {project.cod_cliente}
+              </p>
             </div>
           </div>
+          <div className="flex items-center gap-2">
+            <Badge variant={getCriticalityBadge(project.criticidade)}>{project.criticidade}</Badge>
+            <Button onClick={() => navigate(`/projects-tap/${id}/edit`)}>
+              <Edit className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+          </div>
+        </div>
 
-          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden rounded-r-3xl border border-border/40 bg-background/80 shadow-sm">
-            <div className="flex h-full flex-1 min-h-0 min-w-0 flex-col">
-              <div className="flex-1 min-h-0 min-w-0">
-                {tabItems.map((tab) => (
-                  <TabsContent
+        <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden rounded-r-3xl border border-border/40 bg-background/80 shadow-sm">
+          <div className="flex h-full flex-1 min-h-0 min-w-0 flex-col">
+            <div className="flex-1 min-h-0 min-w-0">
+              {tabItems.map((tab) =>
+                tab.value === activeTab ? (
+                  <div
                     key={tab.value}
-                    value={tab.value}
                     className={cn(
                       "mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6",
                       tab.tabContentClassName ?? "overflow-y-auto",
                     )}
                   >
                     {tab.render()}
-                  </TabsContent>
-                ))}
-              </div>
+                  </div>
+                ) : null
+              )}
             </div>
           </div>
         </div>
-      </DashboardLayout>
-    </Tabs>
+      </div>
+    </DashboardLayout>
   );
 }
