@@ -1681,10 +1681,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="min-h-[420px] overflow-hidden rounded-2xl border border-border/60">
+            <div className="relative w-full max-w-full min-h-[420px] overflow-hidden rounded-2xl border border-border/60">
               <ScrollArea className="w-full" scrollBarOrientation="both">
-                <div className="min-w-max">
-                  <Table className={cn('min-w-full', isCondensedView ? 'text-[12px]' : 'text-[13px]')}>
+                <div className="min-w-full">
+                  <Table className={cn('w-full min-w-full caption-bottom', isCondensedView ? 'text-[12px]' : 'text-[13px]')}>
                     <TableHeader className="sticky top-0 z-20 bg-background">
                       <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
                         {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
@@ -1728,113 +1728,113 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         })}
                       </TableRow>
                     </TableHeader>
-                <TableBody>
-                  {loading ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={visibleColumns.length + 1}
-                        className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
-                      >
-                        Carregando...
-                      </TableCell>
-                    </TableRow>
-                  ) : editableRows.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={visibleColumns.length + 1}
-                        className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
-                      >
-                        <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    editableRows.map((row, index) => (
-                      <TableRow
-                        key={row.id || row._tempId || index}
-                        className={cn(
-                          'border-b border-border/60 bg-background hover:bg-muted/40',
-                          isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
-                        )}
-                      >
-                        <TableCell
-                          className={cn(
-                            'sticky left-0 z-20 bg-background px-2',
-                            isCondensedView ? 'py-1' : 'py-1.5'
-                          )}
-                          style={{ width: '140px', minWidth: '140px' }}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => setActiveTaskDialog({ mode: 'view', index })}
-                              aria-label="Visualizar resumo da tarefa"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
-                              aria-label="Editar tarefa"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
-                              onClick={() => deleteRow(index)}
-                              aria-label="Excluir tarefa"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        {visibleColumns.map(col => {
-                          const width = getColumnWidth(col.key);
-                          return (
+                    <TableBody>
+                      {loading ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={visibleColumns.length + 1}
+                            className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                          >
+                            Carregando...
+                          </TableCell>
+                        </TableRow>
+                      ) : editableRows.length === 0 ? (
+                        <TableRow>
+                          <TableCell
+                            colSpan={visibleColumns.length + 1}
+                            className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                          >
+                            <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        editableRows.map((row, index) => (
+                          <TableRow
+                            key={row.id || row._tempId || index}
+                            className={cn(
+                              'border-b border-border/60 bg-background hover:bg-muted/40',
+                              isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                            )}
+                          >
                             <TableCell
-                              key={col.key}
                               className={cn(
-                                'px-2 align-middle',
-                                isCondensedView ? 'py-0.5 text-[12px]' : 'py-1 text-[13px]'
+                                'sticky left-0 z-20 bg-background px-2',
+                                isCondensedView ? 'py-1' : 'py-1.5'
                               )}
-                              style={{ width: `${width}px`, minWidth: `${width}px` }}
+                              style={{ width: '140px', minWidth: '140px' }}
                             >
-                              {renderEditableCell(row, index, col)}
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+                                  aria-label="Visualizar resumo da tarefa"
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+                                  aria-label="Editar tarefa"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  onClick={() => deleteRow(index)}
+                                  aria-label="Excluir tarefa"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
                             </TableCell>
-                          );
-                        })}
-                      </TableRow>
-                    ))
-                  )}
-                  {!loading && (
-                    <TableRow
-                      className={cn(
-                        'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30',
-                        isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                            {visibleColumns.map(col => {
+                              const width = getColumnWidth(col.key);
+                              return (
+                                <TableCell
+                                  key={col.key}
+                                  className={cn(
+                                    'px-2 align-middle',
+                                    isCondensedView ? 'py-0.5 text-[12px]' : 'py-1 text-[13px]'
+                                  )}
+                                  style={{ width: `${width}px`, minWidth: `${width}px` }}
+                                >
+                                  {renderEditableCell(row, index, col)}
+                                </TableCell>
+                              );
+                            })}
+                          </TableRow>
+                        ))
                       )}
-                      onClick={addNewRow}
-                    >
-                      <TableCell
-                        colSpan={visibleColumns.length + 1}
-                        className={cn('px-3 text-primary', isCondensedView ? 'py-1.5' : 'py-2')}
-                      >
-                        <div className="flex items-center gap-2">
-                          <PlusCircle className="h-3.5 w-3.5" />
-                          <span className="font-medium">Adicionar Tarefa</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                      {!loading && (
+                        <TableRow
+                          className={cn(
+                            'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30',
+                            isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                          )}
+                          onClick={addNewRow}
+                        >
+                          <TableCell
+                            colSpan={visibleColumns.length + 1}
+                            className={cn('px-3 text-primary', isCondensedView ? 'py-1.5' : 'py-2')}
+                          >
+                            <div className="flex items-center gap-2">
+                              <PlusCircle className="h-3.5 w-3.5" />
+                              <span className="font-medium">Adicionar Tarefa</span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
-          </div>
         </CardContent>
       </Card>
       <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
