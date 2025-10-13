@@ -1681,8 +1681,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="relative w-full max-w-full min-h-[420px] overflow-hidden rounded-2xl border border-border/60">
-              <ScrollArea className="w-full" scrollBarOrientation="both">
+            <div className="relative w-full max-w-full overflow-hidden rounded-2xl border border-border/60">
+              <ScrollArea className="h-[420px] w-full" scrollBarOrientation="both">
                 <div className="min-w-full">
                   <Table className="w-full min-w-full caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
