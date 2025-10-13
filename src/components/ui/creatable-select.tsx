@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Check, Plus, ChevronDown } from "lucide-react";
+
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -76,32 +77,36 @@ export function CreatableSelect({
           role="combobox"
           aria-expanded={open}
           className={cn(
-            "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-            "text-left font-normal",
+            "group flex w-full items-center justify-between rounded-xl border border-white/10 bg-[hsla(var(--popover)/0.85)] px-4 py-2 text-sm font-medium text-popover-foreground shadow-[0_18px_38px_-20px_rgba(9,27,63,0.55)] transition-all duration-200 ease-out ring-offset-background placeholder:text-muted-foreground hover:border-accent/70 hover:bg-[hsla(var(--popover)/0.92)] focus:outline-none focus:ring-0 focus:ring-offset-0 data-[state=open]:border-accent data-[state=open]:shadow-[0_30px_60px_-24px_rgba(9,27,63,0.55)] disabled:cursor-not-allowed disabled:opacity-60",
+            "text-left [&>span]:line-clamp-1",
             className,
           )}
         >
           <span className={cn("block truncate", value ? "text-foreground" : "text-muted-foreground")}>{value || placeholder}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-accent transition-transform duration-200 group-data-[state=open]:rotate-180" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
-        <Command>
+      <PopoverContent
+        align="start"
+        className="z-50 w-[--radix-popover-trigger-width] min-w-[12rem] max-w-full rounded-xl border border-white/10 bg-[hsla(var(--popover)/0.95)] p-0 text-popover-foreground shadow-[0_32px_68px_-28px_rgba(9,27,63,0.65)] backdrop-blur-xl"
+      >
+        <Command className="w-full">
           <CommandInput
             placeholder="Buscar ou criar novo..."
             value={search}
             onValueChange={setSearch}
             onKeyDown={handleKeyDown}
+            className="h-11 border-b border-white/10 text-sm"
           />
-          <CommandList>
-            <CommandEmpty>
+          <CommandList className="max-h-60">
+            <CommandEmpty className="flex flex-col gap-2 p-3 text-center text-sm text-muted-foreground">
               {canCreate ? (
-                <div className="flex flex-col gap-2 p-2">
-                  <span className="text-sm text-muted-foreground">{emptyMessage}</span>
+                <div className="flex flex-col gap-2">
+                  <span>{emptyMessage}</span>
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="w-full justify-start"
+                    className="w-full justify-start text-sm"
                     onClick={() => {
                       onValueChange(search);
                       setOpen(false);
@@ -116,20 +121,21 @@ export function CreatableSelect({
                 emptyMessage
               )}
             </CommandEmpty>
-            <CommandGroup>
+            <CommandGroup className="flex flex-col gap-1 p-2">
               {filteredOptions.map((option) => (
                 <CommandItem
                   key={option}
                   value={option}
                   onSelect={() => handleSelect(option)}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-[hsla(var(--popover-foreground)/0.85)] data-[selected='true']:bg-accent data-[selected='true']:text-accent-foreground"
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "h-4 w-4 text-accent",
                       value === option ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option}
+                  <span className="truncate">{option}</span>
                 </CommandItem>
               ))}
               {canCreate && filteredOptions.length > 0 && (
@@ -140,9 +146,10 @@ export function CreatableSelect({
                     setOpen(false);
                     setSearch("");
                   }}
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-accent"
                 >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Criar "{search}"
+                  <Plus className="h-4 w-4" />
+                  <span className="truncate">Criar "{search}"</span>
                 </CommandItem>
               )}
             </CommandGroup>
