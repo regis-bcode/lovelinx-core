@@ -15,6 +15,7 @@ import { TaskManagementSystem } from "@/components/projects/TaskManagementSystem
 import { TimeManagement } from "@/components/projects/TimeManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
+import { cn } from "@/lib/utils";
 
 
 export default function ProjectDetails() {
@@ -115,7 +116,8 @@ export default function ProjectDetails() {
     value: string;
     label: string;
     icon: LucideIcon;
-    content: ReactNode;
+    render: () => ReactNode;
+    tabContentClassName?: string;
   };
 
   const tabItems: TabItem[] = [
@@ -123,43 +125,53 @@ export default function ProjectDetails() {
       value: "tap",
       label: "TAP",
       icon: FileText,
-      content: <ProjectTabs projectId={project.id} />,
+      render: () => <ProjectTabs projectId={project.id} />,
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "stakeholders",
       label: "Stakeholders",
       icon: Users,
-      content: <StakeholdersList projectId={project.id} />,
+      render: () => <StakeholdersList projectId={project.id} />,
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "tasks",
       label: "Tarefas",
       icon: ClipboardList,
-      content: <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />,
+      render: () => (
+        <div className="flex h-full flex-col overflow-hidden">
+          <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
+        </div>
+      ),
+      tabContentClassName: "overflow-hidden",
     },
     {
       value: "time",
       label: "Tempo",
       icon: Calendar,
-      content: <TimeManagement projectId={project.id} />,
+      render: () => <TimeManagement projectId={project.id} />,
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "communication",
       label: "Comunicação",
       icon: MessageCircle,
-      content: <CommunicationPlanList projectId={project.id} />,
+      render: () => <CommunicationPlanList projectId={project.id} />,
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "risks",
       label: "Riscos",
       icon: AlertTriangle,
-      content: <RisksList projectId={project.id} />,
+      render: () => <RisksList projectId={project.id} />,
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "gaps",
       label: "Gaps",
       icon: FileX,
-      content: (
+      render: () => (
         <Card>
           <CardHeader>
             <CardTitle>Gaps e Mudanças</CardTitle>
@@ -169,12 +181,13 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "turnover",
       label: "Virada",
       icon: RotateCw,
-      content: (
+      render: () => (
         <Card>
           <CardHeader>
             <CardTitle>Plano de Virada</CardTitle>
@@ -184,12 +197,13 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
+      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "documents",
       label: "Documentos",
       icon: FolderOpen,
-      content: (
+      render: () => (
         <Card>
           <CardHeader>
             <CardTitle>Gestão de Documentos</CardTitle>
@@ -199,6 +213,7 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
+      tabContentClassName: "overflow-y-auto",
     },
   ];
 
@@ -252,16 +267,19 @@ export default function ProjectDetails() {
             </div>
           </div>
 
-          <div className="flex flex-1 rounded-3xl border border-border/40 bg-background/80 shadow-sm">
-            <div className="flex h-full flex-1 flex-col">
-              <div className="flex-1 overflow-hidden">
+          <div className="flex flex-1 min-h-0 overflow-hidden rounded-r-3xl border border-border/40 bg-background/80 shadow-sm">
+            <div className="flex h-full flex-1 min-h-0 flex-col">
+              <div className="flex-1 min-h-0">
                 {tabItems.map((tab) => (
                   <TabsContent
                     key={tab.value}
                     value={tab.value}
-                    className="mt-0 h-full overflow-auto space-y-4 p-6"
+                    className={cn(
+                      "mt-0 flex h-full flex-col gap-4 p-6",
+                      tab.tabContentClassName ?? "overflow-y-auto",
+                    )}
                   >
-                    {tab.content}
+                    {tab.render()}
                   </TabsContent>
                 ))}
               </div>

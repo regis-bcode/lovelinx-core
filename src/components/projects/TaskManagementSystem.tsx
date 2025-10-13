@@ -1458,8 +1458,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [fieldSearch]);
 
   return (
-    <div className="space-y-4">
-      <Card className="min-w-0 w-full max-w-full overflow-hidden rounded-3xl">
+    <div className="flex h-full flex-col gap-4 overflow-hidden">
+      <Card className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div>
@@ -1680,9 +1680,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4 overflow-hidden">
-            <div className="relative min-w-0 w-full max-w-full overflow-hidden rounded-2xl border border-border/60">
-              <div className="h-[420px] w-full overflow-x-auto overflow-y-auto">
+          <CardContent className="flex flex-1 flex-col gap-4 overflow-hidden">
+            <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden rounded-2xl border border-border/60">
+              <div className="h-full w-full overflow-x-auto overflow-y-auto">
                 <div className="min-w-full">
                   <Table className="w-full min-w-max caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
