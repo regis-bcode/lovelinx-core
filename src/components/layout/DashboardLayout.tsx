@@ -56,7 +56,9 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
                   <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-sky-400/10 blur-3xl" />
                   <div className="absolute bottom-0 left-1/3 h-44 w-44 rounded-full bg-orange-300/10 blur-3xl" />
                 </div>
-                <div className="relative z-10 grid gap-10">{children}</div>
+                <div className="relative z-10 overflow-x-auto">
+                  <div className="grid min-w-max gap-10">{children}</div>
+                </div>
               </div>
             </div>
           </div>
