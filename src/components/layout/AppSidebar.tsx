@@ -30,7 +30,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
       "group flex items-center rounded-xl text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-      isCollapsed ? "h-11 w-11 justify-center" : "gap-3 px-4 py-3",
+      isCollapsed ? "h-11 w-11 justify-center" : "w-full justify-start gap-3 px-4 py-3",
       isActive
         ? "bg-white/15 text-white shadow-[0_12px_35px_rgba(0,0,0,0.35)]"
         : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -103,8 +103,15 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
                       <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4" />
-                        <span className={cn("transition-opacity", isCollapsed && "sr-only")}>{item.title}</span>
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span
+                          className={cn(
+                            "flex-1 text-left transition-opacity",
+                            isCollapsed && "sr-only"
+                          )}
+                        >
+                          {item.title}
+                        </span>
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
@@ -153,8 +160,15 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
                       <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4" />
-                        <span className={cn("transition-opacity", isCollapsed && "sr-only")}>{item.title}</span>
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span
+                          className={cn(
+                            "flex-1 text-left transition-opacity",
+                            isCollapsed && "sr-only"
+                          )}
+                        >
+                          {item.title}
+                        </span>
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
@@ -186,8 +200,15 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
                       <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4" />
-                        <span className={cn("transition-opacity", isCollapsed && "sr-only")}>{item.title}</span>
+                        <item.icon className="h-4 w-4 shrink-0" />
+                        <span
+                          className={cn(
+                            "flex-1 text-left transition-opacity",
+                            isCollapsed && "sr-only"
+                          )}
+                        >
+                          {item.title}
+                        </span>
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
