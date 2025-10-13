@@ -1085,6 +1085,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return <span className="text-xs text-muted-foreground">{row._isNew ? 'Novo' : String(value || '')}</span>;
     }
 
+    if (column.key === 'cliente') {
+      return (
+        <Input
+          value={String(value || '')}
+          readOnly
+          disabled
+          className="h-8 text-xs cursor-not-allowed"
+        />
+      );
+    }
+
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
       const minutes = getTaskTotalTime(row.id);
