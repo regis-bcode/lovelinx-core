@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Status, StatusFormData } from '@/types/status';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { DEFAULT_STATUS_COLOR_BY_NAME, FALLBACK_STATUS_COLOR, ensureStatusColor, getStatusColorValue } from '@/lib/status-colors';
 
 export const useStatus = () => {
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -18,7 +19,10 @@ export const useStatus = () => {
     { nome: 'Atrasado', tipo_aplicacao: ['projeto', 'tarefa_suporte', 'tarefa_projeto'], ativo: true },
     { nome: 'Pausado', tipo_aplicacao: ['projeto', 'tarefa_suporte', 'tarefa_projeto'], ativo: true },
     { nome: 'Cancelado', tipo_aplicacao: ['projeto', 'tarefa_suporte', 'tarefa_projeto'], ativo: true },
-  ];
+  ].map((status) => ({
+    ...status,
+    cor: DEFAULT_STATUS_COLOR_BY_NAME[status.nome] ?? FALLBACK_STATUS_COLOR,
+  }));
 
   useEffect(() => {
     if (user?.id) {
@@ -65,7 +69,8 @@ export const useStatus = () => {
         return;
       }
 
-      setStatuses(data as Status[]);
+      const normalized = (data as Status[]).map((status) => ensureStatusColor(status));
+      setStatuses(normalized);
     } catch (error) {
       console.error('Erro ao carregar status:', error);
       toast({
@@ -114,9 +119,11 @@ export const useStatus = () => {
     if (!user?.id) return null;
 
     try {
+      const payload = { ...statusData, cor: getStatusColorValue(statusData) };
+
       const { data, error } = await supabase
         .from('status')
-        .insert([{ ...statusData, user_id: user.id }])
+        .insert([{ ...payload, user_id: user.id }])
         .select()
         .single();
 
@@ -128,7 +135,9 @@ export const useStatus = () => {
       });
 
       // Atualização otimista da lista
-      setStatuses((prev) => (data ? [data as Status, ...prev] : prev));
+      const normalized = data ? ensureStatusColor(data as Status) : null;
+
+      setStatuses((prev) => (normalized ? [normalized, ...prev] : prev));
 
       return data as Status;
     } catch (error) {
@@ -144,9 +153,14 @@ export const useStatus = () => {
 
   const updateStatus = async (id: string, statusData: Partial<StatusFormData>): Promise<Status | null> => {
     try {
+      const payload: Partial<StatusFormData> =
+        Object.prototype.hasOwnProperty.call(statusData, 'cor')
+          ? { ...statusData, cor: getStatusColorValue(statusData) }
+          : statusData;
+
       const { data, error } = await supabase
         .from('status')
-        .update(statusData)
+        .update(payload)
         .eq('id', id)
         .select()
         .single();
@@ -159,7 +173,9 @@ export const useStatus = () => {
       });
 
       // Atualização otimista da lista
-      setStatuses((prev) => (data ? prev.map((s) => (s.id === id ? (data as Status) : s)) : prev));
+      const normalized = data ? ensureStatusColor(data as Status) : null;
+
+      setStatuses((prev) => (normalized ? prev.map((s) => (s.id === id ? normalized : s)) : prev));
 
       return data as Status;
     } catch (error) {
@@ -238,7 +254,8 @@ export const useStatus = () => {
       const { error } = await supabase
         .from('status')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id);
       if (error) throw error;
 
       // Atualização otimista
