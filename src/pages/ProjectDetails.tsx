@@ -140,7 +140,7 @@ export default function ProjectDetails() {
       label: "Tarefas",
       icon: ClipboardList,
       render: () => (
-        <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
           <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
         </div>
       ),
@@ -244,7 +244,7 @@ export default function ProjectDetails() {
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
       <DashboardLayout topNav={projectTopNav}>
-        <div className="flex min-h-[calc(100vh-220px)] flex-col gap-6">
+        <div className="flex min-h-[calc(100vh-220px)] min-w-0 flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <Button variant="outline" size="sm" onClick={() => navigate("/projects-tap")}>
@@ -267,15 +267,15 @@ export default function ProjectDetails() {
             </div>
           </div>
 
-          <div className="flex flex-1 min-h-0 overflow-hidden rounded-r-3xl border border-border/40 bg-background/80 shadow-sm">
-            <div className="flex h-full flex-1 min-h-0 flex-col">
-              <div className="flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden rounded-r-3xl border border-border/40 bg-background/80 shadow-sm">
+            <div className="flex h-full flex-1 min-h-0 min-w-0 flex-col">
+              <div className="flex-1 min-h-0 min-w-0">
                 {tabItems.map((tab) => (
                   <TabsContent
                     key={tab.value}
                     value={tab.value}
                     className={cn(
-                      "mt-0 flex h-full flex-col gap-4 p-6",
+                      "mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6",
                       tab.tabContentClassName ?? "overflow-y-auto",
                     )}
                   >
