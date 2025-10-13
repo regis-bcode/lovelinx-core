@@ -1460,7 +1460,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
-        <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between">
+        <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between rounded-t-3xl">
           <div className="space-y-2">
             <div>
               <CardTitle>Gestão de Tarefas</CardTitle>
