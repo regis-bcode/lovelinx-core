@@ -15,6 +15,7 @@ import { TimeManagement } from "@/components/projects/TimeManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
 import { cn } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 export default function ProjectDetails() {
@@ -116,7 +117,8 @@ export default function ProjectDetails() {
     label: string;
     icon: LucideIcon;
     render: () => ReactNode;
-    tabContentClassName?: string;
+    scrollBarOrientation?: "vertical" | "horizontal" | "both";
+    disableScrollArea?: boolean;
   };
 
   const tabItems: TabItem[] = [
@@ -125,14 +127,12 @@ export default function ProjectDetails() {
       label: "TAP",
       icon: FileText,
       render: () => <ProjectTabs projectId={project.id} />,
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "stakeholders",
       label: "Stakeholders",
       icon: Users,
       render: () => <StakeholdersList projectId={project.id} />,
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "tasks",
@@ -143,28 +143,25 @@ export default function ProjectDetails() {
           <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
         </div>
       ),
-      tabContentClassName: "overflow-hidden",
+      disableScrollArea: true,
     },
     {
       value: "time",
       label: "Tempo",
       icon: Calendar,
       render: () => <TimeManagement projectId={project.id} />,
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "communication",
       label: "Comunicação",
       icon: MessageCircle,
       render: () => <CommunicationPlanList projectId={project.id} />,
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "risks",
       label: "Riscos",
       icon: AlertTriangle,
       render: () => <RisksList projectId={project.id} />,
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "gaps",
@@ -180,7 +177,6 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "turnover",
@@ -196,7 +192,6 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
-      tabContentClassName: "overflow-y-auto",
     },
     {
       value: "documents",
@@ -212,7 +207,6 @@ export default function ProjectDetails() {
           </CardContent>
         </Card>
       ),
-      tabContentClassName: "overflow-y-auto",
     },
   ];
 
@@ -231,7 +225,11 @@ export default function ProjectDetails() {
         <div className="absolute right-[-12%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-white/25 blur-3xl" />
         <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
       </div>
-      <div className="relative z-10 overflow-x-auto pb-1">
+      <ScrollArea
+        className="relative z-10 pb-1"
+        scrollBarOrientation="horizontal"
+        type="scroll"
+      >
         <div className="flex w-full min-w-max flex-nowrap items-center gap-2">
           {tabItems.map((tab) => {
             const isActive = tab.value === activeTab;
@@ -251,7 +249,7 @@ export default function ProjectDetails() {
             );
           })}
         </div>
-      </div>
+      </ScrollArea>
     </div>
   );
 
@@ -285,15 +283,25 @@ export default function ProjectDetails() {
             <div className="flex-1 min-h-0 min-w-0">
               {tabItems.map((tab) =>
                 tab.value === activeTab ? (
-                  <div
-                    key={tab.value}
-                    className={cn(
-                      "mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6",
-                      tab.tabContentClassName ?? "overflow-y-auto",
-                    )}
-                  >
-                    {tab.render()}
-                  </div>
+                  tab.disableScrollArea ? (
+                    <div
+                      key={tab.value}
+                      className="mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6"
+                    >
+                      {tab.render()}
+                    </div>
+                  ) : (
+                    <ScrollArea
+                      key={tab.value}
+                      className="mt-0 h-full"
+                      scrollBarOrientation={tab.scrollBarOrientation ?? "vertical"}
+                      type="scroll"
+                    >
+                      <div className="flex min-h-full flex-col gap-4 p-6">
+                        {tab.render()}
+                      </div>
+                    </ScrollArea>
+                  )
                 ) : null
               )}
             </div>
