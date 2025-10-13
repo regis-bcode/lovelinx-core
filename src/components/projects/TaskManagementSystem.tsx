@@ -1682,9 +1682,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative w-full max-w-full overflow-hidden rounded-2xl border border-border/60">
-              <ScrollArea className="h-[420px] w-full" scrollBarOrientation="both">
+              <div className="h-[420px] w-full overflow-auto">
                 <div className="min-w-full">
-                  <Table className="w-full min-w-full caption-bottom text-[10px]">
+                  <Table className="w-full min-w-max caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
                       <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
                         {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
@@ -1833,7 +1833,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     </TableBody>
                   </Table>
                 </div>
-              </ScrollArea>
+              </div>
             </div>
         </CardContent>
       </Card>
