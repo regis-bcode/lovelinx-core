@@ -218,7 +218,7 @@ export default function ProjectDetails() {
     "bg-white/10 text-white/80 hover:border-white/60 hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0";
 
   const projectTopNav = (
-    <div className="relative overflow-hidden rounded-[44px] border border-white/25 bg-white/10 p-4 text-white shadow-[0_30px_80px_-40px_rgba(9,30,70,0.9)] backdrop-blur-xl dark:border-white/10 dark:bg-background/60">
+    <div className="relative w-full overflow-hidden rounded-[44px] border border-white/25 bg-white/10 p-4 text-white shadow-[0_30px_80px_-40px_rgba(9,30,70,0.9)] backdrop-blur-xl dark:border-white/10 dark:bg-background/60">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(20,54,110,0.95),rgba(41,163,229,0.7))] opacity-90" />
         <div className="absolute -left-24 top-[-30%] h-48 w-48 rounded-full bg-[#29A3E5]/45 blur-3xl" />
