@@ -211,7 +211,7 @@ export default function ProjectDetails() {
   ];
 
   const topNavTriggerClass =
-    "inline-flex h-11 flex-shrink-0 items-center justify-center gap-2 rounded-full border border-white/30 px-5 text-xs font-semibold uppercase tracking-wide transition-all duration-200 focus-visible:outline-none sm:text-sm";
+    "flex h-11 w-full flex-1 items-center justify-center gap-2 rounded-full border border-white/30 px-5 text-xs font-semibold uppercase tracking-wide transition-all duration-200 focus-visible:outline-none sm:text-sm";
   const activeTopNavTriggerClass =
     "bg-white/25 text-white shadow-[0_20px_40px_-20px_rgba(15,65,120,0.55)] border-white";
   const inactiveTopNavTriggerClass =
@@ -225,12 +225,8 @@ export default function ProjectDetails() {
         <div className="absolute right-[-12%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-white/25 blur-3xl" />
         <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
       </div>
-      <ScrollArea
-        className="relative z-10 pb-1"
-        scrollBarOrientation="horizontal"
-        type="scroll"
-      >
-        <div className="flex w-full min-w-max flex-nowrap items-center gap-2">
+      <ScrollArea className="relative z-10 pb-1" scrollBarOrientation="horizontal" type="scroll">
+        <div className="grid min-w-full grid-flow-col auto-cols-[minmax(150px,1fr)] items-center gap-2">
           {tabItems.map((tab) => {
             const isActive = tab.value === activeTab;
             return (
@@ -240,6 +236,7 @@ export default function ProjectDetails() {
                 onClick={() => setActiveTab(tab.value)}
                 className={cn(
                   topNavTriggerClass,
+                  "min-w-[150px]",
                   isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass
                 )}
               >
