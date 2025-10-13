@@ -1459,7 +1459,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   return (
     <div className="space-y-4">
-      <Card className="overflow-hidden rounded-3xl">
+      <Card className="w-full max-w-full overflow-hidden rounded-3xl">
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <div>
@@ -1684,14 +1684,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <div className="relative w-full max-w-full min-h-[420px] overflow-hidden rounded-2xl border border-border/60">
               <ScrollArea className="w-full" scrollBarOrientation="both">
                 <div className="min-w-full">
-                  <Table className={cn('w-full min-w-full caption-bottom', isCondensedView ? 'text-[12px]' : 'text-[13px]')}>
+                  <Table className="w-full min-w-full caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
                       <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
                         {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
                         <TableHead
                           className={cn(
-                            'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground',
-                            isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]'
+                            'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground text-[10px]',
+                            isCondensedView ? 'h-8 py-1.5' : 'h-10 py-2'
                           )}
                           style={{ width: '140px', minWidth: '140px' }}
                         >
@@ -1710,8 +1710,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onDrop={event => handleDrop(event, column.key)}
                               onDragEnd={handleDragEnd}
                               className={cn(
-                                'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors',
-                                isCondensedView ? 'h-8 py-1.5 text-[12px]' : 'h-10 py-2 text-[13px]',
+                                'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors text-[10px]',
+                                isCondensedView ? 'h-8 py-1.5' : 'h-10 py-2',
                                 draggingColumn === column.key && 'opacity-70',
                                 dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
                               )}
@@ -1733,7 +1733,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         <TableRow>
                           <TableCell
                             colSpan={visibleColumns.length + 1}
-                            className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                            className={cn('py-8 text-center text-[10px]')}
                           >
                             Carregando...
                           </TableCell>
@@ -1742,7 +1742,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         <TableRow>
                           <TableCell
                             colSpan={visibleColumns.length + 1}
-                            className={cn('py-8 text-center', isCondensedView ? 'text-[12px]' : 'text-[13px]')}
+                            className={cn('py-8 text-center text-[10px]')}
                           >
                             <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
                           </TableCell>
@@ -1752,8 +1752,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           <TableRow
                             key={row.id || row._tempId || index}
                             className={cn(
-                              'border-b border-border/60 bg-background hover:bg-muted/40',
-                              isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                              'border-b border-border/60 bg-background hover:bg-muted/40 text-[10px]',
+                              isCondensedView ? 'h-8' : 'h-9'
                             )}
                           >
                             <TableCell
@@ -1799,8 +1799,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                                 <TableCell
                                   key={col.key}
                                   className={cn(
-                                    'px-2 align-middle',
-                                    isCondensedView ? 'py-0.5 text-[12px]' : 'py-1 text-[13px]'
+                                    'px-2 align-middle text-[10px]',
+                                    isCondensedView ? 'py-0.5' : 'py-1'
                                   )}
                                   style={{ width: `${width}px`, minWidth: `${width}px` }}
                                 >
@@ -1814,14 +1814,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                       {!loading && (
                         <TableRow
                           className={cn(
-                            'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30',
-                            isCondensedView ? 'h-8 text-[12px]' : 'h-9 text-[13px]'
+                            'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30 text-[10px]',
+                            isCondensedView ? 'h-8' : 'h-9'
                           )}
                           onClick={addNewRow}
                         >
                           <TableCell
                             colSpan={visibleColumns.length + 1}
-                            className={cn('px-3 text-primary', isCondensedView ? 'py-1.5' : 'py-2')}
+                            className={cn('px-3 text-primary text-[10px]', isCondensedView ? 'py-1.5' : 'py-2')}
                           >
                             <div className="flex items-center gap-2">
                               <PlusCircle className="h-3.5 w-3.5" />
