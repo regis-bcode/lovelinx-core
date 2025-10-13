@@ -1682,7 +1682,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </CardHeader>
           <CardContent className="flex flex-1 min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-background pt-4">
             <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden rounded-2xl border border-border/60">
-              <ScrollArea className="h-full w-full" scrollBarOrientation="both">
+              <div className="h-full w-full overflow-auto">
                 <div className="min-w-full">
                   <Table className="w-full min-w-max caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
@@ -1833,7 +1833,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     </TableBody>
                   </Table>
                 </div>
-              </ScrollArea>
+              </div>
             </div>
         </CardContent>
       </Card>
