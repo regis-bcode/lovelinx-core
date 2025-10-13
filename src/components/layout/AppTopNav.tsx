@@ -24,7 +24,7 @@ export function AppTopNav() {
         <div className="absolute right-[-12%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-white/25 blur-3xl" />
         <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
       </div>
-      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
+      <div className="relative z-10 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-6">
         <Popover>
           <PopoverTrigger asChild>
             <Button
@@ -45,8 +45,8 @@ export function AppTopNav() {
           </PopoverContent>
         </Popover>
 
-        <div className="flex-1 overflow-hidden">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-center justify-center gap-2 pb-1 md:justify-start">
             {navigation.map((item) => (
               <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls(isActive)}>
                 <item.icon className="h-4 w-4" />
@@ -56,7 +56,7 @@ export function AppTopNav() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 md:justify-end md:flex-none">
+        <div className="flex flex-wrap items-center justify-center gap-2 pb-1 md:flex-none md:justify-end">
           {settingsNav.map((item) => (
             <NavLink key={item.title} to={item.url} end className={({ isActive }) => getNavCls(isActive)}>
               <item.icon className="h-4 w-4" />
