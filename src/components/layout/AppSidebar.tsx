@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Sparkles } from "lucide-react";
 
 import { navigation, settingsNav } from "./navigation-data";
 import { WorkspaceTree } from "./WorkspaceTree";
@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mainNavigation = navigation.slice(0, 2);
 const toolsNavigation = navigation.slice(2);
@@ -26,6 +29,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const { user, logout } = useAuth();
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
@@ -93,6 +97,12 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               isCollapsed ? "px-3 pt-6" : "px-6 pt-8"
             )}
           >
+            <UserProfileCard
+              user={user}
+              collapsed={isCollapsed}
+              onLogout={logout}
+              className={cn(isCollapsed ? "mb-6" : "mb-8")}
+            />
             <SidebarCollapsibleSection
               title="Navegação"
               open={isNavigationOpen}
@@ -386,5 +396,71 @@ function SidebarCollapsibleSection({
         </CollapsibleContent>
       </section>
     </Collapsible>
+  );
+}
+
+interface UserProfileCardProps {
+  user: { name?: string | null; email?: string | null; avatar?: string | null } | null;
+  collapsed: boolean;
+  onLogout: () => void;
+  className?: string;
+}
+
+function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCardProps) {
+  const displayName = user?.name || "Usuário";
+  const displayEmail = user?.email || "usuario@exemplo.com";
+  const fallbackInitial = displayName?.charAt(0) || displayEmail?.charAt(0) || "U";
+
+  return (
+    <div
+      className={cn(
+        "w-full rounded-3xl border border-white/10 bg-white/5 text-white shadow-[0_18px_45px_rgba(4,19,42,0.35)] backdrop-blur-md",
+        collapsed ? "flex flex-col items-center gap-3 p-3" : "space-y-4 p-5",
+        className,
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Avatar className="h-12 w-12 border border-white/40 shadow-soft supports-[backdrop-filter]:bg-white/20">
+            <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
+            <AvatarFallback className="bg-primary text-primary-foreground">{fallbackInitial}</AvatarFallback>
+          </Avatar>
+        </TooltipTrigger>
+        {collapsed && (
+          <TooltipContent
+            side="right"
+            className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+          >
+            <p className="text-sm font-semibold text-white">{displayName}</p>
+            <p className="mt-1 text-xs text-white/70">{displayEmail}</p>
+          </TooltipContent>
+        )}
+      </Tooltip>
+      {!collapsed && (
+        <>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">Perfil</p>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">{displayName}</p>
+              <p className="text-xs text-white/70">{displayEmail}</p>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-white/70">
+            <p className="text-sm font-semibold text-white">Baumfratz Code</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-white/70">Painel de Acompanhamento de Projetos</p>
+            <p className="text-[11px] leading-relaxed text-white/60">Gestão centralizada para squads, PMOs e lideranças</p>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/15 hover:text-white"
+            onClick={() => void onLogout()}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sair</span>
+          </Button>
+        </>
+      )}
+    </div>
   );
 }

@@ -1,6 +1,5 @@
-import { Bell, Search, LogOut, Minus, Maximize2 } from "lucide-react";
+import { Bell, LogOut, Minus, Maximize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ThemeToggle } from "./ThemeToggle";
@@ -59,95 +58,74 @@ export function AppHeader() {
           </div>
         )}
         {!isCollapsed ? (
-          <div className="relative flex flex-1 flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-6">
-            <div className="flex flex-1 flex-col gap-4 pr-4 md:pr-24">
+          <div className="relative flex flex-1 items-center justify-end gap-3">
+            <div className="md:hidden">{collapseToggleButton}</div>
+            <ThemeToggle />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-11 w-11 rounded-full border border-white/50 bg-white/40 text-primary shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
+                >
+                  <Bell className="h-5 w-5" />
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-0 bg-accent p-0 text-[11px] font-semibold text-accent-foreground shadow-glow">
+                    3
+                  </Badge>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>3 notificações não lidas</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="relative flex items-center">
-                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-primary/80" />
-                    <Input
-                      placeholder="Buscar projetos, equipes ou indicadores"
-                      className="h-12 w-full rounded-full border border-white/50 bg-white/40 pl-11 pr-4 text-sm text-foreground shadow-[0_12px_30px_-15px_rgba(15,65,120,0.45)] backdrop-blur-xl transition-all placeholder:text-muted-foreground/70 focus:border-primary/50 focus:bg-white/60 focus:ring-2 focus:ring-primary/40 supports-[backdrop-filter]:bg-white/30"
-                    />
-                  </div>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative h-12 w-12 rounded-full border border-white/50 bg-white/40 p-0 text-foreground shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
+                    >
+                      <Avatar className="h-10 w-10 border border-white/60 shadow-soft supports-[backdrop-filter]:bg-white/20">
+                        <AvatarImage src={user?.avatar} alt={user?.name} />
+                        <AvatarFallback className="bg-primary text-primary-foreground">
+                          {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>Buscar rapidamente por projetos, tarefas ou documentos</p>
+                  <p>Perfil e configurações da conta</p>
                 </TooltipContent>
               </Tooltip>
-            </div>
-
-            <div className="flex items-center gap-3 self-start md:self-center">
-              <div className="md:hidden">{collapseToggleButton}</div>
-              <ThemeToggle />
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative h-11 w-11 rounded-full border border-white/50 bg-white/40 text-primary shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
-                  >
-                    <Bell className="h-5 w-5" />
-                    <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-0 bg-accent p-0 text-[11px] font-semibold text-accent-foreground shadow-glow">
-                      3
-                    </Badge>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>3 notificações não lidas</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <DropdownMenu>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        className="relative flex h-12 items-center gap-3 rounded-full border border-white/50 bg-white/40 px-1.5 pr-3 text-left text-foreground shadow-[0_12px_30px_-15px_rgba(15,65,120,0.55)] backdrop-blur-xl transition-all hover:border-primary/40 hover:bg-white/60 supports-[backdrop-filter]:bg-white/30"
-                      >
-                        <Avatar className="h-10 w-10 border border-white/60 shadow-soft supports-[backdrop-filter]:bg-white/20">
-                          <AvatarImage src={user?.avatar} alt={user?.name} />
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {user?.name?.charAt(0) || user?.email?.charAt(0) || "U"}
-                          </AvatarFallback>
-                        </Avatar>
-                        {statefulUserInfo(user)}
-                      </Button>
-                    </DropdownMenuTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Perfil e configurações da conta</p>
-                  </TooltipContent>
-                </Tooltip>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">{user?.name || "Usuário"}</p>
-                      <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Perfil
-                  </DropdownMenuLabel>
-                  <div className="space-y-1 px-2 pb-2">
-                    <p className="text-sm font-semibold text-foreground">Baumfratz Code</p>
-                    <p className="text-xs text-muted-foreground">Painel de Acompanhamento de Projetos</p>
-                    <p className="text-xs text-muted-foreground">Gestão centralizada para squads, PMOs e lideranças</p>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.name || "Usuário"}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
                   </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer">Ver perfil</DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">Configurações</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={logout}>
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sair</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Perfil
+                </DropdownMenuLabel>
+                <div className="space-y-1 px-2 pb-2">
+                  <p className="text-sm font-semibold text-foreground">Baumfratz Code</p>
+                  <p className="text-xs text-muted-foreground">Painel de Acompanhamento de Projetos</p>
+                  <p className="text-xs text-muted-foreground">Gestão centralizada para squads, PMOs e lideranças</p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer">Ver perfil</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">Configurações</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={logout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Sair</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <div className="absolute right-0 -top-2 hidden md:block">
               {collapseToggleButton}
             </div>
@@ -160,18 +138,5 @@ export function AppHeader() {
         )}
       </div>
     </TooltipProvider>
-  );
-}
-
-function statefulUserInfo(user: { name?: string | null; email?: string | null } | null) {
-  if (!user?.name && !user?.email) {
-    return null;
-  }
-
-  return (
-    <div className="hidden flex-col leading-tight sm:flex">
-      <span className="text-sm font-semibold text-foreground">{user?.name || "Usuário"}</span>
-      <span className="text-xs text-muted-foreground">{user?.email}</span>
-    </div>
   );
 }
