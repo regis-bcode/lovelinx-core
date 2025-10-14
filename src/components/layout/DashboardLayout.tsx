@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 import { AppMobileNav } from "./AppMobileNav";
-import { AppTopNav } from "./AppTopNav";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -20,6 +19,7 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
     isSidebarCollapsed ? "mx-auto" : "mx-0",
   );
   const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100vw)" : "100%";
+  const hasTopNav = Boolean(topNav);
 
   return (
     <div className="relative min-h-screen bg-transparent">
@@ -51,7 +51,7 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
             style={{ maxWidth: layoutMaxWidth }}
           >
             <div className="space-y-8">
-              {topNav ?? <AppTopNav />}
+              {hasTopNav ? topNav : null}
               <div className="relative overflow-hidden rounded-[36px] border border-white/60 bg-white/80 p-4 shadow-[0_30px_80px_-40px_rgba(15,65,120,0.55)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/80 sm:p-8 lg:p-10">
                 <div className="pointer-events-none absolute inset-0 -z-10">
                   <div className="absolute -top-32 left-0 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
