@@ -15,10 +15,10 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
   const sharedWidthClasses = cn(
-    "w-full transition-[max-width] duration-300 ease-in-out",
+    "w-full max-w-full transition-[max-width] duration-300 ease-in-out",
     isSidebarCollapsed ? "mx-auto" : "mx-0",
   );
-  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100vw)" : "100%";
+  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100%)" : "100%";
   const hasTopNav = Boolean(topNav);
 
   return (
@@ -36,19 +36,22 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
         <AppMobileNav />
 
         <header className="sticky top-0 z-30 bg-white/80 px-4 pb-6 pt-4 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60 dark:bg-background/80 dark:backdrop-blur">
-          <div className={cn(sharedWidthClasses, "px-0 lg:px-4")} style={{ maxWidth: layoutMaxWidth }}>
+          <div
+            className={cn(sharedWidthClasses, "px-0 lg:px-4")}
+            style={{ maxWidth: layoutMaxWidth, width: "100%" }}
+          >
             <AppHeader />
           </div>
         </header>
 
-        <div className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden">
+        <div className="relative z-10 flex-1 overflow-y-auto">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(140deg,rgba(255,255,255,0.7),rgba(227,239,255,0.65))] dark:bg-[linear-gradient(140deg,rgba(6,20,46,0.92),rgba(11,33,63,0.88))]" />
           <div
             className={cn(
               "relative w-full px-4 pb-14 pt-10 sm:px-6 lg:px-10",
               sharedWidthClasses
             )}
-            style={{ maxWidth: layoutMaxWidth }}
+            style={{ maxWidth: layoutMaxWidth, width: "100%" }}
           >
             <div className="space-y-8">
               {hasTopNav ? topNav : null}
@@ -58,7 +61,7 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
                   <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-sky-400/10 blur-3xl" />
                   <div className="absolute bottom-0 left-1/3 h-44 w-44 rounded-full bg-orange-300/10 blur-3xl" />
                 </div>
-                <div className="relative z-10 min-w-0 overflow-hidden">
+                <div className="relative z-10 min-w-0 overflow-x-auto">
                   <div className="grid w-full min-w-0 gap-10">{children}</div>
                 </div>
               </div>
