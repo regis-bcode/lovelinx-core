@@ -41,7 +41,11 @@ export const useStatus = () => {
   }));
 
   const loadStatuses = async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setStatuses([]);
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -106,29 +110,33 @@ export const useStatus = () => {
   };
 
   useEffect(() => {
-    if (user?.id) {
-      loadStatuses();
-
-      // Configurar listener em tempo real
-      const subscription = supabase
-        .channel('status_changes')
-        .on('postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'status',
-            filter: `user_id=eq.${user.id}`
-          },
-          () => {
-            loadStatuses();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        subscription.unsubscribe();
-      };
+    if (!user?.id) {
+      setStatuses([]);
+      setLoading(false);
+      return;
     }
+
+    loadStatuses();
+
+    // Configurar listener em tempo real
+    const subscription = supabase
+      .channel('status_changes')
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'status',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadStatuses();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [user?.id]);
 
   const createStatus = async (statusData: StatusFormData): Promise<Status | null> => {
