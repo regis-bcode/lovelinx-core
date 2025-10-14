@@ -18,6 +18,7 @@ import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type,
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
 import type { Status } from '@/types/status';
+import type { TAP } from '@/types/tap';
 import { useTasks } from '@/hooks/useTasks';
 import { useTAP } from '@/hooks/useTAP';
 import { useStatus } from '@/hooks/useStatus';
@@ -251,10 +252,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const filteredStatuses = useMemo(() => {
     if (!statuses.length) return [];
 
-    const tipoMap: Record<string, string> = {
+    const tipoMap: Record<TAP['tipo'], 'tarefa_projeto' | 'tarefa_suporte' | 'tarefa_avulso'> = {
       PROJETO: 'tarefa_projeto',
       SUPORTE: 'tarefa_suporte',
-      AVULSO: 'tarefa_projeto', // Tratamos AVULSO como tarefa_projeto
+      AVULSO: 'tarefa_avulso',
     };
 
     const normalizeTipoAplicacao = (value: Status['tipo_aplicacao'] | string | null | undefined): string[] => {
@@ -285,16 +286,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return [];
     };
 
-    const tipoSynonyms: Record<string, string[]> = {
-      'tarefa_projeto': ['tarefa_projeto', 'projeto', 'tarefa'],
-      'tarefa_suporte': ['tarefa_suporte', 'suporte', 'tarefa'],
-    };
-
-    const rawTipoStatus = tap?.tipo ? tipoMap[tap.tipo] ?? tipoMap.PROJETO : tipoMap.PROJETO;
+    const rawTipoStatus = tap?.tipo ? tipoMap[tap.tipo] : undefined;
     const normalizedTipoStatus = rawTipoStatus?.toLowerCase();
-    const allowedValues = normalizedTipoStatus
-      ? tipoSynonyms[normalizedTipoStatus] ?? [normalizedTipoStatus]
-      : null;
 
     const filtered = statuses.filter(status => {
       if (!status?.ativo) {
@@ -305,12 +298,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         (status as Status & { tipo_aplicacao?: Status['tipo_aplicacao'] | string | null | undefined }).tipo_aplicacao
       ).map(tipo => tipo.toLowerCase());
 
-      // Se o status não possui tipos configurados, mantemos disponível para evitar travamentos
-      if (!tiposAplicacao.length || !allowedValues) {
-        return true;
+      if (!tiposAplicacao.length || !normalizedTipoStatus) {
+        return false;
       }
 
-      return tiposAplicacao.some(tipo => allowedValues.includes(tipo));
+      return tiposAplicacao.includes(normalizedTipoStatus);
     });
 
     const seen = new Set<string>();
@@ -333,12 +325,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const defaultStatusName = useMemo(() => {
     if (filteredStatuses.length > 0) {
-      return filteredStatuses[0].nome;
+      return filteredStatuses[0].nome ?? '';
     }
 
-    const fallback = statuses.find(status => status.ativo);
-    return fallback?.nome ?? '';
-  }, [filteredStatuses, statuses]);
+    return '';
+  }, [filteredStatuses]);
 
   // Inicializar rows com as tasks existentes
   const createBlankRow = useCallback((order: number): TaskRow => ({
@@ -709,7 +700,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const templateRow: Record<string, string> = {
       'Nome da Tarefa': '',
       'Prioridade': 'Média',
-      'Status': filteredStatuses[0]?.nome || 'BACKLOG',
+      'Status': filteredStatuses[0]?.nome ?? '',
       'Cliente': defaultClient,
       'Responsável': '',
       'Vencimento (dd/mm/aaaa)': '',
@@ -806,8 +797,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
         const statusValue = String(row['Status'] ?? '').trim();
         const status = statusOptions.includes(statusValue.toLowerCase())
-          ? filteredStatuses.find(s => s.nome.toLowerCase() === statusValue.toLowerCase())?.nome || 'BACKLOG'
-          : filteredStatuses[0]?.nome || 'BACKLOG';
+          ? filteredStatuses.find(s => s.nome.toLowerCase() === statusValue.toLowerCase())?.nome ?? ''
+          : filteredStatuses[0]?.nome ?? '';
 
         const clienteValue = String(row['Cliente'] ?? '').trim();
         const responsavelValue = String(row['Responsável'] ?? '').trim();
