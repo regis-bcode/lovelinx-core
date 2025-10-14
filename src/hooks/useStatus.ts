@@ -40,35 +40,9 @@ export const useStatus = () => {
     cor: DEFAULT_STATUS_COLOR_BY_NAME[status.nome] ?? FALLBACK_STATUS_COLOR,
   }));
 
-  useEffect(() => {
-    if (user?.id) {
-      loadStatuses();
-      
-      // Configurar listener em tempo real
-      const subscription = supabase
-        .channel('status_changes')
-        .on('postgres_changes', 
-          { 
-            event: '*', 
-            schema: 'public', 
-            table: 'status',
-            filter: `user_id=eq.${user.id}`
-          }, 
-          () => {
-            loadStatuses();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    }
-  }, [user?.id]);
-
   const loadStatuses = async () => {
     if (!user?.id) return;
-    
+
     try {
       setLoading(true);
       const { data, error } = await supabase
@@ -130,6 +104,32 @@ export const useStatus = () => {
       });
     }
   };
+
+  useEffect(() => {
+    if (user?.id) {
+      loadStatuses();
+
+      // Configurar listener em tempo real
+      const subscription = supabase
+        .channel('status_changes')
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'status',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            loadStatuses();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }
+  }, [user?.id]);
 
   const createStatus = async (statusData: StatusFormData): Promise<Status | null> => {
     if (!user?.id) return null;
