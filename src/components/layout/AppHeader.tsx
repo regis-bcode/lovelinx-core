@@ -61,21 +61,6 @@ export function AppHeader() {
         {!isCollapsed ? (
           <div className="relative flex flex-1 flex-col gap-6 md:flex-row md:items-center md:justify-between md:gap-6">
             <div className="flex flex-1 flex-col gap-4 pr-4 md:pr-24">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex flex-col gap-0.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-primary/70">
-                    Baumfratz Code
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    Painel de Acompanhamento de Projetos
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Gestão centralizada para squads, PMOs e lideranças
-                  </span>
-                </div>
-
-              </div>
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="relative flex items-center">
@@ -144,7 +129,16 @@ export function AppHeader() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer">Perfil</DropdownMenuItem>
+                  <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Perfil
+                  </DropdownMenuLabel>
+                  <div className="space-y-1 px-2 pb-2">
+                    <p className="text-sm font-semibold text-foreground">Baumfratz Code</p>
+                    <p className="text-xs text-muted-foreground">Painel de Acompanhamento de Projetos</p>
+                    <p className="text-xs text-muted-foreground">Gestão centralizada para squads, PMOs e lideranças</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer">Ver perfil</DropdownMenuItem>
                   <DropdownMenuItem className="cursor-pointer">Configurações</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive" onClick={logout}>
