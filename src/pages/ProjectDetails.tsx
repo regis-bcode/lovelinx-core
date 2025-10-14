@@ -211,46 +211,35 @@ export default function ProjectDetails() {
   ];
 
   const topNavTriggerClass =
-    "flex h-11 w-full flex-1 items-center justify-center gap-2 rounded-full border border-white/30 px-5 text-xs font-semibold uppercase tracking-wide transition-all duration-200 focus-visible:outline-none sm:text-sm";
+    "flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-11 sm:px-4 sm:text-sm";
   const activeTopNavTriggerClass =
-    "bg-white/25 text-white shadow-[0_20px_40px_-20px_rgba(15,65,120,0.55)] border-white";
+    "bg-primary text-primary-foreground border-primary shadow-sm";
   const inactiveTopNavTriggerClass =
-    "bg-white/10 text-white/80 hover:border-white/60 hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white/40 focus-visible:ring-offset-0";
+    "bg-muted text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-foreground";
 
   const projectTopNav = (
-    <div className="relative w-full overflow-hidden rounded-[44px] border border-white/25 bg-white/10 p-4 text-white shadow-[0_30px_80px_-40px_rgba(9,30,70,0.9)] backdrop-blur-xl dark:border-white/10 dark:bg-background/60">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(20,54,110,0.95),rgba(41,163,229,0.7))] opacity-90" />
-        <div className="absolute -left-24 top-[-30%] h-48 w-48 rounded-full bg-[#29A3E5]/45 blur-3xl" />
-        <div className="absolute right-[-12%] top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-white/25 blur-3xl" />
-        <div className="absolute bottom-[-35%] left-1/3 h-44 w-44 rounded-full bg-[#FFB56B]/40 blur-[110px]" />
+    <div className="relative w-full rounded-3xl border border-border/60 bg-background/95 p-4 shadow-lg">
+      <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/5 via-background to-primary/10" />
+      <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        {tabItems.map((tab) => {
+          const isActive = tab.value === activeTab;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setActiveTab(tab.value)}
+              className={cn(
+                topNavTriggerClass,
+                "min-w-[110px] sm:min-w-[130px]",
+                isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass
+              )}
+            >
+              <tab.icon className="h-4 w-4" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
-      <ScrollArea
-        className="relative z-10 pb-3"
-        scrollBarOrientation="horizontal"
-        type="always"
-      >
-        <div className="grid min-w-full grid-flow-col auto-cols-[minmax(150px,1fr)] items-center gap-2">
-          {tabItems.map((tab) => {
-            const isActive = tab.value === activeTab;
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setActiveTab(tab.value)}
-                className={cn(
-                  topNavTriggerClass,
-                  "min-w-[150px]",
-                  isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass
-                )}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </ScrollArea>
     </div>
   );
 
