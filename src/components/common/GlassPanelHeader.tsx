@@ -8,6 +8,7 @@ interface GlassPanelHeaderProps {
   actions?: ReactNode;
   children?: ReactNode;
   className?: string;
+  actionsPlacement?: "left" | "right";
 }
 
 export function GlassPanelHeader({
@@ -17,6 +18,7 @@ export function GlassPanelHeader({
   actions,
   children,
   className,
+  actionsPlacement = "right",
 }: GlassPanelHeaderProps) {
   return (
     <div className={cn("sticky top-6 z-30", className)}>
@@ -27,7 +29,12 @@ export function GlassPanelHeader({
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,255,255,0.55),transparent_45%)] opacity-60" />
         </div>
 
-        <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+        <div
+          className={cn(
+            "relative flex flex-col gap-6 md:flex-row md:items-center",
+            actionsPlacement === "left" ? "md:justify-start md:gap-10" : "md:justify-between",
+          )}
+        >
           <div className="space-y-4">
             {eyebrow ? (
               <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.42em] text-primary/80">
@@ -52,7 +59,12 @@ export function GlassPanelHeader({
           </div>
 
           {actions ? (
-            <div className="flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            <div
+              className={cn(
+                "flex shrink-0 flex-col items-stretch gap-3 sm:flex-row sm:items-center",
+                actionsPlacement === "left" && "md:self-start",
+              )}
+            >
               {actions}
             </div>
           ) : null}
