@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, LogOut, Sparkles } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, ChevronRight, LogOut, Sparkles } from "lucide-react";
 
 import { navigation, settingsNav } from "./navigation-data";
 import { WorkspaceTree } from "./WorkspaceTree";
@@ -14,6 +14,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
 
 const mainNavigation = navigation.slice(0, 2);
@@ -411,6 +413,27 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
   const displayEmail = user?.email || "usuario@exemplo.com";
   const fallbackInitial = displayName?.charAt(0) || displayEmail?.charAt(0) || "U";
 
+  const notificationButton = (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="relative h-11 w-11 rounded-2xl border border-white/20 bg-white/10 text-white shadow-[0_12px_30px_rgba(8,32,70,0.45)] transition-all hover:border-white/40 hover:bg-white/20"
+        >
+          <Bell className="h-5 w-5" />
+          <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full border-0 bg-accent p-0 text-[11px] font-semibold text-accent-foreground shadow-glow">
+            3
+          </Badge>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side={collapsed ? "right" : "top"} className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10">
+        <p>3 notificações não lidas</p>
+      </TooltipContent>
+    </Tooltip>
+  );
+
   return (
     <div
       className={cn(
@@ -436,19 +459,39 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
           </TooltipContent>
         )}
       </Tooltip>
-      {!collapsed && (
+      {collapsed ? (
+        <div className="flex flex-col items-center gap-3">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <ThemeToggle variant="sidebar" />
+            </TooltipTrigger>
+            <TooltipContent side="right" className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10">
+              <p>Alternar tema</p>
+            </TooltipContent>
+          </Tooltip>
+          {notificationButton}
+        </div>
+      ) : (
         <>
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">Perfil</p>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-white">{displayName}</p>
-              <p className="text-xs text-white/70">{displayEmail}</p>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">Perfil</p>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-white">{displayName}</p>
+                <p className="text-xs text-white/70">{displayEmail}</p>
+              </div>
             </div>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-3 text-xs leading-relaxed text-white/70">
-            <p className="text-sm font-semibold text-white">Baumfratz Code</p>
-            <p className="mt-1 text-[11px] leading-relaxed text-white/70">Painel de Acompanhamento de Projetos</p>
-            <p className="text-[11px] leading-relaxed text-white/60">Gestão centralizada para squads, PMOs e lideranças</p>
+            <div className="flex items-center gap-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ThemeToggle variant="sidebar" />
+                </TooltipTrigger>
+                <TooltipContent className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10">
+                  <p>Alternar tema</p>
+                </TooltipContent>
+              </Tooltip>
+              {notificationButton}
+            </div>
           </div>
           <Button
             type="button"
