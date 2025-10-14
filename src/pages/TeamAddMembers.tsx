@@ -115,16 +115,16 @@ export default function TeamAddMembers() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Adicionar Membros à Equipe</h1>
             <p className="text-muted-foreground">Preencha a tabela com os dados dos membros</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
               <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
             </Button>
-            <Button onClick={handleAdd}>
+            <Button onClick={handleAdd} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Salvar e Adicionar
             </Button>
           </div>
@@ -138,14 +138,14 @@ export default function TeamAddMembers() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-3">
-              <div className="grid grid-cols-[1fr_200px_150px_50px] gap-3 px-3 py-2 text-sm font-medium text-muted-foreground border-b">
+            <div className="overflow-hidden rounded-xl border border-border/60">
+              <div className="hidden gap-3 bg-muted/20 px-3 py-2 text-sm font-medium text-muted-foreground sm:grid sm:grid-cols-[1fr_200px_150px_50px]">
                 <div>Usuário *</div>
                 <div>Tipo de Função *</div>
                 <div>Custo/Hora Override</div>
                 <div></div>
               </div>
-              
+
               {rows.map((row) => {
                 const selectedUser = users.find(u => u.user_id === row.user_id);
                 const takenIds = rows
@@ -154,10 +154,14 @@ export default function TeamAddMembers() {
                 const msOptions = availableUsers
                   .filter((u) => !takenIds.includes(u.user_id))
                   .map((u) => ({ value: u.user_id, label: `${u.nome_completo} — ${u.email}` }));
-                
+
                 return (
-                  <div key={row.id} className="grid grid-cols-[1fr_200px_150px_50px] gap-3 items-start p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
+                  <div
+                    key={row.id}
+                    className="grid grid-cols-1 gap-3 border-b border-border/50 bg-card p-4 transition-colors last:border-b-0 hover:bg-accent/40 sm:grid-cols-[1fr_200px_150px_50px]"
+                  >
                     <div className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Usuário *</span>
                       {MULTI_SELECT_PER_ROW ? (
                         <MultiSelect
                           options={msOptions}
@@ -199,10 +203,11 @@ export default function TeamAddMembers() {
                         </Select>
                       )}
                     </div>
-                    
-                    <div>
-                      <Select 
-                        value={row.role_type} 
+
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Tipo de Função *</span>
+                      <Select
+                        value={row.role_type}
                         onValueChange={(v) => updateRow(row.id, "role_type", v as MemberRow["role_type"]) }
                       >
                         <SelectTrigger className={!row.role_type ? "border-destructive" : ""}>
@@ -215,8 +220,9 @@ export default function TeamAddMembers() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
-                    <div>
+
+                    <div className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Custo/Hora Override</span>
                       <Input
                         type="number"
                         step="0.01"
@@ -226,14 +232,15 @@ export default function TeamAddMembers() {
                         className="text-center"
                       />
                     </div>
-                    
-                    <div>
+
+                    <div className="flex items-center sm:justify-center">
+                      <span className="mr-auto text-xs font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Remover</span>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => removeRow(row.id)}
                         disabled={rows.length === 1}
-                        className="h-10 w-10"
+                        className="h-10 w-full sm:w-10"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -242,8 +249,8 @@ export default function TeamAddMembers() {
                 );
               })}
             </div>
-            
-            <Button variant="outline" onClick={addRow} className="w-full">
+
+            <Button variant="outline" onClick={addRow} className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" /> Adicionar Linha
             </Button>
           </CardContent>

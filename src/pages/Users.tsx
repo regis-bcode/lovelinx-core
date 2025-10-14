@@ -218,7 +218,7 @@ export default function Users() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Cadastro de Usuários</h1>
             <p className="text-muted-foreground">Gerencie os usuários do sistema</p>
@@ -239,7 +239,7 @@ export default function Users() {
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="nome_completo">Nome Completo *</Label>
                     <Input
@@ -267,7 +267,7 @@ export default function Users() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="email">E-mail *</Label>
                     <Input
@@ -296,7 +296,7 @@ export default function Users() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="tipo_usuario">Tipo de Usuário</Label>
                     <Select

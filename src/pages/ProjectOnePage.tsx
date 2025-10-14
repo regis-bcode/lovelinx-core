@@ -1572,7 +1572,7 @@ export default function ProjectOnePage() {
                     <div key={plan.id} className="rounded-md border p-3">
                       <h4 className="font-semibold">{plan.comunicacao || plan.codigo}</h4>
                       <p className="text-sm text-muted-foreground">Objetivo: {plan.objetivo || "—"}</p>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div className="mt-2 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
                         <span><strong>Frequência:</strong> {plan.frequencia || "—"}</span>
                         <span><strong>Responsável:</strong> {plan.responsavel || "—"}</span>
                         <span><strong>Canal:</strong> {plan.canal_envio || "—"}</span>
