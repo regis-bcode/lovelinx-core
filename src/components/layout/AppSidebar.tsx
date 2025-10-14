@@ -31,6 +31,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(true);
+  const [isProfileMinimized, setIsProfileMinimized] = useState(false);
   const { user, logout } = useAuth();
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
@@ -114,6 +115,8 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
             <UserProfileCard
               user={user}
               collapsed={isCollapsed}
+              minimized={isProfileMinimized}
+              onMinimizedChange={setIsProfileMinimized}
               onLogout={logout}
               className={cn(isCollapsed ? "mb-6" : "mb-8")}
             />
@@ -408,11 +411,20 @@ function SidebarCollapsibleSection({
 interface UserProfileCardProps {
   user: { name?: string | null; email?: string | null; avatar?: string | null } | null;
   collapsed: boolean;
+  minimized: boolean;
+  onMinimizedChange: (minimized: boolean) => void;
   onLogout: () => void;
   className?: string;
 }
 
-function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCardProps) {
+function UserProfileCard({
+  user,
+  collapsed,
+  minimized,
+  onMinimizedChange,
+  onLogout,
+  className,
+}: UserProfileCardProps) {
   const displayName = user?.name || "Usuário";
   const displayEmail = user?.email || "usuario@exemplo.com";
   const fallbackInitial = displayName?.charAt(0) || displayEmail?.charAt(0) || "U";
@@ -438,22 +450,22 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
     </Tooltip>
   );
 
-  return (
-    <div
-      className={cn(
-        "w-full rounded-3xl border border-white/10 bg-white/5 text-white shadow-[0_18px_45px_rgba(4,19,42,0.35)] backdrop-blur-md",
-        collapsed ? "flex flex-col items-center gap-3 p-3" : "space-y-4 p-5",
-        className,
-      )}
-    >
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Avatar className="h-12 w-12 border border-white/40 shadow-soft supports-[backdrop-filter]:bg-white/20">
-            <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
-            <AvatarFallback className="bg-primary text-primary-foreground">{fallbackInitial}</AvatarFallback>
-          </Avatar>
-        </TooltipTrigger>
-        {collapsed && (
+  const cardClasses = cn(
+    "w-full rounded-3xl border border-white/10 bg-white/5 text-white shadow-[0_18px_45px_rgba(4,19,42,0.35)] backdrop-blur-md",
+    collapsed ? "flex flex-col items-center gap-3 p-3" : "p-5",
+    className,
+  );
+
+  if (collapsed) {
+    return (
+      <div className={cardClasses}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Avatar className="h-12 w-12 border border-white/40 shadow-soft supports-[backdrop-filter]:bg-white/20">
+              <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
+              <AvatarFallback className="bg-primary text-primary-foreground">{fallbackInitial}</AvatarFallback>
+            </Avatar>
+          </TooltipTrigger>
           <TooltipContent
             side="right"
             className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
@@ -461,9 +473,7 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
             <p className="text-sm font-semibold text-white">{displayName}</p>
             <p className="mt-1 text-xs text-white/70">{displayEmail}</p>
           </TooltipContent>
-        )}
-      </Tooltip>
-      {collapsed ? (
+        </Tooltip>
         <div className="flex flex-col items-center gap-3">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -475,16 +485,42 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
           </Tooltip>
           {notificationButton}
         </div>
-      ) : (
-        <>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-white/60">Perfil</p>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-white">{displayName}</p>
-                <p className="text-xs text-white/70">{displayEmail}</p>
-              </div>
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible
+      open={!minimized}
+      onOpenChange={(open) => {
+        onMinimizedChange(!open);
+      }}
+    >
+      <div className={cardClasses}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-1 items-center gap-3">
+            <Avatar className="h-12 w-12 border border-white/40 shadow-soft supports-[backdrop-filter]:bg-white/20">
+              <AvatarImage src={user?.avatar ?? undefined} alt={displayName} />
+              <AvatarFallback className="bg-primary text-primary-foreground">{fallbackInitial}</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-1 flex-col">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.42em] text-white/60">Perfil</span>
+              <p className="mt-1 text-sm font-semibold text-white">{displayName}</p>
+              <p className="text-xs text-white/70">{displayEmail}</p>
             </div>
+          </div>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white transition hover:border-white/30 hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              aria-label={minimized ? "Expandir informações do perfil" : "Ocultar informações do perfil"}
+            >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", minimized ? "rotate-0" : "-rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+          <div className="mt-5 space-y-4">
             <div className="flex items-center gap-3">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -496,18 +532,18 @@ function UserProfileCard({ user, collapsed, onLogout, className }: UserProfileCa
               </Tooltip>
               {notificationButton}
             </div>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/15 hover:text-white"
+              onClick={() => void onLogout()}
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full justify-center gap-2 rounded-2xl border border-white/10 bg-white/10 py-3 text-sm font-semibold text-white transition hover:bg-white/15 hover:text-white"
-            onClick={() => void onLogout()}
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sair</span>
-          </Button>
-        </>
-      )}
-    </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
