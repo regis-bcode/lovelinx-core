@@ -4,11 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Pencil, Trash2, Plus, Loader2, Palette } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Toggle } from '@/components/ui/toggle';
+import { Pencil, Trash2, Plus, Loader2, Palette, Check } from 'lucide-react';
 import { useStatus } from '@/hooks/useStatus';
 import { Status, StatusFormData } from '@/types/status';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -42,16 +43,12 @@ const StatusPage: React.FC = () => {
     { value: 'projeto', label: 'Projeto' },
     { value: 'suporte', label: 'Suporte' },
     { value: 'avulso', label: 'Avulso' },
-    { value: 'tarefa_suporte', label: 'Tarefa de Suporte' },
     { value: 'tarefa_projeto', label: 'Tarefa de Projeto' },
+    { value: 'tarefa_suporte', label: 'Tarefa de Suporte' },
     { value: 'tarefa_avulso', label: 'Tarefa de Avulso' },
   ];
 
-  const matrixCategories = [
-    { key: 'suporte', label: 'Suporte', matchers: ['suporte', 'tarefa_suporte'] as StatusCategory[] },
-    { key: 'projeto', label: 'Projeto', matchers: ['projeto', 'tarefa_projeto'] as StatusCategory[] },
-    { key: 'avulso', label: 'Avulso', matchers: ['avulso', 'tarefa_avulso'] as StatusCategory[] },
-  ];
+  const [loadingKeys, setLoadingKeys] = useState<string[]>([]);
 
   const resetForm = () => {
     setFormData({
@@ -107,47 +104,64 @@ const StatusPage: React.FC = () => {
     }
   };
 
-  const handleTipoChange = (tipo: StatusCategory, checked: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      tipo_aplicacao: checked
-        ? [...prev.tipo_aplicacao, tipo]
-        : prev.tipo_aplicacao.filter(t => t !== tipo)
-    }));
-  };
-
   const getTipoLabel = (tipo: string) => {
     const tipoObj = tiposDisponiveis.find(t => t.value === tipo);
     return tipoObj ? tipoObj.label : tipo;
   };
-
-  const sortedStatuses = useMemo(
-    () => [...statuses].sort((a, b) => a.nome.localeCompare(b.nome)),
-    [statuses],
-  );
 
   const getAplicacoes = (status: Status) =>
     Array.isArray(status.tipo_aplicacao)
       ? status.tipo_aplicacao
       : [];
 
-  const statusMatchesCategory = (status: Status, matchers: StatusCategory[]) =>
-    getAplicacoes(status).some((tipo) => matchers.includes(tipo as StatusCategory));
+  const setLoadingState = (key: string, isLoading: boolean) => {
+    setLoadingKeys((prev) => {
+      if (isLoading) {
+        if (prev.includes(key)) return prev;
+        return [...prev, key];
+      }
+      return prev.filter((item) => item !== key);
+    });
+  };
 
-  const getRemainingAplicacoes = (status: Status) =>
-    getAplicacoes(status).filter(
-      (tipo) => !matrixCategories.some((category) => category.matchers.includes(tipo as StatusCategory)),
-    );
+  const isKeyLoading = (key: string) => loadingKeys.includes(key);
 
-  if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="flex min-h-[320px] items-center justify-center text-muted-foreground">
-          Carregando status...
-        </div>
-      </DashboardLayout>
-    );
-  }
+  const handleMatrixToggle = async (status: Status, tipo: StatusCategory, nextState: boolean) => {
+    const key = `${status.id}-${tipo}`;
+    const aplicacoesAtuais = getAplicacoes(status);
+    const possuiAplicacao = aplicacoesAtuais.includes(tipo);
+
+    if (nextState === possuiAplicacao) return;
+
+    setLoadingState(key, true);
+
+    const updatedAplicacoes = nextState
+      ? Array.from(new Set([...aplicacoesAtuais, tipo]))
+      : aplicacoesAtuais.filter((item) => item !== tipo);
+
+    try {
+      await updateStatus(status.id, { tipo_aplicacao: updatedAplicacoes });
+    } finally {
+      setLoadingState(key, false);
+    }
+  };
+
+  const handleActiveToggle = async (status: Status, nextState: boolean) => {
+    const key = `${status.id}-ativo`;
+    if (status.ativo === nextState) return;
+
+    setLoadingState(key, true);
+    try {
+      await updateStatus(status.id, { ativo: nextState });
+    } finally {
+      setLoadingState(key, false);
+    }
+  };
+
+  const sortedStatuses = useMemo(
+    () => [...statuses].sort((a, b) => a.nome.localeCompare(b.nome)),
+    [statuses],
+  );
 
   const totalStatuses = statuses.length;
   const activeStatuses = statuses.filter((status) => status.ativo).length;
@@ -186,6 +200,21 @@ const StatusPage: React.FC = () => {
     ],
     [activeStatuses, customStatuses, inactiveStatuses, totalStatuses],
   );
+
+  const getRemainingAplicacoes = (status: Status) =>
+    getAplicacoes(status).filter(
+      (tipo) => !tiposDisponiveis.some((category) => category.value === tipo),
+    );
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex min-h-[320px] items-center justify-center text-muted-foreground">
+          Carregando status...
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -278,20 +307,35 @@ const StatusPage: React.FC = () => {
                     </RadioGroup>
                   </div>
 
-                  <div>
+                  <div className="space-y-3">
                     <Label>Aplicável para:</Label>
-                    <div className="mt-2 space-y-2">
-                      {tiposDisponiveis.map(tipo => (
-                        <div key={tipo.value} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={tipo.value}
-                            checked={formData.tipo_aplicacao.includes(tipo.value)}
-                            onCheckedChange={(checked) => handleTipoChange(tipo.value, checked as boolean)}
-                          />
-                          <Label htmlFor={tipo.value}>{tipo.label}</Label>
-                        </div>
-                      ))}
-                    </div>
+                    <ToggleGroup
+                      type="multiple"
+                      value={formData.tipo_aplicacao}
+                      onValueChange={(values) =>
+                        setFormData((prev) => ({ ...prev, tipo_aplicacao: values as StatusCategory[] }))
+                      }
+                      className="grid gap-2 sm:grid-cols-2"
+                    >
+                      {tiposDisponiveis.map((tipo) => {
+                        const isSelected = formData.tipo_aplicacao.includes(tipo.value);
+
+                        return (
+                          <ToggleGroupItem
+                            key={tipo.value}
+                            value={tipo.value}
+                            className={cn(
+                              'flex h-12 items-center justify-between rounded-xl border border-white/60 bg-white/70 px-4 text-sm font-medium text-slate-600 shadow-[0_10px_30px_-18px_rgba(15,23,42,0.6)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:shadow-[0_25px_55px_-35px_rgba(15,23,42,0.65)] dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300',
+                              isSelected &&
+                                'border-transparent bg-slate-900/90 text-white shadow-[0_20px_55px_-20px_rgba(15,23,42,0.65)] dark:bg-slate-100/95 dark:text-slate-900',
+                            )}
+                          >
+                            <span>{tipo.label}</span>
+                            {isSelected && <Check className="h-4 w-4" />}
+                          </ToggleGroupItem>
+                        );
+                      })}
+                    </ToggleGroup>
                   </div>
 
                   <div className="flex items-center space-x-2">
@@ -374,11 +418,12 @@ const StatusPage: React.FC = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[220px]">Status</TableHead>
-                      {matrixCategories.map((category) => (
-                        <TableHead key={category.key} className="text-center">
-                          {category.label}
+                      {tiposDisponiveis.map((tipo) => (
+                        <TableHead key={tipo.value} className="min-w-[140px] text-center">
+                          {tipo.label}
                         </TableHead>
                       ))}
+                      <TableHead className="min-w-[100px] text-center">Ativo</TableHead>
                       <TableHead className="text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -386,6 +431,7 @@ const StatusPage: React.FC = () => {
                     {sortedStatuses.map((status) => {
                       const remainingAplicacoes = getRemainingAplicacoes(status);
                       const statusColor = getStatusColorValue(status);
+                      const aplicacoes = getAplicacoes(status);
 
                       return (
                         <TableRow
@@ -444,30 +490,56 @@ const StatusPage: React.FC = () => {
                               </div>
                             </div>
                           </TableCell>
-                          {matrixCategories.map((category) => {
-                            const matchesCategory = statusMatchesCategory(status, category.matchers);
+                          {tiposDisponiveis.map((tipo) => {
+                            const key = `${status.id}-${tipo.value}`;
+                            const isSelected = aplicacoes.includes(tipo.value);
+                            const loading = isKeyLoading(key);
+
                             return (
-                              <TableCell key={`${status.id}-${category.key}`} className="text-center">
-                                <div
-                                  className={cn(
-                                    'mx-auto flex h-9 w-9 items-center justify-center rounded-full border border-white/50 bg-white/60 shadow-inner dark:border-slate-700/60 dark:bg-slate-900/60',
-                                    matchesCategory && 'border-transparent',
-                                  )}
-                                  style={{
-                                    backgroundColor: matchesCategory ? hexToRgba(statusColor, 0.18) : undefined,
-                                    color: matchesCategory ? statusColor : undefined,
-                                  }}
-                                >
-                                  <Checkbox
-                                    checked={matchesCategory}
-                                    disabled
-                                    aria-label={`Status ${status.nome} ${matchesCategory ? 'aplicável' : 'não aplicável'} a ${category.label}`}
-                                    className="pointer-events-none"
-                                  />
+                              <TableCell key={key} className="align-top">
+                                <div className="flex items-center justify-center py-2">
+                                  <Toggle
+                                    pressed={isSelected}
+                                    onPressedChange={(pressed) => void handleMatrixToggle(status, tipo.value, pressed)}
+                                    disabled={loading}
+                                    aria-label={`Marcar status ${status.nome} como aplicável para ${tipo.label}`}
+                                    className={cn(
+                                      'mx-auto flex h-10 w-full max-w-[150px] items-center justify-center rounded-xl border border-white/60 bg-white/70 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:shadow-[0_30px_60px_-34px_rgba(15,23,42,0.65)] dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300',
+                                      isSelected &&
+                                        'border-transparent text-slate-900 shadow-[0_20px_55px_-25px_rgba(15,23,42,0.65)] dark:text-white',
+                                      loading && 'pointer-events-none opacity-70',
+                                    )}
+                                    style={
+                                      isSelected
+                                        ? {
+                                            backgroundColor: hexToRgba(statusColor, 0.18),
+                                            color: statusColor,
+                                          }
+                                        : undefined
+                                    }
+                                  >
+                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : tipo.label}
+                                  </Toggle>
                                 </div>
                               </TableCell>
                             );
                           })}
+                          <TableCell className="align-top">
+                            <div className="flex items-center justify-center py-2">
+                              <div className="relative flex items-center justify-center">
+                                <Switch
+                                  id={`ativo-${status.id}`}
+                                  checked={status.ativo}
+                                  onCheckedChange={(checked) => void handleActiveToggle(status, checked)}
+                                  aria-label={`Alterar status ${status.nome} para ${status.ativo ? 'inativo' : 'ativo'}`}
+                                  disabled={isKeyLoading(`${status.id}-ativo`)}
+                                />
+                                {isKeyLoading(`${status.id}-ativo`) && (
+                                  <Loader2 className="absolute h-4 w-4 animate-spin text-slate-400" />
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
                           <TableCell className="align-top">
                             <div className="flex items-center justify-center gap-2 py-2">
                               <Button
