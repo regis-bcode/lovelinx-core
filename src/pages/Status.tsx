@@ -224,6 +224,7 @@ const StatusPage: React.FC = () => {
           eyebrow="Gestão de Status"
           title="Gerenciar Status"
           description="Defina os estados que representam o progresso dos projetos e tarefas da organização."
+          actionsPlacement="left"
           actions={(
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
