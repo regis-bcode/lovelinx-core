@@ -72,7 +72,7 @@ const StatusPage: React.FC = () => {
     setEditingStatus(status);
     setFormData({
       nome: status.nome,
-      tipo_aplicacao: status.tipo_aplicacao,
+      tipo_aplicacao: Array.isArray(status.tipo_aplicacao) ? status.tipo_aplicacao : [],
       ativo: status.ativo,
       cor: getStatusColorValue(status),
     });
@@ -126,11 +126,16 @@ const StatusPage: React.FC = () => {
     [statuses],
   );
 
+  const getAplicacoes = (status: Status) =>
+    Array.isArray(status.tipo_aplicacao)
+      ? status.tipo_aplicacao
+      : [];
+
   const statusMatchesCategory = (status: Status, matchers: StatusCategory[]) =>
-    status.tipo_aplicacao.some((tipo) => matchers.includes(tipo as StatusCategory));
+    getAplicacoes(status).some((tipo) => matchers.includes(tipo as StatusCategory));
 
   const getRemainingAplicacoes = (status: Status) =>
-    status.tipo_aplicacao.filter(
+    getAplicacoes(status).filter(
       (tipo) => !matrixCategories.some((category) => category.matchers.includes(tipo as StatusCategory)),
     );
 
