@@ -59,7 +59,6 @@ export function WorkspaceTree({ collapsed = false, onWorkspaceSelect }: Workspac
                   className="flex w-full items-center justify-center rounded-md p-2 transition-all duration-200 hover:scale-110 hover:bg-muted/50"
                   onClick={() => {
                     onWorkspaceSelect?.();
-                    navigate(`/workspaces/${workspace.id}`);
                   }}
                   aria-label={`Abrir workspace ${workspace.nome}`}
                 >
