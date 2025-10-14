@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 
 import { navigation, settingsNav } from "./navigation-data";
 import { WorkspaceTree } from "./WorkspaceTree";
@@ -29,10 +29,10 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
 
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
-      "group flex items-center rounded-xl text-sm font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40",
-      isCollapsed ? "h-11 w-11 justify-center" : "w-full justify-start gap-3 px-4 py-3",
+      "group/nav-item relative flex items-center rounded-2xl text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60",
+      isCollapsed ? "h-12 w-12 justify-center" : "w-full justify-between px-4 py-3",
       isActive
-        ? "border border-white/25 bg-white/15 text-white shadow-[0_15px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm"
+        ? "bg-white/15 text-white shadow-[0_12px_35px_rgba(5,37,76,0.45)] backdrop-blur-sm"
         : "text-sky-100/80 hover:bg-white/10 hover:text-white"
     );
 
@@ -56,26 +56,32 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
 
       <div
         className={cn(
-          "flex items-center gap-3 px-7 pt-8 transition-all duration-300",
-          isCollapsed && "justify-center px-4"
+          "px-7 pt-8 transition-all duration-300",
+          isCollapsed ? "flex justify-center px-4" : ""
         )}
       >
-        <img
-          src="/baumgratz-code-mark.svg"
-          alt="Baumfratz Code"
-          className="h-12 w-12 flex-shrink-0 drop-shadow-[0_8px_18px_rgba(41,163,229,0.35)]"
-        />
         <div
           className={cn(
-            "flex flex-col leading-tight transition-opacity duration-200",
-            isCollapsed ? "pointer-events-none opacity-0" : "opacity-100"
+            "flex w-full items-center gap-3 rounded-3xl border border-white/10 bg-white/5 p-3 shadow-[0_18px_40px_rgba(7,27,60,0.45)]",
+            "backdrop-blur-sm",
+            isCollapsed && "flex-col gap-2 text-center"
           )}
         >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.48em] text-white/70">Baumfratz</span>
-          <span className="text-xl font-semibold text-orange-300">CODE</span>
-          <span className="text-[10px] font-medium uppercase tracking-[0.36em] text-white/60">
-            Painel de Projetos
-          </span>
+          <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400/60 via-blue-500/70 to-indigo-500/70 text-white shadow-[0_12px_30px_rgba(32,112,220,0.65)]">
+            <img src="/baumgratz-code-mark.svg" alt="Baumfratz Code" className="h-9 w-9" />
+          </div>
+          <div
+            className={cn(
+              "flex flex-1 flex-col leading-tight transition-opacity duration-200",
+              isCollapsed ? "pointer-events-none opacity-0" : "opacity-100"
+            )}
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-white/70">Baumfratz</span>
+            <span className="text-xl font-semibold text-orange-300">CODE</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/60">
+              Painel de Projetos
+            </span>
+          </div>
         </div>
       </div>
 
@@ -95,29 +101,47 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
             >
               <div
                 className={cn(
-                  "rounded-2xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(0,0,0,0.28)]",
+                  "rounded-3xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(4,19,42,0.35)]",
+                  "backdrop-blur-md",
                   isCollapsed ? "p-2" : "p-4"
                 )}
               >
-                <div
+                <nav
                   className={cn(
-                    "flex flex-col gap-1",
-                    isCollapsed && "items-center gap-2"
+                    "flex flex-col gap-2",
+                    isCollapsed && "items-center gap-3"
                   )}
                 >
                   {mainNavigation.map((item) => (
                     <Tooltip key={item.title}>
                       <TooltipTrigger asChild>
                         <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                          <item.icon className="h-4 w-4 shrink-0" />
                           <span
                             className={cn(
-                              "flex-1 whitespace-nowrap text-left transition-opacity",
-                              isCollapsed && "sr-only"
+                              "flex items-center gap-3",
+                              isCollapsed ? "justify-center" : "flex-1"
                             )}
                           >
-                            {item.title}
+                            <span
+                              className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 via-blue-400/30 to-blue-600/30 text-white shadow-[0_8px_20px_rgba(14,58,122,0.45)] transition-all",
+                                "ring-1 ring-white/10 group-hover/nav-item:scale-105 group-aria-[current=page]/nav-item:ring-2 group-aria-[current=page]/nav-item:ring-white/40"
+                              )}
+                            >
+                              <item.icon className="h-4 w-4" />
+                            </span>
+                            <span
+                              className={cn(
+                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                                isCollapsed && "sr-only"
+                              )}
+                            >
+                              {item.title}
+                            </span>
                           </span>
+                          {!isCollapsed && (
+                            <ChevronRight className="h-4 w-4 text-white/40 transition group-hover/nav-item:translate-x-1" />
+                          )}
                         </NavLink>
                       </TooltipTrigger>
                       <TooltipContent
@@ -129,7 +153,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                       </TooltipContent>
                     </Tooltip>
                   ))}
-                </div>
+                </nav>
               </div>
             </SidebarCollapsibleSection>
 
@@ -142,7 +166,8 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
             >
               <div
                 className={cn(
-                  "rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_15px_45px_rgba(0,0,0,0.25)]",
+                  "rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-sky-500/5 to-transparent p-4 shadow-[0_15px_45px_rgba(4,22,48,0.32)]",
+                  "backdrop-blur-md",
                   isCollapsed && "p-2"
                 )}
               >
@@ -167,15 +192,32 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
                       <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4 shrink-0" />
                         <span
                           className={cn(
-                            "flex-1 whitespace-nowrap text-left transition-opacity",
-                            isCollapsed && "sr-only"
+                            "flex items-center gap-3",
+                            isCollapsed ? "justify-center" : "flex-1"
                           )}
                         >
-                          {item.title}
+                          <span
+                            className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_10px_28px_rgba(10,33,68,0.4)] transition-all",
+                              "border border-white/10 group-hover/nav-item:bg-white/15 group-hover/nav-item:text-white group-aria-[current=page]/nav-item:border-white/40"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4" />
+                          </span>
+                          <span
+                            className={cn(
+                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
                         </span>
+                        {!isCollapsed && (
+                          <ChevronRight className="h-4 w-4 text-white/35 transition group-hover/nav-item:translate-x-1" />
+                        )}
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
@@ -207,15 +249,32 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
                       <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <item.icon className="h-4 w-4 shrink-0" />
                         <span
                           className={cn(
-                            "flex-1 whitespace-nowrap text-left transition-opacity",
-                            isCollapsed && "sr-only"
+                            "flex items-center gap-3",
+                            isCollapsed ? "justify-center" : "flex-1"
                           )}
                         >
-                          {item.title}
+                          <span
+                            className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100/10 via-sky-400/10 to-transparent text-white transition-all",
+                              "border border-white/10 shadow-[0_10px_30px_rgba(4,23,51,0.35)] group-aria-[current=page]/nav-item:border-white/40"
+                            )}
+                          >
+                            <item.icon className="h-4 w-4" />
+                          </span>
+                          <span
+                            className={cn(
+                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
                         </span>
+                        {!isCollapsed && (
+                          <ChevronRight className="h-4 w-4 text-white/35 transition group-hover/nav-item:translate-x-1" />
+                        )}
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
@@ -229,6 +288,39 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                 ))}
               </div>
             </SidebarCollapsibleSection>
+
+            <div
+              className={cn(
+                "mt-10 rounded-3xl border border-white/10 bg-gradient-to-br from-sky-500/10 via-blue-500/10 to-slate-900/40 p-5 text-white shadow-[0_15px_45px_rgba(5,28,70,0.38)]",
+                "backdrop-blur-md",
+                isCollapsed && "p-3 text-center"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 text-white shadow-[0_10px_25px_rgba(12,60,128,0.45)]">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div
+                  className={cn(
+                    "flex flex-1 flex-col text-left",
+                    isCollapsed && "sr-only"
+                  )}
+                >
+                  <span className="text-sm font-semibold">Vamos começar?</span>
+                  <span className="text-xs text-sky-100/80">
+                    Crie ou acompanhe tarefas com apenas alguns cliques.
+                  </span>
+                </div>
+              </div>
+              {!isCollapsed && (
+                <button
+                  type="button"
+                  className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-400 via-blue-500 to-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(25,98,195,0.45)] transition hover:from-sky-300 hover:via-blue-400 hover:to-indigo-400"
+                >
+                  <span>Adicionar nova tarefa</span>
+                </button>
+              )}
+            </div>
           </div>
         </ScrollArea>
       </TooltipProvider>
