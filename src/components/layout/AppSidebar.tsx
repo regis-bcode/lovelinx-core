@@ -42,6 +42,18 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
         : "text-sky-100/80 hover:bg-white/10 hover:text-white"
     );
 
+  const getMenuCardClasses = (
+    collapsed: boolean,
+    { variant = "default" }: { variant?: "default" | "workspaces" } = {}
+  ) =>
+    cn(
+      "rounded-3xl border border-white/10 backdrop-blur-md",
+      collapsed ? "p-2" : "p-4",
+      variant === "workspaces"
+        ? "bg-gradient-to-br from-white/10 via-sky-500/5 to-transparent shadow-[0_15px_45px_rgba(4,22,48,0.32)]"
+        : "bg-white/5 shadow-[0_18px_45px_rgba(4,19,42,0.35)]"
+    );
+
   const navigationTooltipDelay = isCollapsed ? 0 : 300;
 
   return (
@@ -111,13 +123,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               onOpenChange={setIsNavigationOpen}
               collapsed={isCollapsed}
             >
-              <div
-                className={cn(
-                  "rounded-3xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(4,19,42,0.35)]",
-                  "backdrop-blur-md",
-                  isCollapsed ? "p-2" : "p-4"
-                )}
-              >
+              <div className={getMenuCardClasses(isCollapsed)}>
                 <nav
                   className={cn(
                     "flex flex-col gap-2",
@@ -173,13 +179,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               onOpenChange={setIsWorkspacesOpen}
               collapsed={isCollapsed}
             >
-              <div
-                className={cn(
-                  "rounded-3xl border border-white/10 bg-gradient-to-br from-white/10 via-sky-500/5 to-transparent p-4 shadow-[0_15px_45px_rgba(4,22,48,0.32)]",
-                  "backdrop-blur-md",
-                  isCollapsed && "p-2"
-                )}
-              >
+              <div className={getMenuCardClasses(isCollapsed, { variant: "workspaces" })}>
                 <WorkspaceTree
                   collapsed={isCollapsed}
                   onWorkspaceSelect={() => onCollapseChange(false)}
@@ -194,50 +194,52 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               onOpenChange={setIsToolsOpen}
               collapsed={isCollapsed}
             >
-              <div
-                className={cn(
-                  "flex flex-col gap-2",
-                  isCollapsed && "items-center"
-                )}
-              >
-                {toolsNavigation.map((item) => (
-                  <Tooltip key={item.title}>
-                    <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <span
-                          className={cn(
-                            "flex items-center gap-3",
-                            isCollapsed ? "justify-center" : "flex-1"
-                          )}
-                        >
+              <div className={getMenuCardClasses(isCollapsed)}>
+                <div
+                  className={cn(
+                    "flex flex-col gap-2",
+                    isCollapsed && "items-center"
+                  )}
+                >
+                  {toolsNavigation.map((item) => (
+                    <Tooltip key={item.title}>
+                      <TooltipTrigger asChild>
+                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
                           <span
                             className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_10px_28px_rgba(10,33,68,0.4)] transition-all",
-                              "border border-white/10 group-hover/nav-item:bg-white/15 group-hover/nav-item:text-white group-aria-[current=page]/nav-item:border-white/40"
+                              "flex items-center gap-3",
+                              isCollapsed ? "justify-center" : "flex-1"
                             )}
                           >
-                            <item.icon className="h-4 w-4" />
+                            <span
+                              className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_10px_28px_rgba(10,33,68,0.4)] transition-all",
+                                "border border-white/10 group-hover/nav-item:bg-white/15 group-hover/nav-item:text-white group-aria-[current=page]/nav-item:border-white/40"
+                              )}
+                            >
+                              <item.icon className="h-4 w-4" />
+                            </span>
+                            <span
+                              className={cn(
+                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                                isCollapsed && "sr-only"
+                              )}
+                            >
+                              {item.title}
+                            </span>
                           </span>
-                          <span
-                            className={cn(
-                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
-                              isCollapsed && "sr-only"
-                            )}
-                          >
-                            {item.title}
-                          </span>
-                        </span>
-                      </NavLink>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="right"
-                      hidden={!isCollapsed}
-                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                    >
-                      {item.title}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        hidden={!isCollapsed}
+                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                      >
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               </div>
             </SidebarCollapsibleSection>
 
@@ -248,50 +250,52 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               onOpenChange={setIsSettingsOpen}
               collapsed={isCollapsed}
             >
-              <div
-                className={cn(
-                  "flex flex-col gap-2",
-                  isCollapsed && "items-center"
-                )}
-              >
-                {settingsNav.map((item) => (
-                  <Tooltip key={item.title}>
-                    <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
-                        <span
-                          className={cn(
-                            "flex items-center gap-3",
-                            isCollapsed ? "justify-center" : "flex-1"
-                          )}
-                        >
+              <div className={getMenuCardClasses(isCollapsed)}>
+                <div
+                  className={cn(
+                    "flex flex-col gap-2",
+                    isCollapsed && "items-center"
+                  )}
+                >
+                  {settingsNav.map((item) => (
+                    <Tooltip key={item.title}>
+                      <TooltipTrigger asChild>
+                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
                           <span
                             className={cn(
-                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100/10 via-sky-400/10 to-transparent text-white transition-all",
-                              "border border-white/10 shadow-[0_10px_30px_rgba(4,23,51,0.35)] group-aria-[current=page]/nav-item:border-white/40"
+                              "flex items-center gap-3",
+                              isCollapsed ? "justify-center" : "flex-1"
                             )}
                           >
-                            <item.icon className="h-4 w-4" />
+                            <span
+                              className={cn(
+                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100/10 via-sky-400/10 to-transparent text-white transition-all",
+                                "border border-white/10 shadow-[0_10px_30px_rgba(4,23,51,0.35)] group-aria-[current=page]/nav-item:border-white/40"
+                              )}
+                            >
+                              <item.icon className="h-4 w-4" />
+                            </span>
+                            <span
+                              className={cn(
+                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                                isCollapsed && "sr-only"
+                              )}
+                            >
+                              {item.title}
+                            </span>
                           </span>
-                          <span
-                            className={cn(
-                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
-                              isCollapsed && "sr-only"
-                            )}
-                          >
-                            {item.title}
-                          </span>
-                        </span>
-                      </NavLink>
-                    </TooltipTrigger>
-                    <TooltipContent
-                      side="right"
-                      hidden={!isCollapsed}
-                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                    >
-                      {item.title}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
+                        </NavLink>
+                      </TooltipTrigger>
+                      <TooltipContent
+                        side="right"
+                        hidden={!isCollapsed}
+                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                      >
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               </div>
             </SidebarCollapsibleSection>
 
