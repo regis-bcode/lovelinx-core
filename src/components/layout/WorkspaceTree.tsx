@@ -49,7 +49,7 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
   return (
     <>
       {collapsed ? (
-        <div className="space-y-1">
+        <div className="flex flex-col items-center gap-4">
           {workspaces.slice(0, 3).map((workspace) => (
             <div key={workspace.id}>
               <SophisticatedTooltip
@@ -57,22 +57,23 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
                 description={workspace.descricao}
                 side="right"
               >
-                <div
-                  className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:scale-110"
+                <button
+                  type="button"
+                  className="group relative flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white shadow-[0_12px_32px_rgba(8,30,82,0.45)] transition-all duration-200 hover:scale-105 hover:border-white/30 hover:bg-white/15"
                   onClick={() => navigate(`/workspaces/${workspace.id}`)}
                 >
-                  <div
-                    className="w-4 h-4 rounded-full shadow-sm"
+                  <span
+                    className="h-5 w-5 rounded-full shadow-[0_0_12px_rgba(255,255,255,0.35)]"
                     style={{ backgroundColor: workspace.cor }}
                   />
-                </div>
+                </button>
               </SophisticatedTooltip>
             </div>
           ))}
           {workspaces.length > 3 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-dashed border-white/25 bg-white/5 text-xs font-semibold uppercase tracking-[0.35em] text-white/60">
                   +{workspaces.length - 3}
                 </div>
               </TooltipTrigger>
