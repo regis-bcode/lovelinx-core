@@ -259,7 +259,7 @@ export default function Dashboard() {
               <CardHeader>
                 <CardTitle className="text-xl font-semibold text-foreground">Ações Rápidas</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
+              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button

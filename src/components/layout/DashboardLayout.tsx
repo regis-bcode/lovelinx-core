@@ -15,10 +15,8 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
-  const sharedWidthClasses = cn(
-    "mx-auto w-full transition-[max-width] duration-300 ease-in-out",
-    isSidebarCollapsed ? "max-w-none" : "max-w-7xl"
-  );
+  const sharedWidthClasses = cn("mx-auto w-full transition-[max-width] duration-300 ease-in-out");
+  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100vw)" : "min(104rem, 100vw)";
 
   return (
     <div className="relative min-h-screen bg-transparent">
@@ -35,7 +33,7 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
         <AppMobileNav />
 
         <header className="sticky top-0 z-30 bg-white/80 px-4 pb-6 pt-4 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60 dark:bg-background/80 dark:backdrop-blur">
-          <div className={cn(sharedWidthClasses, "px-0 lg:px-4")}>
+          <div className={cn(sharedWidthClasses, "px-0 lg:px-4")} style={{ maxWidth: layoutMaxWidth }}>
             <AppHeader />
           </div>
         </header>
@@ -47,10 +45,11 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
               "relative w-full px-4 pb-14 pt-10 sm:px-6 lg:px-10",
               sharedWidthClasses
             )}
+            style={{ maxWidth: layoutMaxWidth }}
           >
             <div className="space-y-8">
               {topNav ?? <AppTopNav />}
-              <div className="relative overflow-hidden rounded-[36px] border border-white/60 bg-white/80 p-6 shadow-[0_30px_80px_-40px_rgba(15,65,120,0.55)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/80 sm:p-8 lg:p-10">
+              <div className="relative overflow-hidden rounded-[36px] border border-white/60 bg-white/80 p-4 shadow-[0_30px_80px_-40px_rgba(15,65,120,0.55)] backdrop-blur-2xl supports-[backdrop-filter]:bg-white/60 dark:border-white/10 dark:bg-background/80 sm:p-8 lg:p-10">
                 <div className="pointer-events-none absolute inset-0 -z-10">
                   <div className="absolute -top-32 left-0 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
                   <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-sky-400/10 blur-3xl" />
