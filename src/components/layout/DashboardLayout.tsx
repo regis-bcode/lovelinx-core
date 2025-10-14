@@ -15,8 +15,11 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
 
-  const sharedWidthClasses = cn("mx-auto w-full transition-[max-width] duration-300 ease-in-out");
-  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100vw)" : "min(104rem, 100vw)";
+  const sharedWidthClasses = cn(
+    "w-full transition-[max-width] duration-300 ease-in-out",
+    isSidebarCollapsed ? "mx-auto" : "mx-0",
+  );
+  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100vw)" : "100%";
 
   return (
     <div className="relative min-h-screen bg-transparent">

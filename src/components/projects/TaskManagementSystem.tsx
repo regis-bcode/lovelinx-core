@@ -296,7 +296,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       ? tipoSynonyms[normalizedTipoStatus] ?? [normalizedTipoStatus]
       : null;
 
-    return statuses.filter(status => {
+    const filtered = statuses.filter(status => {
       if (!status?.ativo) {
         return false;
       }
@@ -311,6 +311,23 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       return tiposAplicacao.some(tipo => allowedValues.includes(tipo));
+    });
+
+    const seen = new Set<string>();
+
+    return filtered.filter(status => {
+      const key = status.nome?.trim().toLowerCase();
+
+      if (!key) {
+        return true;
+      }
+
+      if (seen.has(key)) {
+        return false;
+      }
+
+      seen.add(key);
+      return true;
     });
   }, [tap?.tipo, statuses]);
 
