@@ -30,7 +30,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   const getNavCls = ({ isActive }: { isActive: boolean }) =>
     cn(
       "group/nav-item relative flex items-center rounded-2xl text-sm font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60",
-      isCollapsed ? "h-12 w-12 justify-center" : "w-full justify-between px-4 py-3",
+      isCollapsed ? "h-12 w-12 justify-center" : "w-full px-4 py-3",
       isActive
         ? "bg-white/15 text-white shadow-[0_12px_35px_rgba(5,37,76,0.45)] backdrop-blur-sm"
         : "text-sky-100/80 hover:bg-white/10 hover:text-white"
@@ -139,9 +139,6 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                               {item.title}
                             </span>
                           </span>
-                          {!isCollapsed && (
-                            <ChevronRight className="h-4 w-4 text-white/40 transition group-hover/nav-item:translate-x-1" />
-                          )}
                         </NavLink>
                       </TooltipTrigger>
                       <TooltipContent
@@ -215,9 +212,6 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                             {item.title}
                           </span>
                         </span>
-                        {!isCollapsed && (
-                          <ChevronRight className="h-4 w-4 text-white/35 transition group-hover/nav-item:translate-x-1" />
-                        )}
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
@@ -272,9 +266,6 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                             {item.title}
                           </span>
                         </span>
-                        {!isCollapsed && (
-                          <ChevronRight className="h-4 w-4 text-white/35 transition group-hover/nav-item:translate-x-1" />
-                        )}
                       </NavLink>
                     </TooltipTrigger>
                     <TooltipContent
