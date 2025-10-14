@@ -190,74 +190,76 @@ export default function Services() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>ID do Serviço</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {services?.map((service) => (
-                  <TableRow key={service.id}>
-                    <TableCell className="font-medium">{service.id_servico}</TableCell>
-                    <TableCell>{service.descricao}</TableCell>
-                    <TableCell>{service.products?.descricao || 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge variant={service.ativo ? "default" : "secondary"}>
-                        {service.ativo ? 'Ativo' : 'Inativo'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(service)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Tem certeza que deseja excluir o serviço "{service.descricao}"?
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(service.id)}
-                                disabled={isDeleting}
-                              >
-                                {isDeleting ? 'Excluindo...' : 'Excluir'}
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {(!services || services.length === 0) && (
+            <div className="overflow-x-auto">
+              <Table className="min-w-[640px] w-full">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                      Nenhum serviço encontrado. Clique em "Novo Serviço" para começar.
-                    </TableCell>
+                    <TableHead>ID do Serviço</TableHead>
+                    <TableHead>Descrição</TableHead>
+                    <TableHead>Produto</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {services?.map((service) => (
+                    <TableRow key={service.id}>
+                      <TableCell className="font-medium">{service.id_servico}</TableCell>
+                      <TableCell>{service.descricao}</TableCell>
+                      <TableCell>{service.products?.descricao || 'N/A'}</TableCell>
+                      <TableCell>
+                        <Badge variant={service.ativo ? "default" : "secondary"}>
+                          {service.ativo ? 'Ativo' : 'Inativo'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(service)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Tem certeza que deseja excluir o serviço "{service.descricao}"?
+                                  Esta ação não pode ser desfeita.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(service.id)}
+                                  disabled={isDeleting}
+                                >
+                                  {isDeleting ? 'Excluindo...' : 'Excluir'}
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {(!services || services.length === 0) && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                        Nenhum serviço encontrado. Clique em "Novo Serviço" para começar.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
 

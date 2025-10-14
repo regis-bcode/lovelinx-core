@@ -451,7 +451,7 @@ export default function TeamManagement() {
                           </div>
                         )}
                         <div className="overflow-x-auto">
-                          <Table>
+                          <Table className="min-w-[720px] w-full">
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Membro</TableHead>
