@@ -1,18 +1,21 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart,
   Building2,
   Calendar,
   CheckCircle,
   FileText,
-  FolderKanban,
-  Grid3x3,
-  Home,
+  GanttChart,
+  LayoutDashboard,
+  LineChart,
   Map,
   Package,
+  PanelsTopLeft,
   Settings,
-  Tags,
-  Users
+  SquareStack,
+  Tag,
+  UserCog,
+  Users,
+  Wrench
 } from "lucide-react";
 
 type NavigationItem = {
@@ -27,17 +30,17 @@ export const navigation: NavigationItem[] = [
   {
     title: "Dashboard",
     url: "/dashboard",
-    icon: Home,
+    icon: LayoutDashboard,
   },
   {
     title: "Workspaces",
     url: "/workspaces",
-    icon: FolderKanban,
+    icon: PanelsTopLeft,
   },
   {
     title: "Projetos",
     url: "/projects",
-    icon: FolderKanban,
+    icon: GanttChart,
   },
   {
     title: "Equipe",
@@ -47,7 +50,7 @@ export const navigation: NavigationItem[] = [
   {
     title: "Relatórios",
     url: "/reports",
-    icon: BarChart,
+    icon: LineChart,
   },
   {
     title: "Calendário",
@@ -70,7 +73,7 @@ export const settingsNav: SettingsItem[] = [
   {
     title: "Usuários",
     url: "/settings/users",
-    icon: Users,
+    icon: UserCog,
   },
   {
     title: "Clientes",
@@ -85,7 +88,7 @@ export const settingsNav: SettingsItem[] = [
   {
     title: "Serviços",
     url: "/settings/services",
-    icon: Package,
+    icon: Wrench,
   },
   {
     title: "Status",
@@ -95,7 +98,7 @@ export const settingsNav: SettingsItem[] = [
   {
     title: "Módulos",
     url: "/settings/modulos",
-    icon: Grid3x3,
+    icon: SquareStack,
   },
   {
     title: "Áreas",
@@ -105,6 +108,6 @@ export const settingsNav: SettingsItem[] = [
   {
     title: "Categorias",
     url: "/settings/categorias",
-    icon: Tags,
+    icon: Tag,
   },
 ];
