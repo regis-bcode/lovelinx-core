@@ -2,7 +2,6 @@ import { useState } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { AppHeader } from "./AppHeader";
 import { AppSidebar } from "./AppSidebar";
 import { AppMobileNav } from "./AppMobileNav";
 
@@ -34,15 +33,6 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
         )}
       >
         <AppMobileNav />
-
-        <header className="sticky top-0 z-30 bg-white/80 px-4 pb-6 pt-4 backdrop-blur-sm supports-[backdrop-filter]:bg-white/60 dark:bg-background/80 dark:backdrop-blur">
-          <div
-            className={cn(sharedWidthClasses, "px-0 lg:px-4")}
-            style={{ maxWidth: layoutMaxWidth, width: "100%" }}
-          >
-            <AppHeader />
-          </div>
-        </header>
 
         <div className="relative z-10 flex-1 overflow-y-auto">
           <div className="absolute inset-0 -z-10 bg-[linear-gradient(140deg,rgba(255,255,255,0.7),rgba(227,239,255,0.65))] dark:bg-[linear-gradient(140deg,rgba(6,20,46,0.92),rgba(11,33,63,0.88))]" />
