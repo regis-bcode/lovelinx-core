@@ -168,7 +168,10 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                   isCollapsed && "p-2"
                 )}
               >
-                <WorkspaceTree collapsed={isCollapsed} />
+                <WorkspaceTree
+                  collapsed={isCollapsed}
+                  onWorkspaceSelect={() => onCollapseChange(false)}
+                />
               </div>
             </SidebarCollapsibleSection>
 

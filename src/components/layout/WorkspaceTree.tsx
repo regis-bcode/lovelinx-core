@@ -14,9 +14,10 @@ import { useToast } from "@/hooks/use-toast";
 
 interface WorkspaceTreeProps {
   collapsed?: boolean;
+  onWorkspaceSelect?: () => void;
 }
 
-export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
+export function WorkspaceTree({ collapsed = false, onWorkspaceSelect }: WorkspaceTreeProps) {
   const [expandedWorkspaces, setExpandedWorkspaces] = useState<Set<string>>(new Set());
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   
@@ -51,30 +52,42 @@ export function WorkspaceTree({ collapsed = false }: WorkspaceTreeProps) {
       {collapsed ? (
         <div className="space-y-1">
           {workspaces.slice(0, 3).map((workspace) => (
-            <div key={workspace.id}>
-              <SophisticatedTooltip
-                content={workspace.nome}
-                description={workspace.descricao}
-                side="right"
-              >
-                <div
-                  className="flex items-center justify-center p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-all duration-200 hover:scale-110"
-                  onClick={() => navigate(`/workspaces/${workspace.id}`)}
+            <Tooltip key={workspace.id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-center rounded-md p-2 transition-all duration-200 hover:scale-110 hover:bg-muted/50"
+                  onClick={() => {
+                    onWorkspaceSelect?.();
+                    navigate(`/workspaces/${workspace.id}`);
+                  }}
+                  aria-label={`Abrir workspace ${workspace.nome}`}
                 >
-                  <div
-                    className="w-4 h-4 rounded-full shadow-sm"
+                  <span
+                    className="h-4 w-4 rounded-full shadow-sm"
                     style={{ backgroundColor: workspace.cor }}
                   />
-                </div>
-              </SophisticatedTooltip>
-            </div>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs">
+                <p className="text-sm font-medium text-white">{workspace.nome}</p>
+                {workspace.descricao && (
+                  <p className="text-xs text-slate-200">{workspace.descricao}</p>
+                )}
+              </TooltipContent>
+            </Tooltip>
           ))}
           {workspaces.length > 3 && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex items-center justify-center p-2 text-xs text-muted-foreground">
+                <button
+                  type="button"
+                  className="flex w-full items-center justify-center rounded-md p-2 text-xs text-muted-foreground transition-colors hover:bg-muted/50"
+                  onClick={() => onWorkspaceSelect?.()}
+                  aria-label="Expandir lista completa de workspaces"
+                >
                   +{workspaces.length - 3}
-                </div>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right" className="z-50">
                 <p>Mais {workspaces.length - 3} workspaces</p>
