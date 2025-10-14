@@ -108,15 +108,6 @@ export function AppHeader() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Perfil
-                </DropdownMenuLabel>
-                <div className="space-y-1 px-2 pb-2">
-                  <p className="text-sm font-semibold text-foreground">Baumfratz Code</p>
-                  <p className="text-xs text-muted-foreground">Painel de Acompanhamento de Projetos</p>
-                  <p className="text-xs text-muted-foreground">Gestão centralizada para squads, PMOs e lideranças</p>
-                </div>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer">Ver perfil</DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer">Configurações</DropdownMenuItem>
                 <DropdownMenuSeparator />
