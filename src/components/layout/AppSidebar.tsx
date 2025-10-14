@@ -112,7 +112,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                           <item.icon className="h-4 w-4 shrink-0" />
                           <span
                             className={cn(
-                              "flex-1 text-left transition-opacity",
+                              "flex-1 whitespace-nowrap text-left transition-opacity",
                               isCollapsed && "sr-only"
                             )}
                           >
@@ -170,7 +170,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span
                           className={cn(
-                            "flex-1 text-left transition-opacity",
+                            "flex-1 whitespace-nowrap text-left transition-opacity",
                             isCollapsed && "sr-only"
                           )}
                         >
@@ -210,7 +210,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                         <item.icon className="h-4 w-4 shrink-0" />
                         <span
                           className={cn(
-                            "flex-1 text-left transition-opacity",
+                            "flex-1 whitespace-nowrap text-left transition-opacity",
                             isCollapsed && "sr-only"
                           )}
                         >

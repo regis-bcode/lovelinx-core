@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Toggle } from '@/components/ui/toggle';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Pencil, Trash2, Plus, Loader2, Palette, Check } from 'lucide-react';
 import { useStatus } from '@/hooks/useStatus';
 import { Status, StatusFormData } from '@/types/status';
@@ -405,195 +406,207 @@ const StatusPage: React.FC = () => {
             </Card>
           ) : (
             <Card className="overflow-hidden border-none bg-gradient-to-br from-white/85 via-white/70 to-white/45 shadow-[0_45px_120px_-50px_rgba(15,23,42,0.85)] backdrop-blur-2xl dark:from-slate-900/80 dark:via-slate-900/70 dark:to-slate-900/50">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
-                  Visualização em Matriz
-                </CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Utilize a matriz para identificar rapidamente quais status estão disponíveis para Suporte, Projeto ou Avulso.
-                </CardDescription>
+              <CardHeader className="flex flex-col gap-4 pb-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-lg text-slate-900 dark:text-slate-100">
+                    Visualização em Matriz
+                  </CardTitle>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Utilize a matriz para identificar rapidamente quais status estão disponíveis para Suporte, Projeto ou Avulso.
+                  </CardDescription>
+                </div>
+                <Button size="sm" onClick={openCreateDialog} className="shadow-[0_14px_32px_rgba(8,47,73,0.18)]">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Novo Status
+                </Button>
               </CardHeader>
-              <CardContent className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[220px]">Status</TableHead>
-                      {tiposDisponiveis.map((tipo) => (
-                        <TableHead key={tipo.value} className="min-w-[140px] text-center">
-                          {tipo.label}
-                        </TableHead>
-                      ))}
-                      <TableHead className="min-w-[100px] text-center">Ativo</TableHead>
-                      <TableHead className="text-center">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedStatuses.map((status) => {
-                      const remainingAplicacoes = getRemainingAplicacoes(status);
-                      const statusColor = getStatusColorValue(status);
-                      const aplicacoes = getAplicacoes(status);
+              <CardContent className="p-0">
+                <ScrollArea className="max-h-[70vh]" scrollBarOrientation="both">
+                  <div className="min-w-full">
+                    <Table className="min-w-[760px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[120px] text-center">Ações</TableHead>
+                          <TableHead className="min-w-[220px]">Status</TableHead>
+                          {tiposDisponiveis.map((tipo) => (
+                            <TableHead key={tipo.value} className="min-w-[140px] text-center">
+                              {tipo.label}
+                            </TableHead>
+                          ))}
+                          <TableHead className="min-w-[100px] text-center">Ativo</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sortedStatuses.map((status) => {
+                          const remainingAplicacoes = getRemainingAplicacoes(status);
+                          const statusColor = getStatusColorValue(status);
+                          const aplicacoes = getAplicacoes(status);
 
-                      return (
-                        <TableRow
-                          key={status.id}
-                          className="group border-b-transparent bg-white/55 transition-all hover:-translate-y-[1px] hover:bg-white/80 hover:shadow-[0_24px_65px_-30px_rgba(15,23,42,0.55)] dark:bg-slate-900/55 dark:hover:bg-slate-900/70"
-                          style={{ boxShadow: `inset 4px 0 0 ${hexToRgba(statusColor, 0.85)}` }}
-                        >
-                          <TableCell className="align-top">
-                            <div className="flex flex-col gap-3 py-3">
-                              <div className="flex items-start gap-4">
-                                <div
-                                  className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl text-sm font-semibold uppercase tracking-wide text-white shadow-[0_14px_28px_rgba(15,23,42,0.18)]"
-                                  style={{
-                                    background: `linear-gradient(135deg, ${hexToRgba(statusColor, 0.95)}, ${hexToRgba(statusColor, 0.58)})`,
-                                  }}
-                                >
-                                  {status.nome.slice(0, 2).toUpperCase()}
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                      {status.nome}
-                                    </span>
-                                    <Badge
-                                      variant="outline"
-                                      className="flex items-center gap-1 border-transparent text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
-                                      style={{ backgroundColor: hexToRgba(statusColor, 0.12) }}
-                                    >
-                                      <span
-                                        className="h-2 w-2 rounded-full"
-                                        style={{ backgroundColor: statusColor }}
-                                        aria-hidden="true"
-                                      />
-                                      {statusColor.toUpperCase()}
-                                    </Badge>
-                                    {!status.ativo && (
-                                      <Badge variant="outline" className="border-dashed text-[10px] uppercase tracking-wide">
-                                        Inativo
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  {remainingAplicacoes.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                      {remainingAplicacoes.map((tipo) => (
-                                        <Badge
-                                          key={`${status.id}-${tipo}`}
-                                          variant="outline"
-                                          className="border-transparent bg-slate-100/70 text-[10px] font-medium tracking-wide text-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
-                                        >
-                                          {getTipoLabel(tipo)}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          {tiposDisponiveis.map((tipo) => {
-                            const key = `${status.id}-${tipo.value}`;
-                            const isSelected = aplicacoes.includes(tipo.value);
-                            const loading = isKeyLoading(key);
-
-                            return (
-                              <TableCell key={key} className="align-top">
-                                <div className="flex items-center justify-center py-2">
-                                  <Toggle
-                                    pressed={isSelected}
-                                    onPressedChange={(pressed) => void handleMatrixToggle(status, tipo.value, pressed)}
-                                    disabled={loading}
-                                    aria-label={`Marcar status ${status.nome} como aplicável para ${tipo.label}`}
-                                    className={cn(
-                                      'mx-auto flex h-10 w-full max-w-[150px] items-center justify-center rounded-xl border border-white/60 bg-white/70 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:shadow-[0_30px_60px_-34px_rgba(15,23,42,0.65)] dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300',
-                                      isSelected &&
-                                        'border-transparent text-slate-900 shadow-[0_20px_55px_-25px_rgba(15,23,42,0.65)] dark:text-white',
-                                      loading && 'pointer-events-none opacity-70',
-                                    )}
-                                    style={
-                                      isSelected
-                                        ? {
-                                            backgroundColor: hexToRgba(statusColor, 0.18),
-                                            color: statusColor,
-                                          }
-                                        : undefined
-                                    }
-                                  >
-                                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : tipo.label}
-                                  </Toggle>
-                                </div>
-                              </TableCell>
-                            );
-                          })}
-                          <TableCell className="align-top">
-                            <div className="flex items-center justify-center py-2">
-                              <div className="relative flex items-center justify-center">
-                                <Switch
-                                  id={`ativo-${status.id}`}
-                                  checked={status.ativo}
-                                  onCheckedChange={(checked) => void handleActiveToggle(status, checked)}
-                                  aria-label={`Alterar status ${status.nome} para ${status.ativo ? 'inativo' : 'ativo'}`}
-                                  disabled={isKeyLoading(`${status.id}-ativo`)}
-                                />
-                                {isKeyLoading(`${status.id}-ativo`) && (
-                                  <Loader2 className="absolute h-4 w-4 animate-spin text-slate-400" />
-                                )}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="align-top">
-                            <div className="flex items-center justify-center gap-2 py-2">
-                              <Button
-                                variant="secondary"
-                                size="icon"
-                                className="h-9 w-9 rounded-full border-none bg-white/90 shadow-[0_10px_25px_rgba(15,23,42,0.12)] hover:bg-white dark:bg-slate-900/70 dark:hover:bg-slate-900"
-                                onClick={() => openEditDialog(status)}
-                              >
-                                <Pencil className="h-4 w-4 text-slate-600 dark:text-slate-200" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
+                          return (
+                            <TableRow
+                              key={status.id}
+                              className="group border-b-transparent bg-white/55 transition-all hover:-translate-y-[1px] hover:bg-white/80 hover:shadow-[0_24px_65px_-30px_rgba(15,23,42,0.55)] dark:bg-slate-900/55 dark:hover:bg-slate-900/70"
+                              style={{ boxShadow: `inset 4px 0 0 ${hexToRgba(statusColor, 0.85)}` }}
+                            >
+                              <TableCell className="align-top">
+                                <div className="flex items-center justify-center gap-2 py-2">
                                   <Button
                                     variant="secondary"
                                     size="icon"
                                     className="h-9 w-9 rounded-full border-none bg-white/90 shadow-[0_10px_25px_rgba(15,23,42,0.12)] hover:bg-white dark:bg-slate-900/70 dark:hover:bg-slate-900"
+                                    onClick={() => openEditDialog(status)}
+                                    aria-label={`Editar status ${status.nome}`}
                                   >
-                                    <Trash2 className="h-4 w-4 text-slate-600 dark:text-slate-200" />
+                                    <Pencil className="h-4 w-4 text-slate-600 dark:text-slate-200" />
                                   </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Excluir Status</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir o status "{status.nome}"?
-                                      Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => void handleDelete(status.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                      disabled={deletingId === status.id}
+                                  <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                      <Button
+                                        variant="secondary"
+                                        size="icon"
+                                        className="h-9 w-9 rounded-full border-none bg-white/90 shadow-[0_10px_25px_rgba(15,23,42,0.12)] hover:bg-white dark:bg-slate-900/70 dark:hover:bg-slate-900"
+                                        aria-label={`Excluir status ${status.nome}`}
+                                      >
+                                        <Trash2 className="h-4 w-4 text-slate-600 dark:text-slate-200" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Excluir Status</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                          Tem certeza que deseja excluir o status "{status.nome}"?
+                                          Esta ação não pode ser desfeita.
+                                        </AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction
+                                          onClick={() => void handleDelete(status.id)}
+                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                          disabled={deletingId === status.id}
+                                        >
+                                          {deletingId === status.id ? (
+                                            <span className="flex items-center gap-2">
+                                              <Loader2 className="h-4 w-4 animate-spin" />
+                                              Excluindo...
+                                            </span>
+                                          ) : (
+                                            'Excluir'
+                                          )}
+                                        </AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </TableCell>
+                              <TableCell className="align-top">
+                                <div className="flex flex-col gap-3 py-3">
+                                  <div className="flex items-start gap-4">
+                                    <div
+                                      className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl text-sm font-semibold uppercase tracking-wide text-white shadow-[0_14px_28px_rgba(15,23,42,0.18)]"
+                                      style={{
+                                        background: `linear-gradient(135deg, ${hexToRgba(statusColor, 0.95)}, ${hexToRgba(statusColor, 0.58)})`,
+                                      }}
                                     >
-                                      {deletingId === status.id ? (
-                                        <span className="flex items-center gap-2">
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                          Excluindo...
+                                      {status.nome.slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <div className="flex flex-col gap-2">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                          {status.nome}
                                         </span>
-                                      ) : (
-                                        'Excluir'
+                                        <Badge
+                                          variant="outline"
+                                          className="flex items-center gap-1 border-transparent text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300"
+                                          style={{ backgroundColor: hexToRgba(statusColor, 0.12) }}
+                                        >
+                                          <span
+                                            className="h-2 w-2 rounded-full"
+                                            style={{ backgroundColor: statusColor }}
+                                            aria-hidden="true"
+                                          />
+                                          {statusColor.toUpperCase()}
+                                        </Badge>
+                                        {!status.ativo && (
+                                          <Badge variant="outline" className="border-dashed text-[10px] uppercase tracking-wide">
+                                            Inativo
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {remainingAplicacoes.length > 0 && (
+                                        <div className="flex flex-wrap gap-2">
+                                          {remainingAplicacoes.map((tipo) => (
+                                            <Badge
+                                              key={`${status.id}-${tipo}`}
+                                              variant="outline"
+                                              className="border-transparent bg-slate-100/70 text-[10px] font-medium tracking-wide text-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
+                                            >
+                                              {getTipoLabel(tipo)}
+                                            </Badge>
+                                          ))}
+                                        </div>
                                       )}
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              {tiposDisponiveis.map((tipo) => {
+                                const key = `${status.id}-${tipo.value}`;
+                                const isSelected = aplicacoes.includes(tipo.value);
+                                const loading = isKeyLoading(key);
+
+                                return (
+                                  <TableCell key={key} className="align-top">
+                                    <div className="flex items-center justify-center py-2">
+                                      <Toggle
+                                        pressed={isSelected}
+                                        onPressedChange={(pressed) => void handleMatrixToggle(status, tipo.value, pressed)}
+                                        disabled={loading}
+                                        aria-label={`Marcar status ${status.nome} como aplicável para ${tipo.label}`}
+                                        className={cn(
+                                          'mx-auto flex h-10 w-full max-w-[150px] items-center justify-center rounded-xl border border-white/60 bg-white/70 text-xs font-semibold uppercase tracking-wide text-slate-600 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.55)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:shadow-[0_30px_60px_-34px_rgba(15,23,42,0.65)] dark:border-slate-700/60 dark:bg-slate-900/70 dark:text-slate-300',
+                                          isSelected &&
+                                            'border-transparent text-slate-900 shadow-[0_20px_55px_-25px_rgba(15,23,42,0.65)] dark:text-white',
+                                          loading && 'pointer-events-none opacity-70',
+                                        )}
+                                        style={
+                                          isSelected
+                                            ? {
+                                                backgroundColor: hexToRgba(statusColor, 0.18),
+                                                color: statusColor,
+                                              }
+                                            : undefined
+                                        }
+                                      >
+                                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : tipo.label}
+                                      </Toggle>
+                                    </div>
+                                  </TableCell>
+                                );
+                              })}
+                              <TableCell className="align-top">
+                                <div className="flex items-center justify-center py-2">
+                                  <div className="relative flex items-center justify-center">
+                                    <Switch
+                                      id={`ativo-${status.id}`}
+                                      checked={status.ativo}
+                                      onCheckedChange={(checked) => void handleActiveToggle(status, checked)}
+                                      aria-label={`Alterar status ${status.nome} para ${status.ativo ? 'inativo' : 'ativo'}`}
+                                      disabled={isKeyLoading(`${status.id}-ativo`)}
+                                    />
+                                    {isKeyLoading(`${status.id}-ativo`) && (
+                                      <Loader2 className="absolute h-4 w-4 animate-spin text-slate-400" />
+                                    )}
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </ScrollArea>
               </CardContent>
             </Card>
           )}

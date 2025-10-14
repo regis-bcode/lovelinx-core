@@ -21,6 +21,25 @@ const normalizeStatusRecord = (status: SupabaseStatusRecord): Status => ({
   cor: getStatusColorValue(status),
 });
 
+const dedupeStatuses = (list: Status[]): Status[] => {
+  const seen = new Set<string>();
+
+  return list.filter((status) => {
+    const key = status.nome?.trim().toLowerCase();
+
+    if (!key) {
+      return true;
+    }
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+};
+
 export const useStatus = () => {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +83,7 @@ export const useStatus = () => {
       }
 
       const normalized = (data as SupabaseStatusRecord[]).map((status) => normalizeStatusRecord(status));
-      setStatuses(normalized);
+      setStatuses(dedupeStatuses(normalized));
     } catch (error) {
       console.error('Erro ao carregar status:', error);
       toast({
@@ -165,7 +184,7 @@ export const useStatus = () => {
       // Atualização otimista da lista
       const normalized = data ? normalizeStatusRecord(data as SupabaseStatusRecord) : null;
 
-      setStatuses((prev) => (normalized ? [normalized, ...prev] : prev));
+      setStatuses((prev) => (normalized ? dedupeStatuses([normalized, ...prev]) : prev));
 
       return data as Status;
     } catch (error) {
@@ -210,7 +229,14 @@ export const useStatus = () => {
       // Atualização otimista da lista
       const normalized = data ? normalizeStatusRecord(data as SupabaseStatusRecord) : null;
 
-      setStatuses((prev) => (normalized ? prev.map((s) => (s.id === id ? normalized : s)) : prev));
+      setStatuses((prev) => {
+        if (!normalized) {
+          return prev;
+        }
+
+        const updated = prev.map((s) => (s.id === id ? normalized : s));
+        return dedupeStatuses(updated);
+      });
 
       return data as Status;
     } catch (error) {
