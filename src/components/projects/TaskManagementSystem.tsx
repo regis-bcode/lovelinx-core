@@ -970,9 +970,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   };
 
   const exportToExcel = () => {
-    const exportData = editableRows.map(task => {
+    const exportColumns = visibleColumns;
+    const groupingColumnLabel = grouping !== 'none' ? 'Agrupamento' : null;
+
+    const createEmptyRow = () => {
       const row: Record<string, unknown> = {};
-      allColumns.forEach(col => {
+      if (groupingColumnLabel) {
+        row[groupingColumnLabel] = '';
+      }
+      exportColumns.forEach(col => {
+        row[col.label] = '';
+      });
+      return row;
+    };
+
+    const mapTaskToRow = (task: TaskRow, groupLabel?: string) => {
+      const row = createEmptyRow();
+      if (groupingColumnLabel) {
+        row[groupingColumnLabel] = groupLabel ?? '';
+      }
+      exportColumns.forEach(col => {
         if ('isCustom' in col && col.isCustom) {
           const customValue = task.custom_fields?.[col.field.field_name];
           if (Array.isArray(customValue)) {
@@ -987,7 +1004,25 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
       });
       return row;
-    });
+    };
+
+    const exportData: Record<string, unknown>[] = [];
+
+    if (grouping === 'none' || !groupedRows) {
+      editableRows.forEach(task => {
+        exportData.push(mapTaskToRow(task));
+      });
+    } else {
+      groupedRows.forEach(group => {
+        const headerRow = createEmptyRow();
+        headerRow[groupingColumnLabel!] = `${group.label} (${group.rows.length} tarefa${group.rows.length > 1 ? 's' : ''})`;
+        exportData.push(headerRow);
+
+        group.rows.forEach(item => {
+          exportData.push(mapTaskToRow(item.row, group.label));
+        });
+      });
+    }
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
