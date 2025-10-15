@@ -87,7 +87,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
           )}
         >
           <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-400/60 via-blue-500/70 to-indigo-500/70 text-white shadow-[0_12px_30px_rgba(32,112,220,0.65)]">
-            <img src="/baumgratz-code-mark.svg" alt="Baumfratz Code" className="h-9 w-9" />
+            <img src="/lovelinx-logo.svg" alt="Logotipo Lovelinx" className="h-9 w-9" />
           </div>
           <div
             className={cn(
@@ -95,8 +95,8 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               isCollapsed ? "pointer-events-none opacity-0" : "opacity-100"
             )}
           >
-            <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-white/70">Baumfratz</span>
-            <span className="text-xl font-semibold text-orange-300">CODE</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.42em] text-white/70">Lovelinx</span>
+            <span className="text-xl font-semibold text-sky-200">CORE</span>
             <span className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/60">
               Painel de Projetos
             </span>

@@ -22,13 +22,13 @@ export function AppMobileNav() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <div className="flex items-center gap-3">
             <img
-              src="/baumgratz-code-mark.svg"
-              alt="Baumfratz Code"
+              src="/lovelinx-logo.svg"
+              alt="Logotipo Lovelinx"
               className="h-11 w-11 flex-shrink-0 drop-shadow-[0_6px_12px_rgba(41,163,229,0.35)]"
             />
             <div className="flex flex-col leading-tight text-primary">
-              <span className="text-xs font-semibold uppercase tracking-[0.48em] text-primary/60">Baumfratz</span>
-              <span className="text-lg font-semibold text-orange-500">CODE</span>
+              <span className="text-xs font-semibold uppercase tracking-[0.48em] text-primary/60">Lovelinx</span>
+              <span className="text-lg font-semibold text-sky-600">CORE</span>
               <span className="text-[10px] font-medium uppercase tracking-[0.36em] text-primary/50">
                 Painel de Projetos
               </span>

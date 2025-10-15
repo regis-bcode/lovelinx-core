@@ -88,7 +88,7 @@ export default function Login() {
           content="Acesse ou crie sua conta no Sistema de Projetos para gerenciar Workspaces, Pastas e Projetos."
         />
       </header>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_100%_at_0%_0%,rgba(41,163,229,0.22),transparent),radial-gradient(85%_120%_at_100%_0%,rgba(11,46,90,0.38),transparent),radial-gradient(120%_120%_at_50%_80%,rgba(255,122,69,0.18),transparent)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(100%_100%_at_0%_0%,rgba(41,163,229,0.22),transparent),radial-gradient(85%_120%_at_100%_0%,rgba(11,46,90,0.38),transparent),radial-gradient(120%_120%_at_50%_80%,rgba(74,141,255,0.18),transparent)]" />
       <div className="relative z-10 mx-auto flex min-h-[80vh] max-w-6xl flex-col justify-center">
         <div className="grid gap-6 rounded-3xl border border-white/30 bg-white/20 p-6 shadow-large backdrop-blur-xl lg:grid-cols-[1.35fr,1fr] lg:p-12">
           {/* Left column: Brand introduction */}
@@ -97,17 +97,17 @@ export default function Login() {
             <div className="absolute -bottom-12 left-0 h-48 w-48 rounded-full bg-white/10 blur-2xl" />
             <div className="relative space-y-8">
               <div className="flex items-center gap-4">
-                <img src="/baumgratz-code-mark.svg" alt="Logotipo Baumgratz Code" className="h-12 w-12" />
+                <img src="/lovelinx-logo.svg" alt="Logotipo Lovelinx" className="h-12 w-12" />
                 <div className="text-2xl font-semibold tracking-[0.2em] text-white/90 sm:text-3xl">
-                  <span className="text-white">BAUMGRATZ</span>{" "}
-                  <span className="text-[#FF7A45]">CODE</span>
+                  <span className="text-white">LOVELINX</span>{" "}
+                  <span className="text-sky-200">CORE</span>
                 </div>
               </div>
               <div className="space-y-4">
                 <span className="inline-flex items-center gap-2 rounded-full border border-white/30 bg-white/10 px-4 py-1 text-xs font-semibold uppercase tracking-[0.45em] text-white/80">
-                  Painel BCODE
+                  Painel Lovelinx
                 </span>
-                <h2 className="text-3xl font-semibold leading-snug text-[#FF7A45] lg:text-4xl">
+                <h2 className="text-3xl font-semibold leading-snug text-sky-200 lg:text-4xl">
                   Painel de Acompanhamento de Projetos que une dados, equipes e decisões
                 </h2>
                 <p className="text-base text-white/80">
@@ -132,7 +132,7 @@ export default function Login() {
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary shadow-[0_15px_40px_rgba(27,95,140,0.25)]">
                   <FolderKanban className="h-8 w-8" />
                 </div>
-                <h2 className="text-2xl font-semibold text-foreground">Acesse sua central Baumfratz Code</h2>
+                <h2 className="text-2xl font-semibold text-foreground">Acesse sua central Lovelinx Core</h2>
                 <p className="text-sm text-muted-foreground">
                   {isSignup ? "Crie sua conta para iniciar a gestão integrada" : "Entre com suas credenciais para continuar"}
                 </p>
