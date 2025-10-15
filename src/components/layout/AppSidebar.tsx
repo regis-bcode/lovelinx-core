@@ -136,7 +136,12 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                 {mainNavigation.map((item) => (
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                      <NavLink
+                        to={item.url}
+                        end
+                        aria-label={item.title}
+                        className={({ isActive }) => getNavCls({ isActive })}
+                      >
                         <span
                           className={cn(
                             "flex items-center gap-3",
@@ -205,7 +210,12 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                 {toolsNavigation.map((item) => (
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                      <NavLink
+                        to={item.url}
+                        end
+                        aria-label={item.title}
+                        className={({ isActive }) => getNavCls({ isActive })}
+                      >
                         <span
                           className={cn(
                             "flex items-center gap-3",
@@ -260,7 +270,12 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
                 {settingsNav.map((item) => (
                   <Tooltip key={item.title}>
                     <TooltipTrigger asChild>
-                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                      <NavLink
+                        to={item.url}
+                        end
+                        aria-label={item.title}
+                        className={({ isActive }) => getNavCls({ isActive })}
+                      >
                         <span
                           className={cn(
                             "flex items-center gap-3",
