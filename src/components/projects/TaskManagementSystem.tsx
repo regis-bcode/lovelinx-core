@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -105,7 +105,17 @@ const CUSTOM_FIELD_TYPES: Array<{
 ];
 
 export function TaskManagementSystem({ projectId, projectClient }: TaskManagementSystemProps) {
-  const { tasks, customFields, loading, createTask, updateTask, deleteTask, createCustomField } = useTasks(projectId);
+  const {
+    tasks,
+    customFields,
+    loading,
+    createTask,
+    updateTask,
+    deleteTask,
+    createCustomField,
+    updateCustomField,
+    deleteCustomField,
+  } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
   const { modulos, createModulo } = useModulos();
@@ -135,6 +145,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [fieldSearch, setFieldSearch] = useState('');
   const [isCreatingField, setIsCreatingField] = useState(false);
   const [activeTaskDialog, setActiveTaskDialog] = useState<{ mode: 'view' | 'edit'; index: number } | null>(null);
+  const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
+  const [editingFieldName, setEditingFieldName] = useState('');
+  const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
+  const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -1424,6 +1438,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setFieldOptionsInput('');
     setIsFieldRequired(false);
     setFieldSearch('');
+    setEditingFieldId(null);
+    setEditingFieldName('');
+    setUpdatingFieldId(null);
+    setDeletingFieldId(null);
   };
 
   const handleCreateCustomField = async () => {
@@ -1464,6 +1482,50 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (result) {
       resetFieldDialogState();
       setIsCustomFieldDialogOpen(false);
+    }
+  };
+
+  const handleStartEditingField = (field: CustomField) => {
+    setEditingFieldId(field.id);
+    setEditingFieldName(field.field_name);
+  };
+
+  const handleCancelEditingField = () => {
+    setEditingFieldId(null);
+    setEditingFieldName('');
+  };
+
+  const handleSaveFieldEdits = async () => {
+    if (!editingFieldId) {
+      return;
+    }
+
+    const trimmedName = editingFieldName.trim();
+    if (!trimmedName) {
+      toast({
+        title: 'Informe um nome válido',
+        description: 'O nome do campo personalizado não pode estar em branco.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setUpdatingFieldId(editingFieldId);
+    const result = await updateCustomField(editingFieldId, { field_name: trimmedName });
+    setUpdatingFieldId(null);
+
+    if (result) {
+      handleCancelEditingField();
+    }
+  };
+
+  const handleDeleteField = async (fieldId: string) => {
+    setDeletingFieldId(fieldId);
+    const success = await deleteCustomField(fieldId);
+    setDeletingFieldId(null);
+
+    if (success && editingFieldId === fieldId) {
+      handleCancelEditingField();
     }
   };
 
@@ -1532,47 +1594,165 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   <DialogTitle>Criar campo personalizado</DialogTitle>
                 </DialogHeader>
                 {!selectedFieldType ? (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     <div className="space-y-2">
                       <Label htmlFor="field-search">Pesquise campos novos ou existentes</Label>
                       <Input
-                          id="field-search"
-                          value={fieldSearch}
-                          onChange={(event) => setFieldSearch(event.target.value)}
-                          placeholder="Digite para filtrar os tipos de campos"
-                        />
-                      </div>
-                      <ScrollArea className="h-72 rounded-md border">
-                        <div className="p-4 space-y-3">
-                          {filteredFieldTypes.map(option => {
-                            const Icon = option.icon;
-                            return (
-                              <button
-                                key={option.type}
-                                type="button"
-                                onClick={() => setSelectedFieldType(option.type)}
-                                className="flex w-full items-start gap-3 rounded-md border border-border/60 p-3 text-left transition hover:border-primary hover:bg-primary/5"
-                              >
-                                <span className="mt-1">
-                                  <Icon className="h-5 w-5 text-primary" />
-                                </span>
-                                <span>
-                                  <span className="block text-sm font-medium">{option.label}</span>
-                                  <span className="block text-xs text-muted-foreground">{option.description}</span>
-                                </span>
-                              </button>
-                            );
-                          })}
-                          {filteredFieldTypes.length === 0 && (
-                            <p className="text-center text-sm text-muted-foreground">Nenhum tipo encontrado para sua busca.</p>
-                          )}
-                        </div>
-                      </ScrollArea>
+                        id="field-search"
+                        value={fieldSearch}
+                        onChange={event => setFieldSearch(event.target.value)}
+                        placeholder="Digite para filtrar os tipos de campos"
+                      />
                     </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => setSelectedFieldType(null)}>
+                    <ScrollArea className="h-72 rounded-md border">
+                      <div className="p-4 space-y-3">
+                        {filteredFieldTypes.map(option => {
+                          const Icon = option.icon;
+                          return (
+                            <button
+                              key={option.type}
+                              type="button"
+                              onClick={() => setSelectedFieldType(option.type)}
+                              className="flex w-full items-start gap-3 rounded-md border border-border/60 p-3 text-left transition hover:border-primary hover:bg-primary/5"
+                            >
+                              <span className="mt-1">
+                                <Icon className="h-5 w-5 text-primary" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-medium">{option.label}</span>
+                                <span className="block text-xs text-muted-foreground">{option.description}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                        {filteredFieldTypes.length === 0 && (
+                          <p className="text-center text-sm text-muted-foreground">Nenhum tipo encontrado para sua busca.</p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium">Campos personalizados criados</h4>
+                        {customFields.length > 0 && (
+                          <span className="text-xs text-muted-foreground">
+                            {customFields.length} {customFields.length === 1 ? 'campo' : 'campos'}
+                          </span>
+                        )}
+                      </div>
+                      {customFields.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum campo personalizado foi criado ainda.
+                        </p>
+                      ) : (
+                        <ScrollArea className="h-48 rounded-md border">
+                          <div className="divide-y">
+                            {customFields.map(field => {
+                              const typeInfo = CUSTOM_FIELD_TYPES.find(option => option.type === field.field_type);
+                              const typeLabel = typeInfo?.label ?? field.field_type;
+
+                              const isEditing = editingFieldId === field.id;
+                              const isUpdating = updatingFieldId === field.id;
+                              const isDeleting = deletingFieldId === field.id;
+
+                              return (
+                                <div
+                                  key={field.id}
+                                  className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                >
+                                  <div className="flex-1 space-y-1">
+                                    {isEditing ? (
+                                      <>
+                                        <Label htmlFor={`edit-field-${field.id}`} className="sr-only">
+                                          Nome do campo
+                                        </Label>
+                                        <Input
+                                          id={`edit-field-${field.id}`}
+                                          value={editingFieldName}
+                                          onChange={event => setEditingFieldName(event.target.value)}
+                                          placeholder="Nome do campo"
+                                          autoFocus
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                          {typeLabel}
+                                          {field.is_required ? ' • Obrigatório' : ''}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-sm font-medium">{field.field_name}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                          {typeLabel}
+                                          {field.is_required ? ' • Obrigatório' : ''}
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                                    {isEditing ? (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={handleCancelEditingField}
+                                          disabled={isUpdating}
+                                        >
+                                          Cancelar
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          onClick={handleSaveFieldEdits}
+                                          disabled={isUpdating || !editingFieldName.trim()}
+                                        >
+                                          {isUpdating ? (
+                                            <>
+                                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                              Salvando...
+                                            </>
+                                          ) : (
+                                            'Salvar'
+                                          )}
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          onClick={() => handleStartEditingField(field)}
+                                          disabled={isDeleting}
+                                        >
+                                          <Pencil className="h-4 w-4" />
+                                          <span className="sr-only">Editar campo</span>
+                                        </Button>
+                                        <Button
+                                          size="icon"
+                                          variant="ghost"
+                                          className="text-destructive hover:text-destructive"
+                                          onClick={() => handleDeleteField(field.id)}
+                                          disabled={isDeleting || isUpdating}
+                                        >
+                                          {isDeleting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                          )}
+                                          <span className="sr-only">Excluir campo</span>
+                                        </Button>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setSelectedFieldType(null)}>
                           <PlusCircle className="h-4 w-4 rotate-45" />
                           Voltar
                         </Button>
