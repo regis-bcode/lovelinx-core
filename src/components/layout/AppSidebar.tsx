@@ -49,7 +49,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
   ) =>
     cn(
       "rounded-3xl border border-white/10 backdrop-blur-md",
-      collapsed ? "p-2" : "p-4",
+      collapsed ? "p-3" : "p-4",
       variant === "workspaces"
         ? "bg-gradient-to-br from-white/10 via-sky-500/5 to-transparent shadow-[0_15px_45px_rgba(4,22,48,0.32)]"
         : "bg-white/5 shadow-[0_18px_45px_rgba(4,19,42,0.35)]"
@@ -61,13 +61,13 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
     <aside
       className={cn(
         "fixed inset-y-0 left-0 z-40 hidden flex-col overflow-hidden border-r border-white/10 bg-[radial-gradient(120%_120%_at_0%_0%,#1C6DD1,transparent),radial-gradient(120%_120%_at_100%_0%,rgba(12,39,89,0.95),rgba(8,24,54,0.95))] text-white shadow-2xl transition-all duration-300 lg:flex",
-        isCollapsed ? "w-24" : "w-[22rem]"
+        isCollapsed ? "w-28" : "w-[23rem]"
       )}
     >
       <button
         type="button"
         onClick={() => onCollapseChange(!isCollapsed)}
-        className="absolute right-0 top-5 z-50 flex h-8 w-8 translate-x-1/2 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/20"
+        className="absolute right-3 top-5 z-50 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white shadow-[0_10px_30px_rgba(8,30,68,0.45)] transition hover:bg-white/20"
         aria-label={isCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
       >
         {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
@@ -109,7 +109,7 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
           <div
             className={cn(
               "flex flex-col pb-6 transition-all duration-300",
-              isCollapsed ? "px-3 pt-6" : "px-6 pt-8"
+              isCollapsed ? "px-4 pt-6" : "px-6 pt-8"
             )}
           >
             <UserProfileCard
