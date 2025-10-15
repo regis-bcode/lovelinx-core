@@ -140,6 +140,14 @@ const CUSTOM_FIELD_TYPES: Array<{
   },
 ];
 
+const GROUP_HIGHLIGHT_CLASSES = [
+  'bg-primary/10 dark:bg-primary/20',
+  'bg-amber-100/40 dark:bg-amber-500/15',
+  'bg-emerald-100/40 dark:bg-emerald-500/15',
+  'bg-sky-100/40 dark:bg-sky-500/15',
+  'bg-rose-100/40 dark:bg-rose-500/15',
+] as const;
+
 export function TaskManagementSystem({ projectId, projectClient }: TaskManagementSystemProps) {
   const {
     tasks,
@@ -1897,17 +1905,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     );
   }, [fieldSearch]);
 
-  const renderTaskRow = (row: TaskRow, index: number) => (
+  const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => (
     <TableRow
       key={row.id || row._tempId || index}
       className={cn(
-        'border-b border-border/60 bg-background hover:bg-muted/40 text-[10px]',
-        isCondensedView ? 'h-8' : 'h-9'
+        'border-b border-border/60 text-[10px] transition-colors',
+        isCondensedView ? 'h-8' : 'h-9',
+        highlightClass ? cn(highlightClass, 'hover:brightness-95') : 'bg-background hover:bg-muted/40'
       )}
     >
       <TableCell
         className={cn(
-          'sticky left-0 z-20 bg-background px-2',
+          'sticky left-0 z-20 px-2',
+          highlightClass ? ['bg-inherit', 'border-l-4 border-l-primary/40'] : 'bg-background',
           isCondensedView ? 'py-1' : 'py-1.5'
         )}
         style={{ width: '140px', minWidth: '140px' }}
@@ -2410,24 +2420,34 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                       ) : grouping === 'none' ? (
                         editableRows.map((row, index) => renderTaskRow(row, index))
                       ) : (
-                        groupedRows?.map(group => (
-                          <React.Fragment key={`group-${group.key}`}>
-                            <TableRow className="bg-muted/40 text-[10px]">
-                              <TableCell
-                                colSpan={visibleColumns.length + 1}
-                                className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        groupedRows?.map((group, groupIndex) => {
+                          const highlightClass = GROUP_HIGHLIGHT_CLASSES[groupIndex % GROUP_HIGHLIGHT_CLASSES.length];
+                          const rowHighlightClass = highlightClass;
+
+                          return (
+                            <React.Fragment key={`group-${group.key}`}>
+                              <TableRow
+                                className={cn(
+                                  'text-[10px] text-muted-foreground border-y border-border/60',
+                                  highlightClass
+                                )}
                               >
-                                <div className="flex items-center justify-between">
-                                  <span>{group.label}</span>
-                                  <span className="text-[10px] font-medium text-muted-foreground/80">
-                                    {group.rows.length} tarefa{group.rows.length > 1 ? 's' : ''}
-                                  </span>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                            {group.rows.map(item => renderTaskRow(item.row, item.index))}
-                          </React.Fragment>
-                        ))
+                                <TableCell
+                                  colSpan={visibleColumns.length + 1}
+                                  className="border-l-4 border-l-primary/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide"
+                                >
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="truncate text-foreground">{group.label}</span>
+                                    <span className="text-[10px] font-medium text-foreground/80">
+                                      {group.rows.length} tarefa{group.rows.length > 1 ? 's' : ''}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                              {group.rows.map(item => renderTaskRow(item.row, item.index, rowHighlightClass))}
+                            </React.Fragment>
+                          );
+                        })
                       )}
                       {!loading && (
                         <TableRow
