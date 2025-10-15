@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useState, useEffect, useMemo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { TAP } from "@/types/tap";
+import type { Project } from "@/types/project";
 import { TAPEditSuccessDialog } from "@/components/projects/TAPEditSuccessDialog";
 import { GoLiveHistory } from "@/components/ui/go-live-history";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -19,12 +20,13 @@ import { PercentageInput } from "@/components/ui/percentage-input";
 
 interface TAPDetailsProps {
   projectId: string;
+  project?: Project | null;
 }
 
-export function TAPDetails({ projectId }: TAPDetailsProps) {
+export function TAPDetails({ projectId, project: projectProp }: TAPDetailsProps) {
   const { tap, loading: tapLoading, createTAP, updateTAP } = useTAP(projectId);
-const { getProject, updateProject } = useProjects();
-  const project = getProject(projectId);
+  const { getProject, updateProject } = useProjects();
+  const project = projectProp ?? getProject(projectId);
   const { toast } = useToast();
 
   // Dados de visualização combinando Projeto (ex.: cliente) e TAP (sobrepõe)

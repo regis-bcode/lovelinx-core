@@ -130,7 +130,7 @@ export default function ProjectDetails() {
       value: "tap",
       label: "TAP",
       icon: FileText,
-      render: () => <ProjectTabs projectId={project.id} />,
+      render: () => <ProjectTabs projectId={project.id} project={project} />,
     },
     {
       value: "stakeholders",
