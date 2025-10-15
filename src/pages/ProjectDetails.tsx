@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { RisksList } from "@/components/projects/RisksList";
 import { CommunicationPlanList } from "@/components/projects/CommunicationPlanList";
 import { TaskManagementSystem } from "@/components/projects/TaskManagementSystem";
 import { TimeManagement } from "@/components/projects/TimeManagement";
+import { GapManagement } from "@/components/projects/GapManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { getProject, loading: projectsLoading, refreshProjects } = useProjects();
 
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
@@ -121,7 +123,9 @@ export default function ProjectDetails() {
     disableScrollArea?: boolean;
   };
 
-  const tabItems: TabItem[] = [
+  const gapTaskId = searchParams.get('gapTaskId') ?? undefined;
+
+  const tabItems: TabItem[] = useMemo(() => [
     {
       value: "tap",
       label: "TAP",
@@ -167,16 +171,8 @@ export default function ProjectDetails() {
       value: "gaps",
       label: "Gaps",
       icon: FileX,
-      render: () => (
-        <Card>
-          <CardHeader>
-            <CardTitle>Gaps e Mudanças</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Funcionalidade de gaps e mudanças será implementada em breve.</p>
-          </CardContent>
-        </Card>
-      ),
+      render: () => <GapManagement projectId={project.id} initialTaskId={gapTaskId} />,
+      disableScrollArea: true,
     },
     {
       value: "turnover",
@@ -208,7 +204,18 @@ export default function ProjectDetails() {
         </Card>
       ),
     },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [project.id, project.cliente, gapTaskId]);
+
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (!tabParam) return;
+    const matchingTab = tabItems.find(tab => tab.value === tabParam);
+    if (matchingTab && matchingTab.value !== activeTab) {
+      setActiveTab(matchingTab.value);
+    }
+  }, [tabParam, tabItems, activeTab]);
 
   const topNavTriggerClass =
     "flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-11 sm:px-4 sm:text-sm";

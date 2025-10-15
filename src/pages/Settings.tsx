@@ -7,7 +7,8 @@ import {
   Package,
   Settings as SettingsIcon,
   Tags,
-  Users
+  Users,
+  Workflow
 } from "lucide-react";
 
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,12 @@ const settingsSections = [
     description: "Classifique informações com categorias personalizadas.",
     icon: Tags,
     href: "/settings/categorias"
+  },
+  {
+    title: "Etapas do Projeto",
+    description: "Defina as etapas macro e sub-etapas utilizadas nos cronogramas.",
+    icon: Workflow,
+    href: "/settings/project-stages"
   }
 ];
 

@@ -20,6 +20,7 @@ import Status from "./pages/Status";
 import Modulos from "./pages/Modulos";
 import Areas from "./pages/Areas";
 import Categorias from "./pages/Categorias";
+import ProjectStages from "./pages/ProjectStages";
 import Settings from "./pages/Settings";
 import TeamManagement from "./pages/TeamManagement";
 import TeamAddMembers from "./pages/TeamAddMembers";
@@ -240,6 +241,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Categorias />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/settings/project-stages"
+        element={
+          <ProtectedRoute>
+            <ProjectStages />
           </ProtectedRoute>
         }
       />

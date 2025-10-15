@@ -18,6 +18,7 @@ export interface Task {
   area?: string;
   categoria?: string;
   etapa_projeto?: string;
+  sub_etapa_projeto?: string;
   descricao_detalhada?: string;
   retorno_acao?: string;
   acao_realizada?: string;
@@ -25,6 +26,7 @@ export interface Task {
   responsavel_consultoria?: string;
   responsavel_cliente?: string;
   escopo?: string;
+  cronograma?: boolean;
   criticidade?: string;
   numero_ticket?: string;
   descricao_ticket?: string;
