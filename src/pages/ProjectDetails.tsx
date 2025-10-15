@@ -194,6 +194,16 @@ export default function ProjectDetails() {
     ];
   }, [project, gapTaskId]);
 
+  const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (!tabParam) return;
+    const matchingTab = tabItems.find(tab => tab.value === tabParam);
+    if (matchingTab && matchingTab.value !== activeTab) {
+      setActiveTab(matchingTab.value);
+    }
+  }, [tabParam, tabItems, activeTab]);
+
   if (projectsLoading || isFetchingProject) {
     return (
       <DashboardLayout>
@@ -222,16 +232,6 @@ export default function ProjectDetails() {
       </DashboardLayout>
     );
   }
-
-  const tabParam = searchParams.get('tab');
-
-  useEffect(() => {
-    if (!tabParam) return;
-    const matchingTab = tabItems.find(tab => tab.value === tabParam);
-    if (matchingTab && matchingTab.value !== activeTab) {
-      setActiveTab(matchingTab.value);
-    }
-  }, [tabParam, tabItems, activeTab]);
 
   const topNavTriggerClass =
     "flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 sm:h-11 sm:px-4 sm:text-sm";
