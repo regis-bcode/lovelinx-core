@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
+import { getStatusColorValue } from '@/lib/status-colors';
 
 interface TaskManagementSystemProps {
   projectId: string;
@@ -162,6 +163,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
+  const statusColorMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    statuses.forEach(status => {
+      const normalizedName = status.nome?.trim().toLowerCase();
+
+      if (normalizedName) {
+        map.set(normalizedName, getStatusColorValue(status));
+      }
+    });
+
+    return map;
+  }, [statuses]);
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
@@ -1546,20 +1560,35 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           ? `${value} (inativo)`
           : 'Selecione';
 
+      const normalizedStatusValue = typeof value === 'string' ? value.trim().toLowerCase() : undefined;
+      const statusColor = normalizedStatusValue ? statusColorMap.get(normalizedStatusValue) : undefined;
+
       return (
         <Select
           value={currentStatus}
           onValueChange={(val) => updateCell(rowIndex, column.key, val)}
         >
           <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder={placeholder} />
+            <div className="flex w-full items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full border border-border/40"
+                style={{ backgroundColor: statusColor ?? 'transparent' }}
+              />
+              <SelectValue placeholder={placeholder} />
+            </div>
           </SelectTrigger>
           <SelectContent>
             {filteredStatuses
               .filter(status => typeof status.nome === 'string' && status.nome.trim().length > 0)
               .map(status => (
                 <SelectItem key={status.id} value={status.nome}>
-                  {status.nome}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full border border-border/40"
+                      style={{ backgroundColor: getStatusColorValue(status) }}
+                    />
+                    <span>{status.nome}</span>
+                  </div>
                 </SelectItem>
               ))}
           </SelectContent>
