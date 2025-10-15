@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -204,11 +205,10 @@ export function WorkspaceWithProjectDialog({ children, folderId, onProjectCreate
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="project-data">Data</Label>
-                <Input
+                <DateInput
                   id="project-data"
-                  type="date"
                   value={projectData.data}
-                  onChange={(e) => setProjectData(prev => ({ ...prev, data: e.target.value }))}
+                  onChange={(value) => setProjectData(prev => ({ ...prev, data: value }))}
                   required
                 />
               </div>
@@ -423,11 +423,10 @@ export function WorkspaceWithProjectDialog({ children, folderId, onProjectCreate
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="project-data">Data</Label>
-                  <Input
+                  <DateInput
                     id="project-data"
-                    type="date"
                     value={projectData.data}
-                    onChange={(e) => setProjectData(prev => ({ ...prev, data: e.target.value }))}
+                    onChange={(value) => setProjectData(prev => ({ ...prev, data: value }))}
                     required
                   />
                 </div>

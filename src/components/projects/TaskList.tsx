@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -177,10 +178,9 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="date"
-                      value={newTask.data_vencimento}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, data_vencimento: e.target.value }))}
+                    <DateInput
+                      value={typeof newTask.data_vencimento === 'string' ? newTask.data_vencimento : ''}
+                      onChange={(val) => setNewTask(prev => ({ ...prev, data_vencimento: val }))}
                       className="h-8"
                     />
                   </TableCell>

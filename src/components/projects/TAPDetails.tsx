@@ -15,6 +15,7 @@ import { TAPEditSuccessDialog } from "@/components/projects/TAPEditSuccessDialog
 import { GoLiveHistory } from "@/components/ui/go-live-history";
 import { DatePicker } from "@/components/ui/date-picker";
 import { CurrencyInput } from "@/components/ui/currency-input";
+import { PercentageInput } from "@/components/ui/percentage-input";
 
 interface TAPDetailsProps {
   projectId: string;
@@ -502,12 +503,9 @@ const { getProject, updateProject } = useProjects();
              <div>
                <label className="text-sm font-medium text-muted-foreground">Margem da Venda (%)</label>
                {isEditing ? (
-                 <Input
-                   type="number"
-                   step="0.01"
-                   value={editData.margem_venda_percent || ''}
-                   onChange={(e) => handleFieldChange('margem_venda_percent', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                   placeholder="0.00"
+                 <PercentageInput
+                   value={editData.margem_venda_percent ?? ''}
+                   onChange={(value) => handleFieldChange('margem_venda_percent', value === '' ? '' : Number(value))}
                  />
                ) : (
                  <p className="text-lg font-semibold">{tapData.margem_venda_percent?.toFixed(2) ?? '0.00'}%</p>
@@ -516,12 +514,9 @@ const { getProject, updateProject } = useProjects();
              <div>
                <label className="text-sm font-medium text-muted-foreground">Margem Atual (%)</label>
                {isEditing ? (
-                 <Input
-                   type="number"
-                   step="0.01"
-                   value={editData.margem_atual_percent || ''}
-                   onChange={(e) => handleFieldChange('margem_atual_percent', e.target.value === '' ? '' : parseFloat(e.target.value))}
-                   placeholder="0.00"
+                 <PercentageInput
+                   value={editData.margem_atual_percent ?? ''}
+                   onChange={(value) => handleFieldChange('margem_atual_percent', value === '' ? '' : Number(value))}
                  />
                ) : (
                  <p className="text-lg font-semibold">{tapData.margem_atual_percent?.toFixed(2) ?? '0.00'}%</p>

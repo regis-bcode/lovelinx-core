@@ -4,6 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -146,11 +148,10 @@ export function RisksList({ projectId }: RisksListProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="data">Data</Label>
-                  <Input
+                  <DateInput
                     id="data"
-                    type="date"
                     value={formData.data}
-                    onChange={(e) => setFormData({...formData, data: e.target.value})}
+                    onChange={(value) => setFormData({...formData, data: value})}
                     required
                   />
                 </div>
@@ -228,21 +229,19 @@ export function RisksList({ projectId }: RisksListProps) {
                 </div>
                 <div>
                   <Label htmlFor="custoRisco">Custo do Risco (R$)</Label>
-                  <Input
+                  <CurrencyInput
                     id="custoRisco"
-                    type="number"
-                    step="0.01"
                     value={formData.custoRisco}
-                    onChange={(e) => setFormData({...formData, custoRisco: parseFloat(e.target.value) || 0})}
+                    onChange={(value) => setFormData({...formData, custoRisco: value ? Number(value) : 0})}
+                    className="h-10"
                   />
                 </div>
                 <div>
                   <Label htmlFor="dataLimite">Data Limite</Label>
-                  <Input
+                  <DateInput
                     id="dataLimite"
-                    type="date"
                     value={formData.dataLimite}
-                    onChange={(e) => setFormData({...formData, dataLimite: e.target.value})}
+                    onChange={(value) => setFormData({...formData, dataLimite: value})}
                   />
                 </div>
                 <div>
@@ -327,7 +326,10 @@ export function RisksList({ projectId }: RisksListProps) {
                     {risk.statusRisco}
                   </Badge>
                 </TableCell>
-                <TableCell>R$ {risk.custoRisco.toLocaleString()}</TableCell>
+                <TableCell>
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+                    .format(Number(risk.custoRisco ?? 0))}
+                </TableCell>
                 <TableCell>
                   <div className="flex space-x-2">
                     <Button

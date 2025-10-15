@@ -3,6 +3,9 @@ import type { ChangeEvent } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { CurrencyInput } from '@/components/ui/currency-input';
+import { PercentageInput } from '@/components/ui/percentage-input';
+import { DateInput } from '@/components/ui/date-input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1055,7 +1058,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           );
         }
         case 'numeric':
-        case 'monetary':
           return (
             <Input
               type="number"
@@ -1070,20 +1072,44 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               className="h-8 text-xs"
             />
           );
+        case 'monetary': {
+          const numericValue = typeof customValue === 'number'
+            ? customValue
+            : typeof customValue === 'string'
+              ? Number(customValue)
+              : undefined;
+          return (
+            <CurrencyInput
+              value={typeof numericValue === 'number' && !Number.isNaN(numericValue) ? numericValue : ''}
+              onChange={(val) => {
+                if (!val) {
+                  updateCustomFieldValue(rowIndex, field.field_name, undefined);
+                  return;
+                }
+                const parsed = Number(val);
+                updateCustomFieldValue(
+                  rowIndex,
+                  field.field_name,
+                  Number.isNaN(parsed) ? undefined : parsed,
+                );
+              }}
+              className="h-8 text-xs"
+            />
+          );
+        }
         case 'percentage':
           return (
-            <Input
-              type="number"
-              min="0"
-              max="100"
-              value={typeof customValue === 'number' ? customValue : ''}
-              onChange={(e) => {
-                const parsedValue = e.target.value === ''
+            <PercentageInput
+              value={typeof customValue === 'number' ? customValue : customValue || ''}
+              onChange={(val) => {
+                if (!val) {
+                  updateCustomFieldValue(rowIndex, field.field_name, undefined);
+                  return;
+                }
+                const parsedValue = Number(val);
+                const normalizedValue = Number.isNaN(parsedValue)
                   ? undefined
-                  : Math.min(Math.max(Number(e.target.value), 0), 100);
-                const normalizedValue = typeof parsedValue === 'number' && !Number.isNaN(parsedValue)
-                  ? parsedValue
-                  : undefined;
+                  : Math.min(Math.max(parsedValue, 0), 100);
                 updateCustomFieldValue(rowIndex, field.field_name, normalizedValue);
               }}
               className="h-8 text-xs"
@@ -1191,12 +1217,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     if (column.key === 'percentual_conclusao') {
       return (
-        <Input
-          type="number"
-          min="0"
-          max="100"
-          value={value as number || 0}
-          onChange={(e) => updateCell(rowIndex, column.key, parseInt(e.target.value) || 0)}
+        <PercentageInput
+          value={typeof value === 'number' ? value : ''}
+          onChange={(val) => {
+            if (!val) {
+              updateCell(rowIndex, column.key, 0);
+              return;
+            }
+            const parsed = Number(val);
+            const normalized = Number.isNaN(parsed)
+              ? 0
+              : Math.min(Math.max(parsed, 0), 100);
+            updateCell(rowIndex, column.key, normalized);
+          }}
           className="h-8 text-xs"
         />
       );
@@ -1276,10 +1309,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     if (column.key === 'data_vencimento') {
       return (
-        <Input
-          type="date"
-          value={value as string || ''}
-          onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
+        <DateInput
+          value={typeof value === 'string' ? value : ''}
+          onChange={(val) => updateCell(rowIndex, column.key, val)}
           className="h-8 text-xs"
         />
       );
@@ -1368,8 +1400,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return <span className="text-muted-foreground">-</span>;
       }
 
-      if (column.field.field_type === 'monetary' && typeof customValue === 'number') {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(customValue);
+      if (column.field.field_type === 'monetary') {
+        const numeric = typeof customValue === 'number'
+          ? customValue
+          : typeof customValue === 'string'
+            ? Number(customValue)
+            : undefined;
+        if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+          return <span>{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numeric)}</span>;
+        }
+      }
+
+      if (column.field.field_type === 'percentage') {
+        const numeric = typeof customValue === 'number'
+          ? customValue
+          : typeof customValue === 'string'
+            ? Number(customValue)
+            : undefined;
+        if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+          return <span>{`${numeric}%`}</span>;
+        }
       }
 
       return <span>{String(customValue)}</span>;
