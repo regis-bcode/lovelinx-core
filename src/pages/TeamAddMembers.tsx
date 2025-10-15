@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { MultiSelect } from "@/components/ui/multi-select";
 
 export default function TeamAddMembers() {
@@ -223,12 +224,10 @@ export default function TeamAddMembers() {
 
                     <div className="space-y-1">
                       <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Custo/Hora Override</span>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
+                      <CurrencyInput
+                        placeholder="R$ 0,00"
                         value={row.custo_hora_override}
-                        onChange={(e) => updateRow(row.id, "custo_hora_override", e.target.value)}
+                        onChange={(value) => updateRow(row.id, "custo_hora_override", value)}
                         className="text-center"
                       />
                     </div>

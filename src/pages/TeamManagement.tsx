@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useProjectAllocations } from "@/hooks/useProjectAllocations";
 import { useProjects } from "@/hooks/useProjects";
@@ -262,13 +264,10 @@ export default function TeamManagement() {
 
                   <div className="grid gap-2">
                     <Label htmlFor="valor_hora">Valor Hora (R$) *</Label>
-                    <Input
+                    <CurrencyInput
                       id="valor_hora"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.valor_hora}
-                      onChange={(e) => setFormData({ ...formData, valor_hora: parseFloat(e.target.value) })}
+                      value={formData.valor_hora ?? ''}
+                      onChange={(value) => setFormData({ ...formData, valor_hora: value ? Number(value) : undefined })}
                       required
                     />
                   </div>
@@ -276,22 +275,20 @@ export default function TeamManagement() {
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
                       <Label htmlFor="data_inicio">Data de Início *</Label>
-                      <Input
+                      <DateInput
                         id="data_inicio"
-                        type="date"
                         value={formData.data_inicio}
-                        onChange={(e) => setFormData({ ...formData, data_inicio: e.target.value })}
+                        onChange={(value) => setFormData({ ...formData, data_inicio: value })}
                         required
                       />
                     </div>
 
                     <div className="grid gap-2">
                       <Label htmlFor="data_saida">Data de Saída</Label>
-                      <Input
+                      <DateInput
                         id="data_saida"
-                        type="date"
                         value={formData.data_saida || ''}
-                        onChange={(e) => setFormData({ ...formData, data_saida: e.target.value })}
+                        onChange={(value) => setFormData({ ...formData, data_saida: value })}
                       />
                     </div>
                   </div>
