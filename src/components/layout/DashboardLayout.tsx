@@ -15,9 +15,9 @@ export function DashboardLayout({ children, topNav }: DashboardLayoutProps) {
 
   const sharedWidthClasses = cn(
     "w-full max-w-full transition-[max-width] duration-300 ease-in-out",
-    isSidebarCollapsed ? "mx-auto" : "mx-0",
+    "mx-0",
   );
-  const layoutMaxWidth = isSidebarCollapsed ? "min(110rem, 100%)" : "100%";
+  const layoutMaxWidth = isSidebarCollapsed ? "100%" : "min(110rem, 100%)";
   const hasTopNav = Boolean(topNav);
 
   return (
