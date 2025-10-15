@@ -16,7 +16,18 @@ import { GapManagement } from "@/components/projects/GapManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
+const getOverflowClasses = (
+  orientation: "vertical" | "horizontal" | "both" = "vertical",
+) => {
+  switch (orientation) {
+    case "horizontal":
+      return "overflow-x-auto overflow-y-hidden";
+    case "both":
+      return "overflow-auto";
+    default:
+      return "overflow-y-auto overflow-x-hidden";
+  }
+};
 
 
 export default function ProjectDetails() {
@@ -280,25 +291,17 @@ export default function ProjectDetails() {
             <div className="flex-1 min-h-0 min-w-0">
               {tabItems.map((tab) =>
                 tab.value === activeTab ? (
-                  tab.disableScrollArea ? (
-                    <div
-                      key={tab.value}
-                      className="mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6"
-                    >
-                      {tab.render()}
-                    </div>
-                  ) : (
-                    <ScrollArea
-                      key={tab.value}
-                      className="mt-0 h-full"
-                      scrollBarOrientation={tab.scrollBarOrientation ?? "vertical"}
-                      type="scroll"
-                    >
-                      <div className="flex min-h-full flex-col gap-4 p-6">
-                        {tab.render()}
-                      </div>
-                    </ScrollArea>
-                  )
+                  <div
+                    key={tab.value}
+                    className={cn(
+                      "mt-0 flex h-full min-h-0 min-w-0 flex-col gap-4 p-6",
+                      tab.disableScrollArea
+                        ? undefined
+                        : getOverflowClasses(tab.scrollBarOrientation ?? "vertical"),
+                    )}
+                  >
+                    {tab.render()}
+                  </div>
                 ) : null
               )}
             </div>
