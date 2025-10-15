@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { ChangeEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2 } from 'lucide-react';
+import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -32,6 +33,8 @@ import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
+import { useProjectStages } from '@/hooks/useProjectStages';
+import { useGaps } from '@/hooks/useGaps';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { getStatusColorValue } from '@/lib/status-colors';
@@ -83,6 +86,9 @@ const GROUPING_OPTIONS: Array<{ value: GroupingKey; label: string }> = [
   { value: 'categoria', label: 'Categoria' },
   { value: 'criticidade', label: 'Criticidade' },
   { value: 'escopo', label: 'Escopo' },
+  { value: 'etapa_projeto', label: 'Etapa do Projeto' },
+  { value: 'sub_etapa_projeto', label: 'Sub-Etapa do Projeto' },
+  { value: 'cronograma', label: 'Cronograma' },
 ];
 
 const CUSTOM_FIELD_TYPES: Array<{
@@ -179,10 +185,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
-  const { getTaskTotalTime } = useTimeLogs(projectId);
+  const { getTaskTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { stages, subStages } = useProjectStages();
+  const { ensureGapForTask } = useGaps(projectId);
 
   const [editableRows, setEditableRows] = useState<TaskRow[]>([]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
@@ -208,6 +217,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [grouping, setGrouping] = useState<GroupingKey>('none');
+  const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const [timerTick, setTimerTick] = useState(0);
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -218,6 +229,53 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
     return '';
   }, [projectClient, tap?.cod_cliente]);
+
+  const stageOptions = useMemo(() => (
+    stages.map(stage => ({ value: stage.id, label: stage.nome }))
+  ), [stages]);
+
+  const subStageOptionsByStage = useMemo(() => {
+    const map = new Map<string, Array<{ value: string; label: string }>>();
+    subStages.forEach(subStage => {
+      const list = map.get(subStage.stage_id) ?? [];
+      list.push({ value: subStage.id, label: subStage.nome });
+      map.set(subStage.stage_id, list);
+    });
+    return map;
+  }, [subStages]);
+
+  const stageNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    stages.forEach(stage => {
+      map.set(stage.id, stage.nome);
+    });
+    return map;
+  }, [stages]);
+
+  const subStageNameById = useMemo(() => {
+    const map = new Map<string, { label: string; stageId: string }>();
+    subStages.forEach(subStage => {
+      map.set(subStage.id, { label: subStage.nome, stageId: subStage.stage_id });
+    });
+    return map;
+  }, [subStages]);
+
+  useEffect(() => {
+    if (Object.keys(activeTimers).length === 0) return;
+
+    const interval = window.setInterval(() => {
+      setTimerTick(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [activeTimers]);
+
+  const formatMinutes = useCallback((minutes: number) => {
+    const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
+    const hours = Math.floor(safeMinutes / 60);
+    const mins = safeMinutes % 60;
+    return `${hours}h ${mins}m`;
+  }, []);
 
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
 
@@ -418,6 +476,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     nivel: 0,
     ordem: order,
     custom_fields: {},
+    cronograma: false,
   }), [projectId, defaultClient, defaultStatusName]);
 
   useEffect(() => {
@@ -481,12 +540,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: 'responsavel', label: 'Responsável', width: '150px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
     { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
+    { key: 'tempo_controle', label: 'Controle de Tempo', width: '140px' },
     { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
     { key: 'modulo', label: 'Módulo', width: '150px' },
     { key: 'area', label: 'Área', width: '150px' },
     { key: 'categoria', label: 'Categoria', width: '150px' },
+    { key: 'etapa_projeto', label: 'Etapa do Projeto', width: '170px' },
+    { key: 'sub_etapa_projeto', label: 'Sub-Etapa', width: '170px' },
     { key: 'criticidade', label: 'Criticidade', width: '120px' },
     { key: 'escopo', label: 'Escopo', width: '150px' },
+    { key: 'cronograma', label: 'Cronograma?', width: '140px' },
   ]), []);
 
   const customFieldColumns = useMemo<ColumnDefinition[]>(() => (
@@ -645,11 +708,28 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           const key = value?.toLowerCase() ?? '__empty__';
           return { key, label: value ?? 'Sem escopo' };
         }
+        case 'etapa_projeto': {
+          const value = typeof row.etapa_projeto === 'string' ? row.etapa_projeto : undefined;
+          const label = value ? stageNameById.get(value) ?? value : 'Sem etapa';
+          const key = value ?? '__empty__';
+          return { key, label };
+        }
+        case 'sub_etapa_projeto': {
+          const value = typeof row.sub_etapa_projeto === 'string' ? row.sub_etapa_projeto : undefined;
+          const subStage = value ? subStageNameById.get(value) : undefined;
+          const label = subStage?.label ?? value ?? 'Sem sub-etapa';
+          const key = value ?? '__empty__';
+          return { key, label };
+        }
+        case 'cronograma': {
+          const isCronograma = Boolean(row.cronograma);
+          return { key: isCronograma ? 'sim' : 'nao', label: isCronograma ? 'Cronograma' : 'Sem cronograma' };
+        }
         default:
           return { key: 'none', label: '' };
       }
     },
-    [grouping],
+    [grouping, stageNameById, subStageNameById],
   );
 
   const groupedRows = useMemo(() => {
@@ -937,6 +1017,74 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setHasChanges(true);
   };
 
+  const handleStartTimer = (row: TaskRow) => {
+    if (!row.id) {
+      toast({
+        title: 'Atenção',
+        description: 'Salve a tarefa antes de iniciar o apontamento de tempo.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setActiveTimers(prev => {
+      if (prev[row.id!]) {
+        return prev;
+      }
+      return { ...prev, [row.id!]: Date.now() };
+    });
+  };
+
+  const handleStopTimer = async (row: TaskRow) => {
+    if (!row.id) {
+      toast({
+        title: 'Atenção',
+        description: 'Salve a tarefa antes de finalizar o apontamento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const start = activeTimers[row.id];
+    if (!start) {
+      return;
+    }
+
+    const elapsedMinutes = Math.max(1, Math.round((Date.now() - start) / 60000));
+    const payload = {
+      task_id: row.id,
+      tempo_minutos: elapsedMinutes,
+      tipo_inclusao: 'automatico' as const,
+      status_aprovacao: 'aprovado' as const,
+      data_inicio: new Date(start).toISOString(),
+      data_fim: new Date().toISOString(),
+      observacoes: 'Registro automático pela Gestão de Tarefas',
+    };
+
+    const result = await createTimeLog(payload);
+    if (result) {
+      setActiveTimers(prev => {
+        const next = { ...prev };
+        delete next[row.id!];
+        return next;
+      });
+      refreshTimeLogs();
+    }
+  };
+
+  const navigateToGaps = (taskId?: string) => {
+    if (!taskId) {
+      toast({
+        title: 'Atenção',
+        description: 'Salve a tarefa para acessar a gestão de GAPs.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    navigate(`/projects-tap/${projectId}?tab=gaps&gapTaskId=${taskId}`);
+  };
+
   const addNewRow = () => {
     setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
     setHasChanges(true);
@@ -953,11 +1101,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         if (row._isNew) {
           // Nova tarefa
           const { _isNew, _tempId, id, task_id, created_at, updated_at, user_id, ...taskData } = row;
-          await createTask(taskData);
+          const created = await createTask(taskData);
+          if (created && created.escopo?.toLowerCase() === 'não') {
+            await ensureGapForTask(created);
+          }
         } else if (row.id) {
           // Atualizar tarefa existente
           const { id, task_id, created_at, updated_at, user_id, ...taskData } = row;
-          await updateTask(id, taskData);
+          const updated = await updateTask(id, taskData);
+          if (updated && updated.escopo?.toLowerCase() === 'não') {
+            await ensureGapForTask(updated);
+          }
         }
       }
 
@@ -1510,12 +1664,49 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
     }
 
+    if (column.key === 'tempo_controle') {
+      const isRunning = Boolean(row.id && activeTimers[row.id]);
+      return (
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={!row.id || isRunning}
+            onClick={() => handleStartTimer(row)}
+            aria-label="Iniciar apontamento"
+          >
+            <Play className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8"
+            disabled={!row.id || !isRunning}
+            onClick={() => handleStopTimer(row)}
+            aria-label="Encerrar apontamento"
+          >
+            <Square className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      );
+    }
+
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
       const minutes = getTaskTotalTime(row.id);
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return <span className="text-xs">{hours}h {mins}m</span>;
+      const runningStart = activeTimers[row.id];
+      const referenceNow = timerTick || Date.now();
+      const runningMinutes = runningStart ? Math.floor((referenceNow - runningStart) / 60000) : 0;
+      const totalMinutes = minutes + runningMinutes;
+      return (
+        <div className="flex flex-col text-xs">
+          <span>{formatMinutes(totalMinutes)}</span>
+          {runningStart ? (
+            <span className="text-[10px] text-muted-foreground">Cronometrando...</span>
+          ) : null}
+        </div>
+      );
     }
 
     if (column.key === 'prioridade') {
@@ -1650,6 +1841,94 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           <SelectContent>
             <SelectItem value="Sim">Sim</SelectItem>
             <SelectItem value="Não">Não</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (column.key === 'etapa_projeto') {
+      const currentValue = typeof value === 'string' ? value : '';
+      const hasValidStage = stageOptions.some(option => option.value === currentValue);
+      return (
+        <Select
+          value={hasValidStage && currentValue ? currentValue : 'none'}
+          onValueChange={(val) => {
+            const normalized = val === 'none' ? undefined : val;
+            updateCell(rowIndex, column.key, normalized);
+            if (!normalized) {
+              updateCell(rowIndex, 'sub_etapa_projeto', undefined);
+            } else {
+              const allowed = subStageOptionsByStage.get(normalized) ?? [];
+              if (row.sub_etapa_projeto && !allowed.some(option => option.value === row.sub_etapa_projeto)) {
+                updateCell(rowIndex, 'sub_etapa_projeto', undefined);
+              }
+            }
+          }}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Selecionar etapa" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem etapa</SelectItem>
+            {stageOptions.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            {!hasValidStage && currentValue ? (
+              <SelectItem value={currentValue} disabled>
+                {currentValue} (inativa)
+              </SelectItem>
+            ) : null}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (column.key === 'sub_etapa_projeto') {
+      const stageId = typeof row.etapa_projeto === 'string' ? row.etapa_projeto : undefined;
+      const options = stageId ? subStageOptionsByStage.get(stageId) ?? [] : [];
+      const currentValue = typeof value === 'string' ? value : '';
+      const hasValidSubStage = options.some(option => option.value === currentValue);
+      return (
+        <Select
+          value={hasValidSubStage && currentValue ? currentValue : 'none'}
+          onValueChange={(val) => updateCell(rowIndex, column.key, val === 'none' ? undefined : val)}
+          disabled={!stageId || options.length === 0}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder={stageId ? 'Selecionar sub-etapa' : 'Selecione uma etapa'} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem sub-etapa</SelectItem>
+            {options.map(option => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            {!hasValidSubStage && currentValue ? (
+              <SelectItem value={currentValue} disabled>
+                {currentValue} (inativa)
+              </SelectItem>
+            ) : null}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    if (column.key === 'cronograma') {
+      const currentValue = Boolean(value);
+      return (
+        <Select
+          value={currentValue ? 'sim' : 'nao'}
+          onValueChange={(val) => updateCell(rowIndex, column.key, val === 'sim')}
+        >
+          <SelectTrigger className="h-8 text-xs">
+            <SelectValue placeholder="Selecione" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sim">Sim</SelectItem>
+            <SelectItem value="nao">Não</SelectItem>
           </SelectContent>
         </Select>
       );
@@ -1823,9 +2102,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-muted-foreground">-</span>;
       const minutes = getTaskTotalTime(row.id);
-      const hours = Math.floor(minutes / 60);
-      const mins = minutes % 60;
-      return <span>{`${hours}h ${mins}m`}</span>;
+      const runningStart = activeTimers[row.id];
+      const referenceNow = timerTick || Date.now();
+      const runningMinutes = runningStart ? Math.floor((referenceNow - runningStart) / 60000) : 0;
+      const totalMinutes = minutes + runningMinutes;
+      return <span>{formatMinutes(totalMinutes)}</span>;
     }
 
     if (column.key === 'percentual_conclusao') {
@@ -1833,6 +2114,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return <span>{`${value}%`}</span>;
       }
       return <span className="text-muted-foreground">0%</span>;
+    }
+
+    if (column.key === 'cronograma') {
+      return <span>{value ? 'Sim' : 'Não'}</span>;
+    }
+
+    if (column.key === 'etapa_projeto') {
+      if (typeof value === 'string') {
+        const stageName = stageNameById.get(value) ?? value;
+        return <span>{stageName}</span>;
+      }
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    if (column.key === 'sub_etapa_projeto') {
+      if (typeof value === 'string') {
+        const subStageInfo = subStageNameById.get(value);
+        return <span>{subStageInfo?.label ?? value}</span>;
+      }
+      return <span className="text-muted-foreground">-</span>;
     }
 
     if (column.key === 'data_vencimento') {
@@ -1859,7 +2160,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     return <span>{String(value)}</span>;
-  }, [getTaskTotalTime]);
+  }, [getTaskTotalTime, activeTimers, timerTick, formatMinutes, stageNameById, subStageNameById]);
 
   const closeTaskDialog = useCallback(() => setActiveTaskDialog(null), []);
 
@@ -1987,7 +2288,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           highlightClass ? ['bg-inherit', 'border-l-4 border-l-primary/40'] : 'bg-background',
           isCondensedView ? 'py-1' : 'py-1.5'
         )}
-        style={{ width: '140px', minWidth: '140px' }}
+        style={{ width: '180px', minWidth: '180px' }}
       >
         <div className="flex items-center gap-1.5">
           <Button
@@ -2007,6 +2308,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             aria-label="Editar tarefa"
           >
             <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-primary"
+            onClick={() => navigateToGaps(row.id)}
+            aria-label="Abrir gestão de GAPs"
+          >
+            <FileWarning className="h-3.5 w-3.5" />
           </Button>
           <Button
             variant="ghost"
@@ -2425,7 +2735,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                             'sticky left-0 z-30 select-none border-r border-border/60 bg-background px-2 font-semibold text-muted-foreground text-[10px]',
                             isCondensedView ? 'h-8 py-1.5' : 'h-10 py-2'
                           )}
-                          style={{ width: '140px', minWidth: '140px' }}
+                          style={{ width: '180px', minWidth: '180px' }}
                         >
                           Ações
                         </TableHead>

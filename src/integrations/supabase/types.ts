@@ -963,6 +963,191 @@ export type Database = {
         }
         Relationships: []
       }
+      project_stages: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      project_substages: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          ordem: number
+          stage_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          stage_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          stage_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_substages_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "project_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gaps: {
+        Row: {
+          anexos: Json | null
+          aprovado_por: string | null
+          causa_raiz: string | null
+          created_at: string
+          data_aprovacao: string | null
+          data_prometida: string | null
+          decisao: string | null
+          descricao: string | null
+          faturavel: boolean | null
+          id: string
+          impacto: Json | null
+          impacto_financeiro_descricao: string | null
+          impacto_resumo: string | null
+          necessita_aprovacao: boolean | null
+          observacoes: string | null
+          origem: string | null
+          plano_acao: string | null
+          prioridade: string | null
+          project_id: string
+          responsavel: string | null
+          severidade: string | null
+          status: string | null
+          task_id: string
+          tipo: string | null
+          titulo: string
+          updated_at: string
+          urgencia: string | null
+          valor_impacto_financeiro: number | null
+        }
+        Insert: {
+          anexos?: Json | null
+          aprovado_por?: string | null
+          causa_raiz?: string | null
+          created_at?: string
+          data_aprovacao?: string | null
+          data_prometida?: string | null
+          decisao?: string | null
+          descricao?: string | null
+          faturavel?: boolean | null
+          id?: string
+          impacto?: Json | null
+          impacto_financeiro_descricao?: string | null
+          impacto_resumo?: string | null
+          necessita_aprovacao?: boolean | null
+          observacoes?: string | null
+          origem?: string | null
+          plano_acao?: string | null
+          prioridade?: string | null
+          project_id: string
+          responsavel?: string | null
+          severidade?: string | null
+          status?: string | null
+          task_id: string
+          tipo?: string | null
+          titulo: string
+          updated_at?: string
+          urgencia?: string | null
+          valor_impacto_financeiro?: number | null
+        }
+        Update: {
+          anexos?: Json | null
+          aprovado_por?: string | null
+          causa_raiz?: string | null
+          created_at?: string
+          data_aprovacao?: string | null
+          data_prometida?: string | null
+          decisao?: string | null
+          descricao?: string | null
+          faturavel?: boolean | null
+          id?: string
+          impacto?: Json | null
+          impacto_financeiro_descricao?: string | null
+          impacto_resumo?: string | null
+          necessita_aprovacao?: boolean | null
+          observacoes?: string | null
+          origem?: string | null
+          plano_acao?: string | null
+          prioridade?: string | null
+          project_id?: string
+          responsavel?: string | null
+          severidade?: string | null
+          status?: string | null
+          task_id?: string
+          tipo?: string | null
+          titulo?: string
+          updated_at?: string
+          urgencia?: string | null
+          valor_impacto_financeiro?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gaps_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gaps_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acao_realizada: string | null
@@ -971,6 +1156,7 @@ export type Database = {
           cliente: string | null
           created_at: string
           criticidade: string | null
+          cronograma: boolean | null
           custom_fields: Json | null
           data_entrega: string | null
           data_identificacao_ticket: string | null
@@ -1006,6 +1192,7 @@ export type Database = {
           updated_at: string
           user_id: string
           validado_por: string | null
+          sub_etapa_projeto: string | null
         }
         Insert: {
           acao_realizada?: string | null
@@ -1014,6 +1201,7 @@ export type Database = {
           cliente?: string | null
           created_at?: string
           criticidade?: string | null
+          cronograma?: boolean | null
           custom_fields?: Json | null
           data_entrega?: string | null
           data_identificacao_ticket?: string | null
@@ -1049,6 +1237,7 @@ export type Database = {
           updated_at?: string
           user_id: string
           validado_por?: string | null
+          sub_etapa_projeto?: string | null
         }
         Update: {
           acao_realizada?: string | null
@@ -1057,6 +1246,7 @@ export type Database = {
           cliente?: string | null
           created_at?: string
           criticidade?: string | null
+          cronograma?: boolean | null
           custom_fields?: Json | null
           data_entrega?: string | null
           data_identificacao_ticket?: string | null
@@ -1092,6 +1282,7 @@ export type Database = {
           updated_at?: string
           user_id?: string
           validado_por?: string | null
+          sub_etapa_projeto?: string | null
         }
         Relationships: [
           {

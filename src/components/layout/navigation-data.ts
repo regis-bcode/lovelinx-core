@@ -15,6 +15,7 @@ import {
   Tag,
   UserCog,
   Users,
+  Workflow,
   Wrench
 } from "lucide-react";
 
@@ -109,5 +110,10 @@ export const settingsNav: SettingsItem[] = [
     title: "Categorias",
     url: "/settings/categorias",
     icon: Tag,
+  },
+  {
+    title: "Etapas do Projeto",
+    url: "/settings/project-stages",
+    icon: Workflow,
   },
 ];
