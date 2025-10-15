@@ -26,7 +26,7 @@ export function CustomFieldManager({
   const [showNewField, setShowNewField] = useState(false);
   const [newField, setNewField] = useState<Partial<CustomField>>({
     field_name: '',
-    field_type: 'text',
+    field_type: 'text_short',
     field_options: [],
     is_required: false
   });
@@ -43,7 +43,7 @@ export function CustomFieldManager({
       onFieldCreate(field);
       setNewField({
         field_name: '',
-        field_type: 'text',
+        field_type: 'text_short',
         field_options: [],
         is_required: false
       });
@@ -53,14 +53,16 @@ export function CustomFieldManager({
   };
 
   const getFieldTypeLabel = (type: string) => {
-    const labels = {
-      'monetary': 'Monetário (R$)',
-      'percentage': 'Percentual (%)',
-      'numeric': 'Numérico',
-      'text': 'Texto',
-      'dropdown': 'Lista Suspensa',
-      'tags': 'Tags',
-      'checkbox': 'Caixa de Seleção'
+    const labels: Record<string, string> = {
+      monetary: 'Monetário (R$)',
+      percentage: 'Percentual (%)',
+      numeric: 'Numérico',
+      text: 'Texto curto',
+      text_short: 'Texto curto',
+      text_long: 'Texto longo',
+      dropdown: 'Lista Suspensa',
+      tags: 'Tags',
+      checkbox: 'Caixa de Seleção',
     };
     return labels[type as keyof typeof labels] || type;
   };
@@ -97,9 +99,9 @@ export function CustomFieldManager({
               </div>
               <div>
                 <Label htmlFor="field_type">Tipo do Campo *</Label>
-                <Select 
-                  value={newField.field_type} 
-                  onValueChange={(value) => setNewField(prev => ({ ...prev, field_type: value as any }))}
+                <Select
+                  value={newField.field_type}
+                  onValueChange={(value) => setNewField(prev => ({ ...prev, field_type: value as CustomField['field_type'] }))}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -108,7 +110,8 @@ export function CustomFieldManager({
                     <SelectItem value="monetary">Monetário (R$)</SelectItem>
                     <SelectItem value="percentage">Percentual (%)</SelectItem>
                     <SelectItem value="numeric">Numérico</SelectItem>
-                    <SelectItem value="text">Texto</SelectItem>
+                    <SelectItem value="text_short">Texto curto (até 200 caracteres)</SelectItem>
+                    <SelectItem value="text_long">Texto longo (até 5000 caracteres)</SelectItem>
                     <SelectItem value="dropdown">Lista Suspensa</SelectItem>
                     <SelectItem value="tags">Tags</SelectItem>
                     <SelectItem value="checkbox">Caixa de Seleção</SelectItem>

@@ -51,7 +51,16 @@ export interface CustomField {
   project_id: string;
   user_id: string;
   field_name: string;
-  field_type: 'monetary' | 'percentage' | 'numeric' | 'text' | 'dropdown' | 'tags' | 'checkbox';
+  field_type:
+    | 'monetary'
+    | 'percentage'
+    | 'numeric'
+    | 'text'
+    | 'text_short'
+    | 'text_long'
+    | 'dropdown'
+    | 'tags'
+    | 'checkbox';
   field_options?: string[]; // Para dropdown e tags
   is_required: boolean;
   created_at: string;

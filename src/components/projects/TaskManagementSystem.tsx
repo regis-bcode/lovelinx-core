@@ -64,9 +64,15 @@ const CUSTOM_FIELD_TYPES: Array<{
   icon: React.ElementType;
 }> = [
   {
-    type: 'text',
-    label: 'Texto personalizado',
-    description: 'Capture informações em formato de texto curto.',
+    type: 'text_short',
+    label: 'Texto curto',
+    description: 'Capture informações em até 200 caracteres.',
+    icon: Type,
+  },
+  {
+    type: 'text_long',
+    label: 'Texto longo',
+    description: 'Registre descrições extensas com até 5000 caracteres.',
     icon: Type,
   },
   {
@@ -434,13 +440,22 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   ]), []);
 
   const customFieldColumns = useMemo<ColumnDefinition[]>(() => (
-    customFields.map(field => ({
-      key: `custom_${field.id}`,
-      label: field.field_name,
-      width: '180px',
-      isCustom: true,
-      field,
-    }))
+    customFields.map(field => {
+      let width = '180px';
+      if (field.field_type === 'text_long') {
+        width = '240px';
+      } else if (field.field_type === 'checkbox') {
+        width = '140px';
+      }
+
+      return {
+        key: `custom_${field.id}`,
+        label: field.field_name,
+        width,
+        isCustom: true,
+        field,
+      } as ColumnDefinition;
+    })
   ), [customFields]);
 
   const allColumns = useMemo<ColumnDefinition[]>(() => ([
@@ -564,6 +579,136 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     },
     [getColumnWidth],
   );
+
+  const handleAutoResizeColumn = useCallback((columnKey: string) => {
+    const column = allColumns.find(item => item.key === columnKey);
+    if (!column) {
+      return;
+    }
+
+    const normalizeValue = (value: unknown): string => {
+      if (value === null || value === undefined) {
+        return '';
+      }
+      if (Array.isArray(value)) {
+        return value.filter(item => item !== undefined && item !== null).join(', ');
+      }
+      if (typeof value === 'boolean') {
+        return value ? 'Sim' : 'Não';
+      }
+      const date = new Date(String(value));
+      if (!Number.isNaN(date.getTime()) && typeof value === 'string' && value.includes('-')) {
+        try {
+          return format(date, 'dd/MM/yyyy');
+        } catch (error) {
+          console.error('Erro ao formatar data ao ajustar coluna:', error);
+        }
+      }
+      return String(value);
+    };
+
+    const getCustomFieldText = (field: CustomField, row: TaskRow): string => {
+      const customValue = row.custom_fields?.[field.field_name];
+
+      switch (field.field_type) {
+        case 'checkbox':
+          return customValue ? 'Sim' : 'Não';
+        case 'monetary': {
+          const numeric = typeof customValue === 'number'
+            ? customValue
+            : typeof customValue === 'string'
+              ? Number(customValue)
+              : undefined;
+          if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numeric);
+          }
+          return '';
+        }
+        case 'percentage': {
+          const numeric = typeof customValue === 'number'
+            ? customValue
+            : typeof customValue === 'string'
+              ? Number(customValue)
+              : undefined;
+          if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+            return `${numeric}%`;
+          }
+          return '';
+        }
+        default:
+          return normalizeValue(customValue);
+      }
+    };
+
+    const getRowText = (row: TaskRow): string => {
+      if ('isCustom' in column && column.isCustom) {
+        return getCustomFieldText(column.field, row);
+      }
+
+      const value = row[column.key as keyof TaskRow];
+
+      switch (column.key) {
+        case 'task_id':
+          return row._isNew ? 'Novo' : normalizeValue(value);
+        case 'percentual_conclusao':
+          return typeof value === 'number' ? `${value}%` : '';
+        case 'tempo_total': {
+          if (!row.id) {
+            return '';
+          }
+          const minutes = getTaskTotalTime(row.id);
+          const hours = Math.floor(minutes / 60);
+          const mins = minutes % 60;
+          return `${hours}h ${mins}m`;
+        }
+        case 'data_vencimento': {
+          if (!value) {
+            return '';
+          }
+          const date = new Date(String(value));
+          if (!Number.isNaN(date.getTime())) {
+            try {
+              return format(date, 'dd/MM/yyyy');
+            } catch (error) {
+              console.error('Erro ao formatar data ao ajustar coluna:', error);
+            }
+          }
+          return String(value);
+        }
+        default:
+          return normalizeValue(value);
+      }
+    };
+
+    const headerLength = column.label.length;
+    const contentLength = editableRows.reduce((maxLength, row) => {
+      const text = getRowText(row);
+      return Math.max(maxLength, text.length);
+    }, headerLength);
+
+    const averageCharacterWidth = 7;
+    const padding = 48;
+    const baseWidth = getColumnBaseWidth(columnKey);
+    const minimalWidth = Math.max(80, Math.min(baseWidth, 120));
+    let computedWidth = Math.round(contentLength * averageCharacterWidth + padding);
+
+    if ('isCustom' in column && column.isCustom && column.field.field_type === 'checkbox') {
+      computedWidth = Math.max(computedWidth, 120);
+    }
+
+    computedWidth = Math.max(computedWidth, minimalWidth);
+    computedWidth = Math.min(computedWidth, 600);
+
+    setColumnWidths(prev => {
+      if (prev[columnKey] === computedWidth) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [columnKey]: computedWidth,
+      };
+    });
+  }, [allColumns, editableRows, getColumnBaseWidth, getTaskTotalTime]);
 
   const handleDragStart = useCallback((event: React.DragEvent<HTMLTableCellElement>, columnKey: string) => {
     event.dataTransfer.effectAllowed = 'move';
@@ -894,7 +1039,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               break;
             }
             default: {
-              customFieldValues[field.field_name] = String(rawValue).trim();
+              const stringValue = String(rawValue ?? '');
+              if (field.field_type === 'text_long') {
+                customFieldValues[field.field_name] = stringValue.slice(0, 5000);
+              } else if (field.field_type === 'text_short' || field.field_type === 'text') {
+                customFieldValues[field.field_name] = stringValue.trim().slice(0, 200);
+              } else {
+                customFieldValues[field.field_name] = stringValue.trim();
+              }
             }
           }
         });
@@ -1015,6 +1167,34 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 onCheckedChange={(checked) => updateCustomFieldValue(rowIndex, field.field_name, Boolean(checked))}
               />
             </div>
+          );
+        case 'text':
+        case 'text_short':
+          return (
+            <Input
+              value={typeof customValue === 'string' ? customValue : ''}
+              onChange={(e) => {
+                const value = e.target.value.slice(0, 200);
+                updateCustomFieldValue(rowIndex, field.field_name, value);
+              }}
+              className="h-8 text-xs"
+              placeholder="Digite um valor"
+              maxLength={200}
+            />
+          );
+        case 'text_long':
+          return (
+            <Textarea
+              value={typeof customValue === 'string' ? customValue : ''}
+              onChange={(e) => {
+                const value = e.target.value.slice(0, 5000);
+                updateCustomFieldValue(rowIndex, field.field_name, value);
+              }}
+              className="min-h-[40px] text-xs resize-y"
+              rows={isCondensedView ? 2 : 3}
+              maxLength={5000}
+              placeholder="Digite um valor"
+            />
           );
         case 'dropdown':
           return (
@@ -1698,7 +1878,18 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           <div className="divide-y">
                             {customFields.map(field => {
                               const typeInfo = CUSTOM_FIELD_TYPES.find(option => option.type === field.field_type);
-                              const typeLabel = typeInfo?.label ?? field.field_type;
+                              const fallbackLabel = (() => {
+                                switch (field.field_type) {
+                                  case 'text':
+                                  case 'text_short':
+                                    return 'Texto curto';
+                                  case 'text_long':
+                                    return 'Texto longo';
+                                  default:
+                                    return field.field_type;
+                                }
+                              })();
+                              const typeLabel = typeInfo?.label ?? fallbackLabel;
 
                               const isEditing = editingFieldId === field.id;
                               const isUpdating = updatingFieldId === field.id;
@@ -1820,6 +2011,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                             onChange={(event) => setFieldName(event.target.value)}
                             placeholder="Ex.: Data de aprovação"
                           />
+                          {selectedFieldType === 'text_short' && (
+                            <p className="text-xs text-muted-foreground">
+                              Este campo aceitará textos de até 200 caracteres por tarefa.
+                            </p>
+                          )}
+                          {selectedFieldType === 'text_long' && (
+                            <p className="text-xs text-muted-foreground">
+                              Este campo aceitará textos extensos de até 5000 caracteres por tarefa.
+                            </p>
+                          )}
                         </div>
                         {(selectedFieldType === 'dropdown' || selectedFieldType === 'tags') && (
                           <div className="grid gap-2">
@@ -1958,6 +2159,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onDragOver={handleDragOver}
                               onDrop={event => handleDrop(event, column.key)}
                               onDragEnd={handleDragEnd}
+                              onDoubleClick={() => handleAutoResizeColumn(column.key)}
                               className={cn(
                                 'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors text-[10px]',
                                 isCondensedView ? 'h-8 py-1.5' : 'h-10 py-2',
@@ -1971,6 +2173,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               <div
                                 className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none rounded-sm bg-transparent transition-colors group-hover:bg-primary/30"
                                 onMouseDown={event => handleResizeStart(event, column.key)}
+                                onDoubleClick={event => {
+                                  event.stopPropagation();
+                                  handleAutoResizeColumn(column.key);
+                                }}
                               />
                             </TableHead>
                           );
