@@ -10,7 +10,6 @@ import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useGaps } from '@/hooks/useGaps';
 import { useTasks } from '@/hooks/useTasks';
 import { useToast } from '@/hooks/use-toast';
@@ -19,6 +18,16 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2, ClipboardEdit, FilePlus2, Loader2, Trash2 } from 'lucide-react';
 
 const IMPACT_OPTIONS = ['Escopo', 'Prazo', 'Custo'] as const;
+
+const WIDE_GAP_COLUMN_KEYS = new Set([
+  'resumo',
+  'descricao',
+  'plano_acao',
+  'impacto_financeiro_descricao',
+  'impacto_resumo',
+  'anexos',
+  'observacoes',
+]);
 
 const formatCurrency = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -402,6 +411,13 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     ];
   }, [taskNameById]);
 
+  const taskColumnDefinition = useMemo(() => gapColumns.find(column => column.key === 'task'), [gapColumns]);
+  const titleColumnDefinition = useMemo(() => gapColumns.find(column => column.key === 'titulo'), [gapColumns]);
+  const detailColumns = useMemo(
+    () => gapColumns.filter(column => column.key !== 'task' && column.key !== 'titulo'),
+    [gapColumns],
+  );
+
   const openCreateDialog = (taskId?: string) => {
     const baseTaskId = taskId ?? (selectedTaskId !== 'all' ? selectedTaskId : '');
     setFormState({
@@ -582,77 +598,87 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
               Nenhum GAP registrado para o filtro selecionado.
             </div>
           ) : (
-            <div className="max-h-[520px] overflow-auto rounded-lg border border-border/60">
-              <Table className="min-w-[1400px] text-xs">
-                <TableHeader className="sticky top-0 z-10 bg-muted/40">
-                  <TableRow>
-                    <TableHead className="sticky left-0 z-20 border-r border-border/60 bg-muted/60 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Ações
-                    </TableHead>
-                    {gapColumns.map(column => (
-                      <TableHead
-                        key={column.key}
-                        className={cn(
-                          'border-r border-border/60 bg-muted/40 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground',
-                          column.className,
-                        )}
-                      >
-                        {column.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredGaps.map(gap => {
-                    const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+            <div className="max-h-[520px] space-y-4 overflow-auto pr-1">
+              {filteredGaps.map(gap => {
+                const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+                const taskContent = taskColumnDefinition
+                  ? taskColumnDefinition.render(gap)
+                  : (taskNameById[gap.task_id] ?? 'Tarefa não encontrada');
+                const titleContent = titleColumnDefinition
+                  ? titleColumnDefinition.render(gap)
+                  : (gap.titulo ?? 'GAP sem título');
 
-                    return (
-                      <TableRow
-                        key={gap.id}
-                        className={cn(
-                          'border-b border-border/60 text-[12px] transition-colors',
-                          highlight ? 'bg-primary/5 hover:bg-primary/10' : 'bg-background hover:bg-muted/30',
-                        )}
-                      >
-                        <TableCell
-                          className={cn(
-                            'sticky left-0 z-10 border-r border-border/60 px-2 py-3 align-top',
-                            highlight ? 'bg-primary/10' : 'bg-background',
-                          )}
-                        >
-                          <div className="flex gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              onClick={() => openEditDialog(gap)}
-                              aria-label="Editar GAP"
-                            >
-                              <ClipboardEdit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="border-destructive text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(gap)}
-                              aria-label="Excluir GAP"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                return (
+                  <div
+                    key={gap.id}
+                    className={cn(
+                      'rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-colors',
+                      highlight ? 'border-primary bg-primary/5' : 'hover:border-primary/50',
+                    )}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {taskColumnDefinition?.label ?? 'Tarefa vinculada'}
+                          </span>
+                          <div className="text-sm font-semibold text-foreground">{taskContent}</div>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {titleColumnDefinition?.label ?? 'Título'}
+                          </span>
+                          <div className="text-base font-semibold text-foreground">
+                            {titleContent}
                           </div>
-                        </TableCell>
-                        {gapColumns.map(column => (
-                          <TableCell
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditDialog(gap)}
+                          aria-label="Editar GAP"
+                        >
+                          <ClipboardEdit className="mr-2 h-4 w-4" />
+                          Editar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDelete(gap)}
+                          aria-label="Excluir GAP"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remover
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {detailColumns.map(column => {
+                        const isWide = WIDE_GAP_COLUMN_KEYS.has(column.key);
+
+                        return (
+                          <div
                             key={column.key}
-                            className={cn('border-r border-border/60 px-3 py-3 align-top text-left text-sm text-foreground', column.className)}
+                            className={cn(
+                              'space-y-1 rounded-lg border border-border/40 bg-muted/10 p-3',
+                              isWide ? 'sm:col-span-2 xl:col-span-3' : undefined,
+                            )}
                           >
-                            {column.render(gap)}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              {column.label}
+                            </span>
+                            <div className="text-sm leading-relaxed text-foreground">{column.render(gap)}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </CardContent>
