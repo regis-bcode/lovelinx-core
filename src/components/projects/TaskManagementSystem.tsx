@@ -1571,10 +1571,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           <SelectTrigger className="h-8 text-xs">
             <div className="flex w-full items-center gap-2">
               <span
-                className="h-2.5 w-2.5 rounded-full border border-border/40"
+                className="h-3 w-3 rounded-full border border-border/40"
                 style={{ backgroundColor: statusColor ?? 'transparent' }}
               />
-              <SelectValue placeholder={placeholder} />
+              <SelectValue
+                placeholder={placeholder}
+                className="flex-1 text-left [&>div]:flex [&>div]:items-center [&>div]:gap-2 [&>div>span:first-child]:hidden"
+              />
             </div>
           </SelectTrigger>
           <SelectContent>
@@ -1584,7 +1587,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 <SelectItem key={status.id} value={status.nome}>
                   <div className="flex items-center gap-2">
                     <span
-                      className="h-2.5 w-2.5 rounded-full border border-border/40"
+                      className="h-3 w-3 rounded-full border border-border/40"
                       style={{ backgroundColor: getStatusColorValue(status) }}
                     />
                     <span>{status.nome}</span>
