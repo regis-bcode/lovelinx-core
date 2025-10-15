@@ -125,54 +125,53 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               open={isNavigationOpen}
               onOpenChange={setIsNavigationOpen}
               collapsed={isCollapsed}
+              containerClassName={getMenuCardClasses(isCollapsed)}
             >
-              <div className={getMenuCardClasses(isCollapsed)}>
-                <nav
-                  className={cn(
-                    "flex flex-col gap-2",
-                    isCollapsed && "items-center gap-3"
-                  )}
-                >
-                  {mainNavigation.map((item) => (
-                    <Tooltip key={item.title}>
-                      <TooltipTrigger asChild>
-                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+              <nav
+                className={cn(
+                  "flex flex-col gap-2",
+                  isCollapsed && "items-center gap-3"
+                )}
+              >
+                {mainNavigation.map((item) => (
+                  <Tooltip key={item.title}>
+                    <TooltipTrigger asChild>
+                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                        <span
+                          className={cn(
+                            "flex items-center gap-3",
+                            isCollapsed ? "justify-center" : "flex-1"
+                          )}
+                        >
                           <span
                             className={cn(
-                              "flex items-center gap-3",
-                              isCollapsed ? "justify-center" : "flex-1"
+                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 via-blue-400/30 to-blue-600/30 text-white shadow-[0_8px_20px_rgba(14,58,122,0.45)] transition-all",
+                              "ring-1 ring-white/10 group-hover/nav-item:scale-105 group-aria-[current=page]/nav-item:ring-2 group-aria-[current=page]/nav-item:ring-white/40"
                             )}
                           >
-                            <span
-                              className={cn(
-                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500/20 via-blue-400/30 to-blue-600/30 text-white shadow-[0_8px_20px_rgba(14,58,122,0.45)] transition-all",
-                                "ring-1 ring-white/10 group-hover/nav-item:scale-105 group-aria-[current=page]/nav-item:ring-2 group-aria-[current=page]/nav-item:ring-white/40"
-                              )}
-                            >
-                              <item.icon className="h-4 w-4" />
-                            </span>
-                            <span
-                              className={cn(
-                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
-                                isCollapsed && "sr-only"
-                              )}
-                            >
-                              {item.title}
-                            </span>
+                            <item.icon className="h-4 w-4" />
                           </span>
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="right"
-                        hidden={!isCollapsed}
-                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                      >
-                        {item.title}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </nav>
-              </div>
+                          <span
+                            className={cn(
+                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
+                        </span>
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      hidden={!isCollapsed}
+                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                    >
+                      {item.title}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </nav>
             </SidebarCollapsibleSection>
 
             <SidebarCollapsibleSection
@@ -181,13 +180,12 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               open={isWorkspacesOpen}
               onOpenChange={setIsWorkspacesOpen}
               collapsed={isCollapsed}
+              containerClassName={getMenuCardClasses(isCollapsed, { variant: "workspaces" })}
             >
-              <div className={getMenuCardClasses(isCollapsed, { variant: "workspaces" })}>
-                <WorkspaceTree
-                  collapsed={isCollapsed}
-                  onWorkspaceSelect={() => onCollapseChange(false)}
-                />
-              </div>
+              <WorkspaceTree
+                collapsed={isCollapsed}
+                onWorkspaceSelect={() => onCollapseChange(false)}
+              />
             </SidebarCollapsibleSection>
 
             <SidebarCollapsibleSection
@@ -196,53 +194,52 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               open={isToolsOpen}
               onOpenChange={setIsToolsOpen}
               collapsed={isCollapsed}
+              containerClassName={getMenuCardClasses(isCollapsed)}
             >
-              <div className={getMenuCardClasses(isCollapsed)}>
-                <div
-                  className={cn(
-                    "flex flex-col gap-2",
-                    isCollapsed && "items-center"
-                  )}
-                >
-                  {toolsNavigation.map((item) => (
-                    <Tooltip key={item.title}>
-                      <TooltipTrigger asChild>
-                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+              <div
+                className={cn(
+                  "flex flex-col gap-2",
+                  isCollapsed && "items-center"
+                )}
+              >
+                {toolsNavigation.map((item) => (
+                  <Tooltip key={item.title}>
+                    <TooltipTrigger asChild>
+                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                        <span
+                          className={cn(
+                            "flex items-center gap-3",
+                            isCollapsed ? "justify-center" : "flex-1"
+                          )}
+                        >
                           <span
                             className={cn(
-                              "flex items-center gap-3",
-                              isCollapsed ? "justify-center" : "flex-1"
+                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_10px_28px_rgba(10,33,68,0.4)] transition-all",
+                              "border border-white/10 group-hover/nav-item:bg-white/15 group-hover/nav-item:text-white group-aria-[current=page]/nav-item:border-white/40"
                             )}
                           >
-                            <span
-                              className={cn(
-                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white shadow-[0_10px_28px_rgba(10,33,68,0.4)] transition-all",
-                                "border border-white/10 group-hover/nav-item:bg-white/15 group-hover/nav-item:text-white group-aria-[current=page]/nav-item:border-white/40"
-                              )}
-                            >
-                              <item.icon className="h-4 w-4" />
-                            </span>
-                            <span
-                              className={cn(
-                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
-                                isCollapsed && "sr-only"
-                              )}
-                            >
-                              {item.title}
-                            </span>
+                            <item.icon className="h-4 w-4" />
                           </span>
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="right"
-                        hidden={!isCollapsed}
-                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                      >
-                        {item.title}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                          <span
+                            className={cn(
+                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
+                        </span>
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      hidden={!isCollapsed}
+                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                    >
+                      {item.title}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
               </div>
             </SidebarCollapsibleSection>
 
@@ -252,53 +249,52 @@ export function AppSidebar({ isCollapsed, onCollapseChange }: AppSidebarProps) {
               open={isSettingsOpen}
               onOpenChange={setIsSettingsOpen}
               collapsed={isCollapsed}
+              containerClassName={getMenuCardClasses(isCollapsed)}
             >
-              <div className={getMenuCardClasses(isCollapsed)}>
-                <div
-                  className={cn(
-                    "flex flex-col gap-2",
-                    isCollapsed && "items-center"
-                  )}
-                >
-                  {settingsNav.map((item) => (
-                    <Tooltip key={item.title}>
-                      <TooltipTrigger asChild>
-                        <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+              <div
+                className={cn(
+                  "flex flex-col gap-2",
+                  isCollapsed && "items-center"
+                )}
+              >
+                {settingsNav.map((item) => (
+                  <Tooltip key={item.title}>
+                    <TooltipTrigger asChild>
+                      <NavLink to={item.url} end className={({ isActive }) => getNavCls({ isActive })}>
+                        <span
+                          className={cn(
+                            "flex items-center gap-3",
+                            isCollapsed ? "justify-center" : "flex-1"
+                          )}
+                        >
                           <span
                             className={cn(
-                              "flex items-center gap-3",
-                              isCollapsed ? "justify-center" : "flex-1"
+                              "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100/10 via-sky-400/10 to-transparent text-white transition-all",
+                              "border border-white/10 shadow-[0_10px_30px_rgba(4,23,51,0.35)] group-aria-[current=page]/nav-item:border-white/40"
                             )}
                           >
-                            <span
-                              className={cn(
-                                "flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100/10 via-sky-400/10 to-transparent text-white transition-all",
-                                "border border-white/10 shadow-[0_10px_30px_rgba(4,23,51,0.35)] group-aria-[current=page]/nav-item:border-white/40"
-                              )}
-                            >
-                              <item.icon className="h-4 w-4" />
-                            </span>
-                            <span
-                              className={cn(
-                                "whitespace-nowrap text-left text-sm font-medium transition-opacity",
-                                isCollapsed && "sr-only"
-                              )}
-                            >
-                              {item.title}
-                            </span>
+                            <item.icon className="h-4 w-4" />
                           </span>
-                        </NavLink>
-                      </TooltipTrigger>
-                      <TooltipContent
-                        side="right"
-                        hidden={!isCollapsed}
-                        className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
-                      >
-                        {item.title}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
+                          <span
+                            className={cn(
+                              "whitespace-nowrap text-left text-sm font-medium transition-opacity",
+                              isCollapsed && "sr-only"
+                            )}
+                          >
+                            {item.title}
+                          </span>
+                        </span>
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent
+                      side="right"
+                      hidden={!isCollapsed}
+                      className="border-white/10 bg-slate-900/90 text-xs font-medium text-white backdrop-blur-sm dark:bg-white/10"
+                    >
+                      {item.title}
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
               </div>
             </SidebarCollapsibleSection>
 
@@ -367,6 +363,8 @@ function SidebarSection({ title, children, className, collapsed }: SidebarSectio
 interface SidebarCollapsibleSectionProps extends SidebarSectionProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  containerClassName?: string;
+  contentClassName?: string;
 }
 
 function SidebarCollapsibleSection({
@@ -376,35 +374,55 @@ function SidebarCollapsibleSection({
   open,
   onOpenChange,
   collapsed,
+  containerClassName,
+  contentClassName,
 }: SidebarCollapsibleSectionProps) {
   if (collapsed) {
     return (
       <SidebarSection title={title} className={className} collapsed>
-        {children}
+        <div className={cn("rounded-3xl", containerClassName)}>{children}</div>
       </SidebarSection>
     );
   }
 
   return (
-    <Collapsible open={open} onOpenChange={onOpenChange}>
-      <section className={cn("w-full", className)}>
-        <CollapsibleTrigger
-          type="button"
-          className="group flex w-full items-center justify-between text-left text-xs font-semibold uppercase tracking-[0.32em] text-white/50 transition-colors hover:text-white focus:outline-none focus-visible:text-white"
+    <section className={cn("w-full", className)}>
+      <Collapsible open={open} onOpenChange={onOpenChange}>
+        <div
+          className={cn(
+            "rounded-3xl border border-white/10 bg-white/5 p-4 shadow-[0_18px_45px_rgba(4,19,42,0.35)] backdrop-blur-md transition-all duration-300",
+            open && "border-white/20 shadow-[0_22px_60px_rgba(5,28,70,0.45)]",
+            containerClassName
+          )}
         >
-          <span>{title}</span>
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 text-white/50 transition-transform duration-200 group-hover:text-white",
-              open ? "rotate-180" : "rotate-0"
-            )}
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
-          <div className="mt-4">{children}</div>
-        </CollapsibleContent>
-      </section>
-    </Collapsible>
+          <div className="flex items-center justify-between gap-3">
+            <p
+              className={cn(
+                "text-xs font-semibold uppercase tracking-[0.32em] text-white/60 transition-colors",
+                open && "text-white"
+              )}
+            >
+              {title}
+            </p>
+            <CollapsibleTrigger
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/20 bg-white/10 text-white shadow-[0_10px_24px_rgba(9,33,72,0.45)] transition hover:border-white/40 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200/60"
+            >
+              <span className="sr-only">Alternar seção {title}</span>
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform duration-200",
+                  open ? "rotate-180" : "rotate-0"
+                )}
+              />
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent className="overflow-hidden data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down">
+            <div className={cn("mt-4", contentClassName)}>{children}</div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+    </section>
   );
 }
 
