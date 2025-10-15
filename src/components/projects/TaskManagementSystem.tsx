@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { PercentageInput } from '@/components/ui/percentage-input';
-import { DateInput } from '@/components/ui/date-input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -462,6 +462,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return '';
   }, [filteredStatuses]);
 
+  const isOutsideScope = useCallback((value?: string | null) => {
+    if (!value) {
+      return false;
+    }
+
+    const normalized = String(value)
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
+    return normalized === 'nao';
+  }, []);
+
   // Inicializar rows com as tasks existentes
   const createBlankRow = useCallback((order: number): TaskRow => ({
     _isNew: true,
@@ -472,6 +486,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     prioridade: 'Média',
     status: defaultStatusName || '',
     cliente: defaultClient || undefined,
+    data_vencimento: format(new Date(), 'yyyy-MM-dd'),
     percentual_conclusao: 0,
     nivel: 0,
     ordem: order,
@@ -540,7 +555,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: 'responsavel', label: 'Responsável', width: '150px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
     { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
-    { key: 'tempo_controle', label: 'Controle de Tempo', width: '140px' },
     { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
     { key: 'modulo', label: 'Módulo', width: '150px' },
     { key: 'area', label: 'Área', width: '150px' },
@@ -1102,14 +1116,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           // Nova tarefa
           const { _isNew, _tempId, id, task_id, created_at, updated_at, user_id, ...taskData } = row;
           const created = await createTask(taskData);
-          if (created && created.escopo?.toLowerCase() === 'não') {
+          if (created && isOutsideScope(created.escopo)) {
             await ensureGapForTask(created);
           }
         } else if (row.id) {
           // Atualizar tarefa existente
           const { id, task_id, created_at, updated_at, user_id, ...taskData } = row;
           const updated = await updateTask(id, taskData);
-          if (updated && updated.escopo?.toLowerCase() === 'não') {
+          if (updated && isOutsideScope(updated.escopo)) {
             await ensureGapForTask(updated);
           }
         }
@@ -1664,34 +1678,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
     }
 
-    if (column.key === 'tempo_controle') {
-      const isRunning = Boolean(row.id && activeTimers[row.id]);
-      return (
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            disabled={!row.id || isRunning}
-            onClick={() => handleStartTimer(row)}
-            aria-label="Iniciar apontamento"
-          >
-            <Play className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8"
-            disabled={!row.id || !isRunning}
-            onClick={() => handleStopTimer(row)}
-            aria-label="Encerrar apontamento"
-          >
-            <Square className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      );
-    }
-
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
       const minutes = getTaskTotalTime(row.id);
@@ -1971,11 +1957,22 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     if (column.key === 'data_vencimento') {
+      const normalizedValue = (() => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return format(value, 'yyyy-MM-dd');
+        }
+        return undefined;
+      })();
+
       return (
-        <DateInput
-          value={typeof value === 'string' ? value : ''}
-          onChange={(val) => updateCell(rowIndex, column.key, val)}
-          className="h-8 text-xs"
+        <DatePicker
+          value={normalizedValue}
+          onChange={(val) => updateCell(rowIndex, column.key, val || undefined)}
+          className="h-8 px-2 text-xs"
+          showTodayButton
         />
       );
     }
@@ -2273,79 +2270,103 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     );
   }, [fieldSearch]);
 
-  const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => (
-    <TableRow
-      key={row.id || row._tempId || index}
-      className={cn(
-        'border-b border-border/60 text-[10px] transition-colors',
-        isCondensedView ? 'h-8' : 'h-9',
-        highlightClass ? cn(highlightClass, 'hover:brightness-95') : 'bg-background hover:bg-muted/40'
-      )}
-    >
-      <TableCell
+  const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
+    const isRunning = Boolean(row.id && activeTimers[row.id]);
+
+    return (
+      <TableRow
+        key={row.id || row._tempId || index}
         className={cn(
-          'sticky left-0 z-20 px-2',
-          highlightClass ? ['bg-inherit', 'border-l-4 border-l-primary/40'] : 'bg-background',
-          isCondensedView ? 'py-1' : 'py-1.5'
+          'border-b border-border/60 text-[10px] transition-colors',
+          isCondensedView ? 'h-8' : 'h-9',
+          highlightClass ? cn(highlightClass, 'hover:brightness-95') : 'bg-background hover:bg-muted/40'
         )}
-        style={{ width: '180px', minWidth: '180px' }}
       >
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setActiveTaskDialog({ mode: 'view', index })}
-            aria-label="Visualizar resumo da tarefa"
-          >
-            <Eye className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
-            aria-label="Editar tarefa"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-primary"
-            onClick={() => navigateToGaps(row.id)}
-            aria-label="Abrir gestão de GAPs"
-          >
-            <FileWarning className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-destructive hover:text-destructive"
-            onClick={() => deleteRow(index)}
-            aria-label="Excluir tarefa"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </TableCell>
-      {visibleColumns.map(col => {
-        const width = getColumnWidth(col.key);
-        return (
-          <TableCell
-            key={col.key}
-            className={cn(
-              'px-2 align-middle text-[10px]',
-              isCondensedView ? 'py-0.5' : 'py-1'
-            )}
-            style={{ width: `${width}px`, minWidth: `${width}px` }}
-          >
-            {renderEditableCell(row, index, col)}
-          </TableCell>
-        );
-      })}
-    </TableRow>
-  );
+        <TableCell
+          className={cn(
+            'sticky left-0 z-20 px-2',
+            highlightClass ? ['bg-inherit', 'border-l-4 border-l-primary/40'] : 'bg-background',
+            isCondensedView ? 'py-1' : 'py-1.5'
+          )}
+          style={{ width: '210px', minWidth: '210px' }}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+              aria-label="Visualizar resumo da tarefa"
+            >
+              <Eye className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+              aria-label="Editar tarefa"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-primary hover:text-primary"
+              onClick={() => navigateToGaps(row.id)}
+              aria-label="Abrir gestão de GAPs"
+            >
+              <FileWarning className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-emerald-500 hover:text-emerald-600 focus-visible:ring-emerald-500 disabled:text-emerald-300 disabled:hover:text-emerald-300"
+              disabled={!row.id || isRunning}
+              onClick={() => handleStartTimer(row)}
+              aria-label="Iniciar apontamento"
+            >
+              <Play className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-rose-500 hover:text-rose-600 focus-visible:ring-rose-500 disabled:text-rose-300 disabled:hover:text-rose-300"
+              disabled={!row.id || !isRunning}
+              onClick={() => handleStopTimer(row)}
+              aria-label="Encerrar apontamento"
+            >
+              <Square className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-destructive hover:text-destructive"
+              onClick={() => deleteRow(index)}
+              aria-label="Excluir tarefa"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </TableCell>
+        {visibleColumns.map(col => {
+          const width = getColumnWidth(col.key);
+          return (
+            <TableCell
+              key={col.key}
+              className={cn(
+                'px-2 align-middle text-[10px]',
+                isCondensedView ? 'py-0.5' : 'py-1'
+              )}
+              style={{ width: `${width}px`, minWidth: `${width}px` }}
+            >
+              {renderEditableCell(row, index, col)}
+            </TableCell>
+          );
+        })}
+      </TableRow>
+    );
+  };
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">

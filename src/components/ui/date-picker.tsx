@@ -1,5 +1,5 @@
 import * as React from "react";
-import { format } from "date-fns";
+import { format, parse, startOfToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar as CalendarIcon } from "lucide-react";
 
@@ -18,6 +18,7 @@ interface DatePickerProps {
   placeholder?: string;
   disabled?: boolean;
   className?: string;
+  showTodayButton?: boolean;
 }
 
 export function DatePicker({
@@ -25,28 +26,63 @@ export function DatePicker({
   onChange,
   placeholder = "Selecione uma data",
   disabled = false,
-  className
+  className,
+  showTodayButton = false
 }: DatePickerProps) {
-  const [date, setDate] = React.useState<Date | undefined>(
-    value ? new Date(value) : undefined
-  );
+  const parseDate = React.useCallback((input?: string): Date | undefined => {
+    if (!input) return undefined;
+
+    if (input.includes("/")) {
+      const parsedFromDisplay = parse(input, "dd/MM/yyyy", new Date());
+      if (!Number.isNaN(parsedFromDisplay.getTime())) {
+        return parsedFromDisplay;
+      }
+    }
+
+    const parsed = new Date(input);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+
+    return undefined;
+  }, []);
+
+  const today = React.useMemo(() => startOfToday(), []);
+  const parsedValue = React.useMemo(() => parseDate(value), [parseDate, value]);
+  const [date, setDate] = React.useState<Date | undefined>(parsedValue);
+  const [month, setMonth] = React.useState<Date>(parsedValue ?? today);
 
   React.useEffect(() => {
-    if (value) {
-      setDate(new Date(value));
+    if (parsedValue) {
+      setDate(parsedValue);
+      setMonth(parsedValue);
     } else {
       setDate(undefined);
+      setMonth(today);
     }
-  }, [value]);
+  }, [parsedValue, today]);
 
   const handleSelect = (selectedDate: Date | undefined) => {
+    if (selectedDate && Number.isNaN(selectedDate.getTime())) {
+      return;
+    }
+
     setDate(selectedDate);
+
     if (selectedDate) {
+      setMonth(selectedDate);
       const formattedDate = format(selectedDate, "yyyy-MM-dd");
       onChange?.(formattedDate);
-    } else {
-      onChange?.("");
+      return;
     }
+
+    onChange?.("");
+  };
+
+  const handleSelectToday = () => {
+    const todayDate = startOfToday();
+    setMonth(todayDate);
+    handleSelect(todayDate);
   };
 
   return (
@@ -74,10 +110,24 @@ export function DatePicker({
           mode="single"
           selected={date}
           onSelect={handleSelect}
+          month={month}
+          onMonthChange={setMonth}
           initialFocus
           className="p-3 pointer-events-auto"
           locale={ptBR}
         />
+        {showTodayButton ? (
+          <div className="flex items-center justify-end border-t border-border/60 px-3 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleSelectToday}
+            >
+              Hoje
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   );
