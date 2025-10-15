@@ -81,6 +81,119 @@ export default function ProjectDetails() {
   }, [projectFromStore]);
 
 
+  const getCriticalityBadge = (criticality: string) => {
+    switch (criticality) {
+      case "Crítica":
+        return "destructive";
+      case "Alta":
+        return "secondary";
+      case "Média":
+        return "outline";
+      case "Baixa":
+        return "default";
+      default:
+        return "outline";
+    }
+  };
+
+  type TabItem = {
+    value: string;
+    label: string;
+    icon: LucideIcon;
+    render: () => ReactNode;
+    scrollBarOrientation?: "vertical" | "horizontal" | "both";
+    disableScrollArea?: boolean;
+  };
+
+  const gapTaskId = searchParams.get('gapTaskId') ?? undefined;
+
+  const tabItems: TabItem[] = useMemo(() => {
+    if (!project) {
+      return [];
+    }
+
+    return [
+      {
+        value: "tap",
+        label: "TAP",
+        icon: FileText,
+        render: () => <ProjectTabs projectId={project.id} project={project} />,
+      },
+      {
+        value: "stakeholders",
+        label: "Stakeholders",
+        icon: Users,
+        render: () => <StakeholdersList projectId={project.id} />,
+      },
+      {
+        value: "tasks",
+        label: "Tarefas",
+        icon: ClipboardList,
+        render: () => (
+          <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+            <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
+          </div>
+        ),
+        disableScrollArea: true,
+      },
+      {
+        value: "time",
+        label: "Tempo",
+        icon: Calendar,
+        render: () => <TimeManagement projectId={project.id} />,
+      },
+      {
+        value: "communication",
+        label: "Comunicação",
+        icon: MessageCircle,
+        render: () => <CommunicationPlanList projectId={project.id} />,
+      },
+      {
+        value: "risks",
+        label: "Riscos",
+        icon: AlertTriangle,
+        render: () => <RisksList projectId={project.id} />,
+      },
+      {
+        value: "gaps",
+        label: "Gaps",
+        icon: FileX,
+        render: () => <GapManagement projectId={project.id} initialTaskId={gapTaskId} />,
+        disableScrollArea: true,
+      },
+      {
+        value: "turnover",
+        label: "Virada",
+        icon: RotateCw,
+        render: () => (
+          <Card>
+            <CardHeader>
+              <CardTitle>Plano de Virada</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Funcionalidade de plano de virada será implementada em breve.</p>
+            </CardContent>
+          </Card>
+        ),
+      },
+      {
+        value: "documents",
+        label: "Documentos",
+        icon: FolderOpen,
+        render: () => (
+          <Card>
+            <CardHeader>
+              <CardTitle>Gestão de Documentos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Funcionalidade de gestão de documentos será implementada em breve.</p>
+            </CardContent>
+          </Card>
+        ),
+      },
+    ];
+  }, [project, gapTaskId]);
+
   if (projectsLoading || isFetchingProject) {
     return (
       <DashboardLayout>
@@ -109,114 +222,6 @@ export default function ProjectDetails() {
       </DashboardLayout>
     );
   }
-
-  const getCriticalityBadge = (criticality: string) => {
-    switch (criticality) {
-      case "Crítica":
-        return "destructive";
-      case "Alta":
-        return "secondary";
-      case "Média":
-        return "outline";
-      case "Baixa":
-        return "default";
-      default:
-        return "outline";
-    }
-  };
-
-  type TabItem = {
-    value: string;
-    label: string;
-    icon: LucideIcon;
-    render: () => ReactNode;
-    scrollBarOrientation?: "vertical" | "horizontal" | "both";
-    disableScrollArea?: boolean;
-  };
-
-  const gapTaskId = searchParams.get('gapTaskId') ?? undefined;
-
-  const tabItems: TabItem[] = useMemo(() => [
-    {
-      value: "tap",
-      label: "TAP",
-      icon: FileText,
-      render: () => <ProjectTabs projectId={project.id} project={project} />,
-    },
-    {
-      value: "stakeholders",
-      label: "Stakeholders",
-      icon: Users,
-      render: () => <StakeholdersList projectId={project.id} />,
-    },
-    {
-      value: "tasks",
-      label: "Tarefas",
-      icon: ClipboardList,
-      render: () => (
-        <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-          <TaskManagementSystem projectId={project.id} projectClient={project.cliente ?? undefined} />
-        </div>
-      ),
-      disableScrollArea: true,
-    },
-    {
-      value: "time",
-      label: "Tempo",
-      icon: Calendar,
-      render: () => <TimeManagement projectId={project.id} />,
-    },
-    {
-      value: "communication",
-      label: "Comunicação",
-      icon: MessageCircle,
-      render: () => <CommunicationPlanList projectId={project.id} />,
-    },
-    {
-      value: "risks",
-      label: "Riscos",
-      icon: AlertTriangle,
-      render: () => <RisksList projectId={project.id} />,
-    },
-    {
-      value: "gaps",
-      label: "Gaps",
-      icon: FileX,
-      render: () => <GapManagement projectId={project.id} initialTaskId={gapTaskId} />,
-      disableScrollArea: true,
-    },
-    {
-      value: "turnover",
-      label: "Virada",
-      icon: RotateCw,
-      render: () => (
-        <Card>
-          <CardHeader>
-            <CardTitle>Plano de Virada</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Funcionalidade de plano de virada será implementada em breve.</p>
-          </CardContent>
-        </Card>
-      ),
-    },
-    {
-      value: "documents",
-      label: "Documentos",
-      icon: FolderOpen,
-      render: () => (
-        <Card>
-          <CardHeader>
-            <CardTitle>Gestão de Documentos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">Funcionalidade de gestão de documentos será implementada em breve.</p>
-          </CardContent>
-        </Card>
-      ),
-    },
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [project.id, project.cliente, gapTaskId]);
 
   const tabParam = searchParams.get('tab');
 
