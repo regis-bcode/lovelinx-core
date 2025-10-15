@@ -1116,14 +1116,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           // Nova tarefa
           const { _isNew, _tempId, id, task_id, created_at, updated_at, user_id, ...taskData } = row;
           const created = await createTask(taskData);
-          if (created && isOutsideScope(created.escopo)) {
+          if (created) {
             await ensureGapForTask(created);
           }
         } else if (row.id) {
           // Atualizar tarefa existente
           const { id, task_id, created_at, updated_at, user_id, ...taskData } = row;
           const updated = await updateTask(id, taskData);
-          if (updated && isOutsideScope(updated.escopo)) {
+          if (updated) {
             await ensureGapForTask(updated);
           }
         }
