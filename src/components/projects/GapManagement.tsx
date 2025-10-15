@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateInput } from '@/components/ui/date-input';
@@ -19,6 +18,60 @@ import { cn } from '@/lib/utils';
 import { CheckCircle2, ClipboardEdit, FilePlus2, Loader2, Trash2 } from 'lucide-react';
 
 const IMPACT_OPTIONS = ['Escopo', 'Prazo', 'Custo'] as const;
+
+interface InfoFieldProps {
+  label: string;
+  value?: ReactNode;
+  emptyText?: string;
+  isEmpty?: boolean;
+  className?: string;
+}
+
+const InfoField = ({ label, value, emptyText = '-', isEmpty, className }: InfoFieldProps) => {
+  const shouldShowPlaceholder =
+    isEmpty ??
+    (value === undefined ||
+      value === null ||
+      (typeof value === 'string' && value.trim().length === 0));
+
+  return (
+    <div className="space-y-1">
+      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      <div className={cn('text-sm text-foreground', className)}>
+        {shouldShowPlaceholder ? <span className="text-muted-foreground">{emptyText}</span> : value}
+      </div>
+    </div>
+  );
+};
+
+const formatCurrency = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return null;
+  }
+  try {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value));
+  } catch {
+    return String(value);
+  }
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleDateString('pt-BR');
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+};
 
 type GapFormState = Partial<GapFormData> & {
   impacto: string[];
@@ -94,6 +147,13 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     return tasks
       .slice()
       .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [tasks]);
+
+  const taskNameById = useMemo(() => {
+    return tasks.reduce<Record<string, string>>((acc, task) => {
+      acc[task.id] = task.nome;
+      return acc;
+    }, {});
   }, [tasks]);
 
   const highlightTaskId = initialTaskId ?? null;
@@ -278,75 +338,167 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
               Nenhum GAP registrado para o filtro selecionado.
             </div>
           ) : (
-            <ScrollArea className="h-[520px]">
-              <Table className="min-w-[900px] text-sm">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px]">Título</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Responsável</TableHead>
-                    <TableHead>Impacto</TableHead>
-                    <TableHead className="w-[120px]">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredGaps.map(gap => (
-                    <TableRow
+            <ScrollArea className="h-[520px] pr-1">
+              <div className="space-y-4">
+                {filteredGaps.map(gap => {
+                  const impactList = Array.isArray(gap.impacto) ? gap.impacto : [];
+                  const anexosList = Array.isArray(gap.anexos) ? gap.anexos : [];
+                  const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+                  const taskName = taskNameById[gap.task_id] ?? 'Tarefa não encontrada';
+                  const impactoFinanceiro = formatCurrency(gap.valor_impacto_financeiro ?? undefined);
+                  const dataPrometida = formatDate(gap.data_prometida);
+                  const dataAprovacao = formatDate(gap.data_aprovacao);
+                  const createdAt = formatDateTime(gap.created_at);
+                  const updatedAt = formatDateTime(gap.updated_at);
+                  const faturavelValue =
+                    gap.faturavel === null || gap.faturavel === undefined ? null : gap.faturavel ? 'Sim' : 'Não';
+                  const necessitaAprovacaoValue =
+                    gap.necessita_aprovacao === null || gap.necessita_aprovacao === undefined
+                      ? null
+                      : gap.necessita_aprovacao
+                        ? 'Sim'
+                        : 'Não';
+
+                  return (
+                    <Card
                       key={gap.id}
                       className={cn(
-                        highlightTaskId && gap.task_id === highlightTaskId
-                          ? 'bg-primary/5 hover:bg-primary/10'
-                          : undefined,
+                        'border-border/80 transition-colors',
+                        highlight ? 'border-primary/50 bg-primary/5 shadow-sm' : undefined,
                       )}
                     >
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground">{gap.titulo}</span>
-                          <span className="text-xs text-muted-foreground">{tasks.find(task => task.id === gap.task_id)?.nome}</span>
+                      <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <CardTitle className="text-lg font-semibold leading-tight">{gap.titulo}</CardTitle>
+                            {gap.status ? <Badge variant="outline">{gap.status}</Badge> : null}
+                            {gap.necessita_aprovacao ? <Badge variant="secondary">Necessita aprovação</Badge> : null}
+                            {gap.faturavel ? <Badge variant="default">Faturável</Badge> : null}
+                          </div>
+                          <CardDescription className="text-sm">
+                            <span className="font-medium text-foreground">Tarefa vinculada:</span> {taskName}
+                          </CardDescription>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            {createdAt ? <span>Criado em {createdAt}</span> : null}
+                            {updatedAt ? <span>Atualizado em {updatedAt}</span> : null}
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>{gap.tipo || '-'}</TableCell>
-                      <TableCell>{gap.origem || '-'}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          {gap.status ? <Badge variant="outline">{gap.status}</Badge> : <span>-</span>}
-                          {gap.necessita_aprovacao ? (
-                            <Badge variant="secondary">Aprovação</Badge>
-                          ) : null}
-                          {gap.faturavel ? <Badge variant="default">Faturável</Badge> : null}
-                        </div>
-                      </TableCell>
-                      <TableCell>{gap.responsavel || '-'}</TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-1">
-                          {(gap.impacto as string[] | null)?.map(impact => (
-                            <Badge key={impact} variant="outline">
-                              {impact}
-                            </Badge>
-                          )) || <span>-</span>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <Button size="sm" variant="ghost" onClick={() => openEditDialog(gap)}>
-                            <ClipboardEdit className="h-4 w-4" />
+                        <div className="flex items-center gap-2 self-stretch sm:self-start">
+                          <Button size="sm" variant="outline" onClick={() => openEditDialog(gap)}>
+                            <ClipboardEdit className="mr-2 h-4 w-4" /> Editar
                           </Button>
                           <Button
                             size="sm"
-                            variant="ghost"
-                            className="text-destructive hover:text-destructive"
+                            variant="outline"
+                            className="border-destructive text-destructive hover:bg-destructive/10"
                             onClick={() => handleDelete(gap)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="mr-2 h-4 w-4" /> Excluir
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <section className="space-y-3">
+                          <h4 className="text-sm font-semibold text-muted-foreground">Informações principais</h4>
+                          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            <InfoField label="Tipo" value={gap.tipo ?? undefined} />
+                            <InfoField label="Origem" value={gap.origem ?? undefined} />
+                            <InfoField label="Severidade" value={gap.severidade ?? undefined} />
+                            <InfoField label="Urgência" value={gap.urgencia ?? undefined} />
+                            <InfoField label="Prioridade" value={gap.prioridade ?? undefined} />
+                            <InfoField label="Responsável" value={gap.responsavel ?? undefined} />
+                            <InfoField label="Status" value={gap.status ?? undefined} />
+                            <InfoField label="Impacto" isEmpty={impactList.length === 0} value={
+                              <div className="flex flex-wrap gap-1">
+                                {impactList.map(impact => (
+                                  <Badge key={impact} variant="outline">
+                                    {impact}
+                                  </Badge>
+                                ))}
+                              </div>
+                            } />
+                            <InfoField label="Faturável" value={faturavelValue ?? undefined} />
+                            <InfoField label="Valor do impacto financeiro" value={impactoFinanceiro ?? undefined} />
+                            <InfoField label="Necessita aprovação" value={necessitaAprovacaoValue ?? undefined} />
+                            <InfoField label="Decisão" value={gap.decisao ?? undefined} />
+                            <InfoField label="Aprovado por" value={gap.aprovado_por ?? undefined} />
+                            <InfoField label="Data prometida" value={dataPrometida ?? undefined} />
+                            <InfoField label="Data de aprovação" value={dataAprovacao ?? undefined} />
+                          </div>
+                        </section>
+
+                        <section className="space-y-3">
+                          <h4 className="text-sm font-semibold text-muted-foreground">Detalhes</h4>
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <InfoField
+                              label="Descrição"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.descricao}</p>}
+                              isEmpty={!gap.descricao}
+                              className="whitespace-pre-wrap"
+                            />
+                            <InfoField
+                              label="Causa raiz"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.causa_raiz}</p>}
+                              isEmpty={!gap.causa_raiz}
+                              className="whitespace-pre-wrap"
+                            />
+                            <InfoField
+                              label="Plano de ação"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.plano_acao}</p>}
+                              isEmpty={!gap.plano_acao}
+                              className="whitespace-pre-wrap"
+                            />
+                            <InfoField
+                              label="Impacto financeiro (descrição)"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.impacto_financeiro_descricao}</p>}
+                              isEmpty={!gap.impacto_financeiro_descricao}
+                              className="whitespace-pre-wrap"
+                            />
+                            <InfoField
+                              label="Resumo do impacto"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.impacto_resumo}</p>}
+                              isEmpty={!gap.impacto_resumo}
+                              className="whitespace-pre-wrap"
+                            />
+                            <InfoField
+                              label="Observações"
+                              value={<p className="whitespace-pre-wrap text-sm">{gap.observacoes}</p>}
+                              isEmpty={!gap.observacoes}
+                              className="whitespace-pre-wrap"
+                            />
+                          </div>
+                        </section>
+
+                        <section className="space-y-3">
+                          <h4 className="text-sm font-semibold text-muted-foreground">Anexos</h4>
+                          <InfoField
+                            label="Referências anexadas"
+                            isEmpty={anexosList.length === 0}
+                            value={
+                              <ul className="list-disc space-y-1 pl-4 text-sm">
+                                {anexosList.map((item, index) => {
+                                  const isUrl = typeof item === 'string' && /^https?:\/\//.test(item);
+                                  return (
+                                    <li key={`${item}-${index}`} className="break-words">
+                                      {isUrl ? (
+                                        <a href={item} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
+                                          {item}
+                                        </a>
+                                      ) : (
+                                        item
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            }
+                          />
+                        </section>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
             </ScrollArea>
           )}
         </CardContent>

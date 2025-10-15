@@ -1448,6 +1448,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           if (result) {
             createdCount += 1;
             currentOrder += 1;
+            if (isOutsideScope(result.escopo ?? row.escopo)) {
+              await ensureGapForTask(result);
+            }
           }
         } catch (error) {
           console.error('Erro ao importar tarefa', error);
