@@ -273,6 +273,50 @@ export function useTasks(projectId?: string) {
     }
   };
 
+  const updateCustomField = async (
+    id: string,
+    fieldData: Partial<CustomFieldFormData>,
+  ): Promise<CustomField | null> => {
+    if (!id) {
+      toast({
+        title: "Erro",
+        description: "Campo personalizado inválido.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const { data, error } = await (supabase as any)
+        .from('custom_fields')
+        .update(fieldData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Erro ao atualizar campo personalizado:', error);
+        toast({
+          title: "Erro",
+          description: "Erro ao atualizar campo personalizado.",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      const updatedField = data as CustomField;
+      setCustomFields(prev => prev.map(field => (field.id === id ? updatedField : field)));
+      toast({
+        title: "Sucesso",
+        description: "Campo personalizado atualizado com sucesso!",
+      });
+      return updatedField;
+    } catch (error) {
+      console.error('Erro ao atualizar campo personalizado:', error);
+      return null;
+    }
+  };
+
   const deleteCustomField = async (id: string): Promise<boolean> => {
     try {
       const { error } = await (supabase as any)
@@ -310,6 +354,7 @@ export function useTasks(projectId?: string) {
     updateTask,
     deleteTask,
     createCustomField,
+    updateCustomField,
     deleteCustomField,
     refreshTasks: loadTasks,
     refreshCustomFields: loadCustomFields,
