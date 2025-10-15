@@ -57,6 +57,33 @@ type ColumnDefinition =
       field: CustomField;
     };
 
+type GroupingKey =
+  | 'none'
+  | 'prioridade'
+  | 'data_vencimento'
+  | 'status'
+  | 'responsavel'
+  | 'percentual_conclusao'
+  | 'modulo'
+  | 'area'
+  | 'categoria'
+  | 'criticidade'
+  | 'escopo';
+
+const GROUPING_OPTIONS: Array<{ value: GroupingKey; label: string }> = [
+  { value: 'none', label: 'Sem agrupamento' },
+  { value: 'prioridade', label: 'Prioridade' },
+  { value: 'data_vencimento', label: 'Vencimento' },
+  { value: 'status', label: 'Status' },
+  { value: 'responsavel', label: 'Responsável' },
+  { value: 'percentual_conclusao', label: 'Conclusão' },
+  { value: 'modulo', label: 'Módulo' },
+  { value: 'area', label: 'Área' },
+  { value: 'categoria', label: 'Categoria' },
+  { value: 'criticidade', label: 'Criticidade' },
+  { value: 'escopo', label: 'Escopo' },
+];
+
 const CUSTOM_FIELD_TYPES: Array<{
   type: CustomField['field_type'];
   label: string;
@@ -158,6 +185,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
+  const [grouping, setGrouping] = useState<GroupingKey>('none');
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -523,6 +551,107 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         : [...prev, columnKey]
     );
   };
+
+  const getGroupingInfo = useCallback(
+    (row: TaskRow): { key: string; label: string } => {
+      switch (grouping) {
+        case 'prioridade': {
+          const value = row.prioridade?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem prioridade' };
+        }
+        case 'data_vencimento': {
+          const value = row.data_vencimento;
+          if (!value) {
+            return { key: '__empty__', label: 'Sem vencimento' };
+          }
+          const date = new Date(String(value));
+          if (Number.isNaN(date.getTime())) {
+            const trimmed = String(value).trim();
+            const key = trimmed.toLowerCase() || '__empty__';
+            return { key, label: trimmed || 'Sem vencimento' };
+          }
+          try {
+            return { key: format(date, 'yyyy-MM-dd'), label: format(date, 'dd/MM/yyyy') };
+          } catch (error) {
+            console.error('Erro ao formatar data para agrupamento:', error);
+            const fallback = String(value);
+            const key = fallback.trim().toLowerCase() || '__empty__';
+            return { key, label: fallback || 'Sem vencimento' };
+          }
+        }
+        case 'status': {
+          const value = row.status?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem status' };
+        }
+        case 'responsavel': {
+          const value = row.responsavel?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem responsável' };
+        }
+        case 'percentual_conclusao': {
+          const value = row.percentual_conclusao;
+          if (typeof value === 'number' && Number.isFinite(value)) {
+            const normalized = value;
+            return { key: normalized.toString(), label: `${normalized}%` };
+          }
+          return { key: '__empty__', label: 'Sem conclusão' };
+        }
+        case 'modulo': {
+          const value = row.modulo?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem módulo' };
+        }
+        case 'area': {
+          const value = row.area?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem área' };
+        }
+        case 'categoria': {
+          const value = row.categoria?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem categoria' };
+        }
+        case 'criticidade': {
+          const value = row.criticidade?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem criticidade' };
+        }
+        case 'escopo': {
+          const value = row.escopo?.trim();
+          const key = value?.toLowerCase() ?? '__empty__';
+          return { key, label: value ?? 'Sem escopo' };
+        }
+        default:
+          return { key: 'none', label: '' };
+      }
+    },
+    [grouping],
+  );
+
+  const groupedRows = useMemo(() => {
+    if (grouping === 'none') {
+      return null;
+    }
+
+    const groups = new Map<string, { key: string; label: string; rows: Array<{ row: TaskRow; index: number }> }>();
+
+    editableRows.forEach((row, index) => {
+      const info = getGroupingInfo(row);
+      const mapKey = info.key || '__empty__';
+      const existing = groups.get(mapKey);
+      const entry = { row, index };
+
+      if (existing) {
+        existing.rows.push(entry);
+      } else {
+        groups.set(mapKey, { key: mapKey, label: info.label, rows: [entry] });
+      }
+    });
+
+    return Array.from(groups.values());
+  }, [editableRows, getGroupingInfo, grouping]);
 
   const getColumnBaseWidth = useCallback(
     (columnKey: string) => {
@@ -1768,6 +1897,69 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     );
   }, [fieldSearch]);
 
+  const renderTaskRow = (row: TaskRow, index: number) => (
+    <TableRow
+      key={row.id || row._tempId || index}
+      className={cn(
+        'border-b border-border/60 bg-background hover:bg-muted/40 text-[10px]',
+        isCondensedView ? 'h-8' : 'h-9'
+      )}
+    >
+      <TableCell
+        className={cn(
+          'sticky left-0 z-20 bg-background px-2',
+          isCondensedView ? 'py-1' : 'py-1.5'
+        )}
+        style={{ width: '140px', minWidth: '140px' }}
+      >
+        <div className="flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+            aria-label="Visualizar resumo da tarefa"
+          >
+            <Eye className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+            aria-label="Editar tarefa"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive hover:text-destructive"
+            onClick={() => deleteRow(index)}
+            aria-label="Excluir tarefa"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </TableCell>
+      {visibleColumns.map(col => {
+        const width = getColumnWidth(col.key);
+        return (
+          <TableCell
+            key={col.key}
+            className={cn(
+              'px-2 align-middle text-[10px]',
+              isCondensedView ? 'py-0.5' : 'py-1'
+            )}
+            style={{ width: `${width}px`, minWidth: `${width}px` }}
+          >
+            {renderEditableCell(row, index, col)}
+          </TableCell>
+        );
+      })}
+    </TableRow>
+  );
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
@@ -1798,6 +1990,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               ref={fileInputRef}
               onChange={handleFileChange}
             />
+
+            <Select value={grouping} onValueChange={value => setGrouping(value as GroupingKey)}>
+              <SelectTrigger className="h-9 w-[200px]" aria-label="Agrupar tarefas">
+                <SelectValue placeholder="Agrupar tarefas" />
+              </SelectTrigger>
+              <SelectContent>
+                {GROUPING_OPTIONS.map(option => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
             <Button size="sm" onClick={addNewRow} disabled={loading}>
               <PlusCircle className="h-4 w-4 mr-2" />
@@ -2202,68 +2407,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                             <p className="text-muted-foreground">Nenhuma tarefa. Clique em "Adicionar Tarefa" para registrar a primeira.</p>
                           </TableCell>
                         </TableRow>
+                      ) : grouping === 'none' ? (
+                        editableRows.map((row, index) => renderTaskRow(row, index))
                       ) : (
-                        editableRows.map((row, index) => (
-                          <TableRow
-                            key={row.id || row._tempId || index}
-                            className={cn(
-                              'border-b border-border/60 bg-background hover:bg-muted/40 text-[10px]',
-                              isCondensedView ? 'h-8' : 'h-9'
-                            )}
-                          >
-                            <TableCell
-                              className={cn(
-                                'sticky left-0 z-20 bg-background px-2',
-                                isCondensedView ? 'py-1' : 'py-1.5'
-                              )}
-                              style={{ width: '140px', minWidth: '140px' }}
-                            >
-                              <div className="flex items-center gap-1.5">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setActiveTaskDialog({ mode: 'view', index })}
-                                  aria-label="Visualizar resumo da tarefa"
-                                >
-                                  <Eye className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                  onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
-                                  aria-label="Editar tarefa"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
-                                  onClick={() => deleteRow(index)}
-                                  aria-label="Excluir tarefa"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                            {visibleColumns.map(col => {
-                              const width = getColumnWidth(col.key);
-                              return (
-                                <TableCell
-                                  key={col.key}
-                                  className={cn(
-                                    'px-2 align-middle text-[10px]',
-                                    isCondensedView ? 'py-0.5' : 'py-1'
-                                  )}
-                                  style={{ width: `${width}px`, minWidth: `${width}px` }}
-                                >
-                                  {renderEditableCell(row, index, col)}
-                                </TableCell>
-                              );
-                            })}
-                          </TableRow>
+                        groupedRows?.map(group => (
+                          <React.Fragment key={`group-${group.key}`}>
+                            <TableRow className="bg-muted/40 text-[10px]">
+                              <TableCell
+                                colSpan={visibleColumns.length + 1}
+                                className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span>{group.label}</span>
+                                  <span className="text-[10px] font-medium text-muted-foreground/80">
+                                    {group.rows.length} tarefa{group.rows.length > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                            {group.rows.map(item => renderTaskRow(item.row, item.index))}
+                          </React.Fragment>
                         ))
                       )}
                       {!loading && (
