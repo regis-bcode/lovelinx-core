@@ -128,29 +128,26 @@ export function useTasks(projectId?: string) {
           .from('tasks')
           .select('task_id')
           .eq('project_id', projectId)
-          .order('task_id', { ascending: false })
-          .limit(1);
+          .limit(1000);
 
         if (fetchError) {
           console.error('Erro ao buscar último identificador de tarefa:', fetchError);
         }
 
-        const existingTaskId = taskIdRows?.[0]?.task_id as string | undefined;
-        const parsedExisting = parseTaskIdNumber(existingTaskId);
-        if (parsedExisting) {
-          nextId = parsedExisting + 1;
-          return nextId;
-        }
-
-        if (tasks.length > 0) {
-          const maxFromState = tasks.reduce((max, task) => {
-            const parsed = parseTaskIdNumber(task.task_id);
+        const maxFromDatabase = (
+          (taskIdRows as Array<{ task_id?: string }> | null | undefined)?.reduce((max, row) => {
+            const parsed = parseTaskIdNumber(row?.task_id);
             return parsed && parsed > max ? parsed : max;
-          }, 0);
-          if (maxFromState > 0) {
-            nextId = maxFromState + 1;
-          }
-        }
+          }, 0) ?? 0
+        );
+
+        const maxFromState = tasks.reduce((max, task) => {
+          const parsed = parseTaskIdNumber(task.task_id);
+          return parsed && parsed > max ? parsed : max;
+        }, 0);
+
+        const computedNext = Math.max(maxFromDatabase + 1, maxFromState + 1, 1);
+        nextId = computedNext;
       } catch (error) {
         console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
       }
