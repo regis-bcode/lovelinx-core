@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,18 +16,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Gap, GapFormData } from '@/types/gap';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, ClipboardEdit, FilePlus2, Loader2, Trash2 } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const IMPACT_OPTIONS = ['Escopo', 'Prazo', 'Custo'] as const;
-
-const WIDE_GAP_COLUMN_KEYS = new Set([
-  'resumo',
-  'descricao',
-  'plano_acao',
-  'impacto_financeiro_descricao',
-  'impacto_resumo',
-  'anexos',
-  'observacoes',
-]);
 
 const formatCurrency = (value?: number | null) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -411,13 +402,6 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     ];
   }, [taskNameById]);
 
-  const taskColumnDefinition = useMemo(() => gapColumns.find(column => column.key === 'task'), [gapColumns]);
-  const titleColumnDefinition = useMemo(() => gapColumns.find(column => column.key === 'titulo'), [gapColumns]);
-  const detailColumns = useMemo(
-    () => gapColumns.filter(column => column.key !== 'task' && column.key !== 'titulo'),
-    [gapColumns],
-  );
-
   const openCreateDialog = (taskId?: string) => {
     const baseTaskId = taskId ?? (selectedTaskId !== 'all' ? selectedTaskId : '');
     setFormState({
@@ -431,7 +415,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     setIsDialogOpen(true);
   };
 
-  const openEditDialog = (gap: Gap) => {
+  const openEditDialog = useCallback((gap: Gap) => {
     setFormState({
       ...gap,
       impacto: Array.isArray(gap.impacto) ? gap.impacto : gap.impacto ? [...(gap.impacto as string[])] : [],
@@ -440,7 +424,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     });
     setEditingGap(gap);
     setIsDialogOpen(true);
-  };
+  }, []);
 
   const handleImpactToggle = (impact: string) => {
     setFormState(prev => {
@@ -525,13 +509,16 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     }
   };
 
-  const handleDelete = async (gap: Gap) => {
-    if (!confirm(`Deseja realmente remover o GAP "${gap.titulo}"?`)) return;
-    const success = await deleteGap(gap.id);
-    if (success && editingGap?.id === gap.id) {
-      setIsDialogOpen(false);
-    }
-  };
+  const handleDelete = useCallback(
+    async (gap: Gap) => {
+      if (!confirm(`Deseja realmente remover o GAP "${gap.titulo}"?`)) return;
+      const success = await deleteGap(gap.id);
+      if (success && editingGap?.id === gap.id) {
+        setIsDialogOpen(false);
+      }
+    },
+    [deleteGap, editingGap],
+  );
 
   const handleEnsureGap = async (taskId: string) => {
     const task = tasks.find(item => item.id === taskId);
@@ -544,6 +531,41 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       });
     }
   };
+
+  const tableColumns = useMemo<GapColumn[]>(
+    () => [
+      ...gapColumns,
+      {
+        key: 'acoes',
+        label: 'Ações',
+        className: 'min-w-[180px]',
+        render: gap => (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => openEditDialog(gap)}
+              aria-label="Editar GAP"
+            >
+              <ClipboardEdit className="mr-2 h-4 w-4" />
+              Editar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-destructive text-destructive hover:bg-destructive/10"
+              onClick={() => handleDelete(gap)}
+              aria-label="Excluir GAP"
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remover
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [gapColumns, handleDelete, openEditDialog],
+  );
 
   const selectedTaskHasGap = selectedTaskId === 'all'
     ? false
@@ -598,87 +620,43 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
               Nenhum GAP registrado para o filtro selecionado.
             </div>
           ) : (
-            <div className="max-h-[520px] space-y-4 overflow-auto pr-1">
-              {filteredGaps.map(gap => {
-                const highlight = highlightTaskId && gap.task_id === highlightTaskId;
-                const taskContent = taskColumnDefinition
-                  ? taskColumnDefinition.render(gap)
-                  : (taskNameById[gap.task_id] ?? 'Tarefa não encontrada');
-                const titleContent = titleColumnDefinition
-                  ? titleColumnDefinition.render(gap)
-                  : (gap.titulo ?? 'GAP sem título');
-
-                return (
-                  <div
-                    key={gap.id}
-                    className={cn(
-                      'rounded-xl border border-border/60 bg-background p-4 shadow-sm transition-colors',
-                      highlight ? 'border-primary bg-primary/5' : 'hover:border-primary/50',
-                    )}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {taskColumnDefinition?.label ?? 'Tarefa vinculada'}
-                          </span>
-                          <div className="text-sm font-semibold text-foreground">{taskContent}</div>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {titleColumnDefinition?.label ?? 'Título'}
-                          </span>
-                          <div className="text-base font-semibold text-foreground">
-                            {titleContent}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openEditDialog(gap)}
-                          aria-label="Editar GAP"
+            <div className="max-h-[520px] overflow-auto pr-1">
+              <div className="min-w-full overflow-auto">
+                <Table className="min-w-[1200px]">
+                  <TableHeader className="bg-muted/40">
+                    <TableRow>
+                      {tableColumns.map(column => (
+                        <TableHead
+                          key={column.key}
+                          className={cn('whitespace-nowrap text-xs font-semibold uppercase tracking-wide', column.className)}
                         >
-                          <ClipboardEdit className="mr-2 h-4 w-4" />
-                          Editar
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-destructive text-destructive hover:bg-destructive/10"
-                          onClick={() => handleDelete(gap)}
-                          aria-label="Excluir GAP"
+                          {column.label}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGaps.map(gap => {
+                      const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+                      return (
+                        <TableRow
+                          key={gap.id}
+                          className={cn(
+                            'transition-colors',
+                            highlight ? 'border-primary/50 bg-primary/5 hover:bg-primary/10' : undefined,
+                          )}
                         >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Remover
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                      {detailColumns.map(column => {
-                        const isWide = WIDE_GAP_COLUMN_KEYS.has(column.key);
-
-                        return (
-                          <div
-                            key={column.key}
-                            className={cn(
-                              'space-y-1 rounded-lg border border-border/40 bg-muted/10 p-3',
-                              isWide ? 'sm:col-span-2 xl:col-span-3' : undefined,
-                            )}
-                          >
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                              {column.label}
-                            </span>
-                            <div className="text-sm leading-relaxed text-foreground">{column.render(gap)}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                          {tableColumns.map(column => (
+                            <TableCell key={column.key} className={cn('align-top text-sm', column.className)}>
+                              {column.render(gap)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </CardContent>
