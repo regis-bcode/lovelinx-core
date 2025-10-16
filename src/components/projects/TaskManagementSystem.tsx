@@ -37,6 +37,7 @@ import { useProjectStages } from '@/hooks/useProjectStages';
 import { useGaps } from '@/hooks/useGaps';
 import { useAuth } from '@/contexts/AuthContext';
 import { createTask as createTaskRecord } from '@/lib/tasks';
+import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { getStatusColorValue } from '@/lib/status-colors';
@@ -1281,6 +1282,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
         const normalizedTask: Task = {
           ...createdTask,
+          task_id: ensureTaskIdentifier(createdTask.task_id, createdTask.id),
           custom_fields: (createdTask.custom_fields ?? {}) as Record<string, unknown>,
           cliente: createdTask.cliente ?? (defaultClient || undefined),
         } as Task;

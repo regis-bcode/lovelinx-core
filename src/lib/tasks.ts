@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Task } from '@/types/task';
+import { ensureTaskIdentifier } from './taskIdentifier';
 
 interface CreateTaskParams {
   projectId: string;
@@ -134,12 +135,15 @@ export async function createTask(params: CreateTaskParams): Promise<CreatedTask>
     throw error;
   }
 
-  if (!data?.task_id) {
-    throw new Error('INSERT ok, mas task_id não retornou (trigger ausente?).');
+  if (!data) {
+    throw new Error('Resposta inválida ao criar tarefa.');
   }
+
+  const normalizedTaskId = ensureTaskIdentifier(data.task_id, data.id);
 
   const normalized: CreatedTask = {
     ...data,
+    task_id: normalizedTaskId,
     custom_fields: (data.custom_fields ?? {}) as Record<string, unknown>,
     cronograma: Boolean(data.cronograma),
     percentual_conclusao: typeof data.percentual_conclusao === 'number' ? data.percentual_conclusao : 0,
