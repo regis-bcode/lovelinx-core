@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
+import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,11 +20,19 @@ export function useTasks(projectId?: string) {
       .channel(`tasks-realtime-${projectId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
         const task = payload.new as Task;
-        setTasks((prev) => [task, ...prev.filter((t) => t.id !== task.id)]);
+        const normalized: Task = {
+          ...task,
+          task_id: ensureTaskIdentifier(task.task_id, task.id),
+        };
+        setTasks((prev) => [normalized, ...prev.filter((t) => t.id !== normalized.id)]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
         const task = payload.new as Task;
-        setTasks((prev) => prev.map((t) => (t.id === task.id ? task : t)));
+        const normalized: Task = {
+          ...task,
+          task_id: ensureTaskIdentifier(task.task_id, task.id),
+        };
+        setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
         const taskId = payload.old.id;
@@ -74,7 +83,11 @@ export function useTasks(projectId?: string) {
         return;
       }
 
-      setTasks(data as Task[]);
+      const normalizedTasks = (data as Task[]).map(task => ({
+        ...task,
+        task_id: ensureTaskIdentifier(task.task_id, task.id),
+      }));
+      setTasks(normalizedTasks);
     } catch (error) {
       console.error('Erro ao carregar tarefas:', error);
     } finally {
@@ -150,12 +163,16 @@ export function useTasks(projectId?: string) {
       }
 
       const newTask = data as Task;
-      setTasks(prev => [newTask, ...prev]);
+      const normalized: Task = {
+        ...newTask,
+        task_id: ensureTaskIdentifier(newTask.task_id, newTask.id),
+      };
+      setTasks(prev => [normalized, ...prev]);
       toast({
         title: "Sucesso",
         description: "Tarefa criada com sucesso!",
       });
-      return newTask;
+      return normalized;
     } catch (error) {
       console.error('Erro ao criar tarefa:', error);
       toast({
@@ -187,12 +204,16 @@ export function useTasks(projectId?: string) {
       }
 
       const updatedTask = data as Task;
-      setTasks(prev => prev.map(task => task.id === id ? updatedTask : task));
+      const normalized: Task = {
+        ...updatedTask,
+        task_id: ensureTaskIdentifier(updatedTask.task_id, updatedTask.id),
+      };
+      setTasks(prev => prev.map(task => (task.id === id ? normalized : task)));
       toast({
         title: "Sucesso",
         description: "Tarefa atualizada com sucesso!",
       });
-      return updatedTask;
+      return normalized;
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);
       return null;
