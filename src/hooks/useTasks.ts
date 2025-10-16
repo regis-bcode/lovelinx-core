@@ -357,6 +357,7 @@ export function useTasks(projectId?: string) {
     deleteCustomField,
     refreshTasks: loadTasks,
     refreshCustomFields: loadCustomFields,
+    setTasks,
   };
 }
 

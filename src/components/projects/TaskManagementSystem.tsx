@@ -35,6 +35,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useProjectStages } from '@/hooks/useProjectStages';
 import { useGaps } from '@/hooks/useGaps';
+import { useAuth } from '@/contexts/AuthContext';
+import { createTask as createTaskRecord } from '@/lib/tasks';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { getStatusColorValue } from '@/lib/status-colors';
@@ -160,14 +162,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     tasks,
     customFields,
     loading,
-    createTask,
+    createTask: createTaskMutation,
     updateTask,
     deleteTask,
     createCustomField,
     updateCustomField,
     deleteCustomField,
     refreshTasks,
+    setTasks,
   } = useTasks(projectId);
+  const { user } = useAuth();
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
   const statusColorMap = useMemo(() => {
@@ -205,6 +209,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isCondensedView, setIsCondensedView] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isSavingChanges, setIsSavingChanges] = useState(false);
+  const [isCreatingTask, setIsCreatingTask] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
   const [selectedFieldType, setSelectedFieldType] = useState<CustomField['field_type'] | null>(null);
@@ -1221,6 +1226,96 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     navigate(`/projects-tap/${projectId}?tab=gaps&gapTaskId=${taskId}`);
   };
 
+  const handleCreateTask = useCallback(
+    async (draft?: {
+      nome?: string;
+      prioridade?: Task['prioridade'];
+      vencimento?: string;
+      status?: string;
+      extras?: Record<string, unknown>;
+    }) => {
+      if (isCreatingTask) {
+        return;
+      }
+      if (!projectId) {
+        toast({
+          title: 'Projeto não identificado',
+          description: 'Não foi possível determinar o projeto para criar a tarefa.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!user?.id) {
+        toast({
+          title: 'Usuário não identificado',
+          description: 'Você precisa estar autenticado para criar tarefas.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const nome = draft?.nome?.trim() || 'Nova tarefa';
+      const prioridade = (draft?.prioridade as Task['prioridade']) ?? 'Média';
+      const status = draft?.status?.trim() || 'Atenção';
+      const vencimento = draft?.vencimento;
+
+      try {
+        setIsCreatingTask(true);
+        const result = await createTaskRecord({
+          projectId,
+          userId: user.id,
+          nome,
+          prioridade,
+          vencimento,
+          status,
+          extras: draft?.extras,
+        });
+
+        setTasks(prev => {
+          const current = Array.isArray(prev) ? [...prev] : [];
+          const now = new Date().toISOString();
+          const newTask = {
+            id: result.id,
+            project_id: projectId,
+            user_id: user.id,
+            task_id: result.task_id,
+            nome,
+            prioridade,
+            status,
+            custom_fields: {},
+            created_at: now,
+            updated_at: now,
+            percentual_conclusao: 0,
+            nivel: 0,
+            ordem: 0,
+            ...(vencimento ? { data_vencimento: vencimento } : {}),
+            ...(draft?.extras ?? {}),
+          } as Task;
+
+          current.unshift(newTask);
+          return current;
+        });
+
+        toast({
+          title: 'Tarefa criada',
+          description: `Tarefa ${result.task_id} criada com sucesso.`,
+        });
+      } catch (error) {
+        console.error('createTask:error', error);
+        const description =
+          error instanceof Error ? error.message : 'Falha ao criar tarefa.';
+        toast({
+          title: 'Erro ao criar tarefa',
+          description,
+          variant: 'destructive',
+        });
+      } finally {
+        setIsCreatingTask(false);
+      }
+    },
+    [isCreatingTask, projectId, setTasks, toast, user],
+  );
+
   const savePendingNewRows = useCallback(async () => {
     const pendingRows = editableRows
       .map((row, index) => ({ row, index }))
@@ -1240,7 +1335,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     try {
       for (const { row, index } of pendingRows) {
         const payload = sanitizeTaskForSave(row);
-        const created = await createTask(payload);
+        const created = await createTaskMutation(payload);
         if (created) {
           createdMap.set(index, created);
           await ensureGapForTask(created);
@@ -1274,7 +1369,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     return !hadError;
-  }, [createTask, editableRows, ensureGapForTask, refreshTasks, sanitizeTaskForSave, toast]);
+  }, [createTaskMutation, editableRows, ensureGapForTask, refreshTasks, sanitizeTaskForSave, toast]);
 
   const addNewRow = useCallback(async () => {
     if (isSavingChanges) {
@@ -1348,7 +1443,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         const payload = sanitizeTaskForSave(row);
 
         if (row._isNew || row.isDraft) {
-          const created = await createTask(payload);
+          const created = await createTaskMutation(payload);
           if (created) {
             createdCount += 1;
             createdTasksMap.set(index, created);
@@ -1451,7 +1546,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       setIsSavingChanges(false);
     }
   }, [
-    createTask,
+    createTaskMutation,
     deleteTask,
     editableRows,
     ensureGapForTask,
@@ -1750,7 +1845,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       for (const row of formattedRows) {
         try {
           const { nivel, ordem, ...taskData } = row;
-          const result = await createTask({
+          const result = await createTaskMutation({
             ...taskData,
             nivel: 0,
             ordem: currentOrder,
@@ -2737,7 +2832,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               </SelectContent>
             </Select>
 
-            <Button size="sm" onClick={addNewRow} disabled={loading}>
+            <Button
+              size="sm"
+              onClick={() => void handleCreateTask()}
+              disabled={loading || isCreatingTask}
+            >
               <PlusCircle className="h-4 w-4 mr-2" />
               Nova tarefa
             </Button>
@@ -3185,9 +3284,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         <TableRow
                           className={cn(
                             'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30 text-[10px]',
-                            isCondensedView ? 'h-8' : 'h-9'
+                            isCondensedView ? 'h-8' : 'h-9',
+                            isCreatingTask && 'pointer-events-none opacity-60'
                           )}
-                          onClick={addNewRow}
+                          onClick={() => {
+                            if (!isCreatingTask) {
+                              void handleCreateTask();
+                            }
+                          }}
                         >
                           <TableCell
                             colSpan={visibleColumns.length + 1}
@@ -3195,7 +3299,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           >
                             <div className="flex items-center gap-2">
                               <PlusCircle className="h-3.5 w-3.5" />
-                              <span className="font-medium">Adicionar Tarefa</span>
+                              <button
+                                type="button"
+                                className="font-medium text-primary hover:underline disabled:opacity-60"
+                                disabled={isCreatingTask}
+                                onClick={event => {
+                                  event.stopPropagation();
+                                  if (!isCreatingTask) {
+                                    void handleCreateTask();
+                                  }
+                                }}
+                              >
+                                Adicionar Tarefa
+                              </button>
                             </div>
                           </TableCell>
                         </TableRow>
