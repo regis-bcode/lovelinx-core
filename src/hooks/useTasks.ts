@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,17 @@ export function useTasks(projectId?: string) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const nextTaskNumberRef = useRef<number | null>(null);
+
+  const parseTaskIdNumber = (taskId?: string | null) => {
+    if (!taskId) return null;
+    const match = taskId.match(/TASK-(\d+)/);
+    if (!match) return null;
+    const value = parseInt(match[1], 10);
+    return Number.isFinite(value) ? value : null;
+  };
+
+  const formatTaskId = (value: number) => `TASK-${value.toString().padStart(3, '0')}`;
 
   useEffect(() => {
     if (!projectId || !user) return;
@@ -105,47 +116,72 @@ export function useTasks(projectId?: string) {
   };
 
   const getNextTaskId = async (): Promise<string> => {
-    let nextId = 1;
+    const resolveNextNumber = async () => {
+      let nextId = 1;
 
-    if (!projectId) {
-      return `TASK-${nextId.toString().padStart(3, '0')}`;
-    }
-
-    try {
-      const { data: taskIdRows, error: fetchError } = await (supabase as any)
-        .from('tasks')
-        .select('task_id')
-        .eq('project_id', projectId)
-        .order('task_id', { ascending: false })
-        .limit(1);
-
-      if (fetchError) {
-        console.error('Erro ao buscar último identificador de tarefa:', fetchError);
+      if (!projectId) {
+        return nextId;
       }
 
-      const existingTaskId = taskIdRows?.[0]?.task_id as string | undefined;
-      if (existingTaskId) {
-        const match = existingTaskId.match(/TASK-(\d+)/);
-        if (match) {
-          nextId = parseInt(match[1], 10) + 1;
+      try {
+        const { data: taskIdRows, error: fetchError } = await (supabase as any)
+          .from('tasks')
+          .select('task_id')
+          .eq('project_id', projectId)
+          .order('task_id', { ascending: false })
+          .limit(1);
+
+        if (fetchError) {
+          console.error('Erro ao buscar último identificador de tarefa:', fetchError);
         }
-      } else if (tasks.length > 0) {
-        const maxFromState = tasks.reduce((max, task) => {
-          const match = task.task_id?.match(/TASK-(\d+)/);
-          if (!match) return max;
-          const value = parseInt(match[1], 10);
-          return Number.isFinite(value) && value > max ? value : max;
-        }, 0);
-        if (maxFromState > 0) {
-          nextId = maxFromState + 1;
+
+        const existingTaskId = taskIdRows?.[0]?.task_id as string | undefined;
+        const parsedExisting = parseTaskIdNumber(existingTaskId);
+        if (parsedExisting) {
+          nextId = parsedExisting + 1;
+          return nextId;
         }
+
+        if (tasks.length > 0) {
+          const maxFromState = tasks.reduce((max, task) => {
+            const parsed = parseTaskIdNumber(task.task_id);
+            return parsed && parsed > max ? parsed : max;
+          }, 0);
+          if (maxFromState > 0) {
+            nextId = maxFromState + 1;
+          }
+        }
+      } catch (error) {
+        console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
       }
-    } catch (error) {
-      console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
+
+      return nextId;
+    };
+
+    if (nextTaskNumberRef.current === null) {
+      const nextNumber = await resolveNextNumber();
+      nextTaskNumberRef.current = nextNumber;
+      return formatTaskId(nextNumber);
     }
 
-    return `TASK-${nextId.toString().padStart(3, '0')}`;
+    nextTaskNumberRef.current += 1;
+    return formatTaskId(nextTaskNumberRef.current);
   };
+
+  useEffect(() => {
+    if (!tasks.length) return;
+    const maxFromState = tasks.reduce((max, task) => {
+      const parsed = parseTaskIdNumber(task.task_id);
+      return parsed && parsed > max ? parsed : max;
+    }, 0);
+    if (maxFromState > 0) {
+      nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, maxFromState);
+    }
+  }, [tasks]);
+
+  useEffect(() => {
+    nextTaskNumberRef.current = null;
+  }, [projectId]);
 
   const createTask = async (taskData: Partial<TaskFormData>): Promise<Task | null> => {
     if (!user || !projectId) {
@@ -158,13 +194,16 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const taskId = await getNextTaskId();
+      const normalizedTaskId =
+        typeof taskData.task_id === 'string' && taskData.task_id.trim().length > 0
+          ? taskData.task_id.trim()
+          : await getNextTaskId();
 
       const { data, error } = await (supabase as any)
         .from('tasks')
         .insert({
           ...taskData,
-          task_id: taskId,
+          task_id: normalizedTaskId,
           project_id: projectId,
           user_id: user.id,
         })
@@ -182,6 +221,10 @@ export function useTasks(projectId?: string) {
       }
 
       const newTask = data as Task;
+      const parsedNewTaskId = parseTaskIdNumber(newTask.task_id);
+      if (parsedNewTaskId) {
+        nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, parsedNewTaskId);
+      }
       setTasks(prev => [newTask, ...prev]);
       toast({
         title: "Sucesso",
@@ -384,5 +427,6 @@ export function useTasks(projectId?: string) {
     deleteCustomField,
     refreshTasks: loadTasks,
     refreshCustomFields: loadCustomFields,
+    getNextTaskId,
   };
 }
