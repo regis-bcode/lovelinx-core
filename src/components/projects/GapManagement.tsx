@@ -16,7 +16,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Gap, GapFormData } from '@/types/gap';
 import { cn } from '@/lib/utils';
 import { CheckCircle2, ClipboardEdit, FilePlus2, Loader2, Trash2 } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const IMPACT_OPTIONS = ['Escopo', 'Prazo', 'Custo'] as const;
 
@@ -60,7 +59,8 @@ const formatResumo = (descricao?: string | null) => {
 interface GapColumn {
   key: string;
   label: string;
-  className?: string;
+  width?: string;
+  cellClassName?: string;
   render: (gap: Gap) => ReactNode;
 }
 
@@ -252,151 +252,160 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       {
         key: 'task',
         label: 'Tarefa vinculada',
-        className: 'min-w-[200px]',
+        width: 'minmax(220px, 1.1fr)',
         render: gap => renderTextValue(taskNameById[gap.task_id] ?? 'Tarefa não encontrada', { strong: true }),
       },
       {
         key: 'titulo',
         label: 'Título',
-        className: 'min-w-[200px]',
+        width: 'minmax(220px, 1fr)',
         render: gap => renderTextValue(gap.titulo ?? null, { strong: true }),
       },
       {
         key: 'resumo',
         label: 'Resumo do GAP',
-        className: 'min-w-[220px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[320px]',
         render: gap => renderResumoValue(gap.descricao ?? null),
       },
       {
         key: 'descricao',
         label: 'Descrição',
-        className: 'min-w-[260px] max-w-[360px]',
+        width: 'minmax(260px, 1.2fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.descricao ?? null, { multiline: true }),
       },
       {
         key: 'tipo',
         label: 'Tipo de GAP',
-        className: 'min-w-[160px]',
+        width: 'minmax(160px, 0.9fr)',
         render: gap => renderTextValue(gap.tipo ?? null),
       },
       {
         key: 'origem',
         label: 'Origem',
-        className: 'min-w-[140px]',
+        width: 'minmax(160px, 0.9fr)',
         render: gap => renderTextValue(gap.origem ?? null),
       },
       {
         key: 'severidade',
         label: 'Severidade',
-        className: 'min-w-[140px]',
+        width: 'minmax(160px, 0.9fr)',
         render: gap => renderTextValue(gap.severidade ?? null),
       },
       {
         key: 'urgencia',
         label: 'Urgência',
-        className: 'min-w-[140px]',
+        width: 'minmax(160px, 0.9fr)',
         render: gap => renderTextValue(gap.urgencia ?? null),
       },
       {
         key: 'prioridade',
         label: 'Prioridade',
-        className: 'min-w-[140px]',
+        width: 'minmax(160px, 0.9fr)',
         render: gap => renderTextValue(gap.prioridade ?? null),
       },
       {
         key: 'status',
         label: 'Status do GAP',
-        className: 'min-w-[160px]',
+        width: 'minmax(180px, 0.95fr)',
         render: gap => renderTextValue(gap.status ?? null),
       },
       {
         key: 'impacto',
         label: 'Impacto',
-        className: 'min-w-[180px]',
+        width: 'minmax(200px, 1fr)',
         render: gap => renderImpactValue(gap.impacto ?? null),
       },
       {
         key: 'faturavel',
         label: 'Faturável? (Gera cobrança adicional?)',
-        className: 'min-w-[200px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderBooleanValue(gap.faturavel ?? null),
       },
       {
         key: 'valor_impacto_financeiro',
         label: 'Valor de Impacto Financeiro',
-        className: 'min-w-[180px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderCurrencyValue(gap.valor_impacto_financeiro ?? null),
       },
       {
         key: 'causa_raiz',
         label: 'Causa raiz',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.causa_raiz ?? null, { multiline: true }),
       },
       {
         key: 'plano_acao',
         label: 'Plano de ação',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.plano_acao ?? null, { multiline: true }),
       },
       {
         key: 'responsavel',
         label: 'Responsável',
-        className: 'min-w-[160px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderTextValue(gap.responsavel ?? null),
       },
       {
         key: 'data_prometida',
         label: 'Data prometida para tratativa',
-        className: 'min-w-[180px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderTextValue(formatDate(gap.data_prometida) ?? null),
       },
       {
         key: 'necessita_aprovacao',
         label: 'Necessita aprovação?',
-        className: 'min-w-[160px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderBooleanValue(gap.necessita_aprovacao ?? null),
       },
       {
         key: 'decisao',
         label: 'Decisão',
-        className: 'min-w-[200px] max-w-[280px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.decisao ?? null, { multiline: true }),
       },
       {
         key: 'aprovado_por',
         label: 'Aprovado por',
-        className: 'min-w-[160px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderTextValue(gap.aprovado_por ?? null),
       },
       {
         key: 'data_aprovacao',
         label: 'Data de aprovação',
-        className: 'min-w-[160px]',
+        width: 'minmax(180px, 0.9fr)',
         render: gap => renderTextValue(formatDate(gap.data_aprovacao) ?? null),
       },
       {
         key: 'impacto_financeiro_descricao',
         label: 'Impacto financeiro (descrição)',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.impacto_financeiro_descricao ?? null, { multiline: true }),
       },
       {
         key: 'impacto_resumo',
         label: 'Resumo do impacto',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.impacto_resumo ?? null, { multiline: true }),
       },
       {
         key: 'anexos',
         label: 'Anexos (um por linha)',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderAttachmentsValue(gap.anexos ?? null),
       },
       {
         key: 'observacoes',
         label: 'Observações',
-        className: 'min-w-[220px] max-w-[320px]',
+        width: 'minmax(240px, 1.1fr)',
+        cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.observacoes ?? null, { multiline: true }),
       },
     ];
@@ -538,7 +547,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       {
         key: 'acoes',
         label: 'Ações',
-        className: 'min-w-[180px]',
+        width: 'minmax(200px, 0.9fr)',
         render: gap => (
           <div className="flex flex-wrap gap-2">
             <Button
@@ -566,6 +575,13 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     ],
     [gapColumns, handleDelete, openEditDialog],
   );
+
+  const gridTemplateColumns = useMemo(() => {
+    if (tableColumns.length === 0) {
+      return '1fr';
+    }
+    return tableColumns.map(column => column.width ?? 'minmax(200px, 1fr)').join(' ');
+  }, [tableColumns]);
 
   const selectedTaskHasGap = selectedTaskId === 'all'
     ? false
@@ -622,40 +638,47 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
           ) : (
             <div className="max-h-[520px] overflow-auto pr-1">
               <div className="min-w-full overflow-auto">
-                <Table className="min-w-[1200px]">
-                  <TableHeader className="bg-muted/40">
-                    <TableRow>
-                      {tableColumns.map(column => (
-                        <TableHead
-                          key={column.key}
-                          className={cn('whitespace-nowrap text-xs font-semibold uppercase tracking-wide', column.className)}
-                        >
-                          {column.label}
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredGaps.map(gap => {
-                      const highlight = highlightTaskId && gap.task_id === highlightTaskId;
-                      return (
-                        <TableRow
-                          key={gap.id}
-                          className={cn(
-                            'transition-colors',
-                            highlight ? 'border-primary/50 bg-primary/5 hover:bg-primary/10' : undefined,
-                          )}
-                        >
-                          {tableColumns.map(column => (
-                            <TableCell key={column.key} className={cn('align-top text-sm', column.className)}>
-                              {column.render(gap)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                <div
+                  className="grid min-w-[1200px]"
+                  style={{ gridTemplateColumns }}
+                  role="table"
+                >
+                  {tableColumns.map(column => (
+                    <div
+                      key={column.key}
+                      className="sticky top-0 z-10 border border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur"
+                      role="columnheader"
+                    >
+                      {column.label}
+                    </div>
+                  ))}
+                  {filteredGaps.map((gap, index) => {
+                    const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+                    const isZebra = index % 2 === 1;
+                    return (
+                      <div key={gap.id} className="contents group" role="row">
+                        {tableColumns.map(column => (
+                          <div
+                            key={`${gap.id}-${column.key}`}
+                            className={cn(
+                              'border border-border/60 px-3 py-2 text-sm transition-colors',
+                              highlight
+                                ? 'border-primary/50 bg-primary/10 group-hover:bg-primary/20'
+                                : [
+                                    isZebra ? 'bg-muted/30' : 'bg-background',
+                                    'group-hover:bg-muted/40',
+                                  ],
+                              column.cellClassName,
+                            )}
+                            role="cell"
+                          >
+                            {column.render(gap)}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
