@@ -167,6 +167,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     updateCustomField,
     deleteCustomField,
     refreshTasks,
+    getNextTaskId,
   } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
@@ -518,6 +519,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         typeof row.status === 'string' && row.status.trim().length > 0
           ? row.status.trim()
           : defaultStatusName || '';
+
+      if (typeof task_id === 'string' && task_id.trim().length > 0) {
+        payload.task_id = task_id.trim();
+      }
       payload.prioridade = (row.prioridade as Task['prioridade']) ?? 'Média';
       payload.cronograma = Boolean(row.cronograma);
       payload.percentual_conclusao =
@@ -559,11 +564,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   );
 
   // Inicializar rows com as tasks existentes
-  const createBlankRow = useCallback((order: number): TaskRow => ({
+  const createBlankRow = useCallback((order: number, taskId?: string): TaskRow => ({
     _isNew: true,
     _tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     project_id: projectId,
-    task_id: '',
+    task_id: taskId ?? '',
     nome: '',
     prioridade: 'Média',
     status: defaultStatusName || '',
@@ -595,9 +600,32 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (tasksLength > 0) return;
     if (editableRows.length > 0) return;
 
-    setEditableRows([createBlankRow(0)]);
-    setHasChanges(true);
-  }, [loading, tasksLength, editableRows.length, createBlankRow]);
+    let isMounted = true;
+
+    const prepareInitialRow = async () => {
+      try {
+        const nextId = await getNextTaskId();
+        if (!isMounted) return;
+        setEditableRows([createBlankRow(0, nextId)]);
+        setHasChanges(true);
+      } catch (error) {
+        console.error('Erro ao preparar nova tarefa padrão:', error);
+        if (isMounted) {
+          toast({
+            title: 'Erro ao gerar identificador',
+            description: 'Não foi possível gerar o identificador da tarefa inicial.',
+            variant: 'destructive',
+          });
+        }
+      }
+    };
+
+    void prepareInitialRow();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loading, tasksLength, editableRows.length, createBlankRow, getNextTaskId, toast]);
 
   useEffect(() => {
     let modified = false;
@@ -1257,9 +1285,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
-    setHasChanges(true);
-  }, [createBlankRow, editableRows, isSavingChanges, savePendingNewRows, toast]);
+    try {
+      const nextId = await getNextTaskId();
+      setEditableRows(prev => [...prev, createBlankRow(prev.length, nextId)]);
+      setHasChanges(true);
+    } catch (error) {
+      console.error('Erro ao gerar identificador da nova tarefa:', error);
+      toast({
+        title: 'Erro ao gerar identificador',
+        description: 'Não foi possível gerar o identificador da nova tarefa. Tente novamente.',
+        variant: 'destructive',
+      });
+    }
+  }, [createBlankRow, editableRows, getNextTaskId, isSavingChanges, savePendingNewRows, toast]);
 
   const deleteRow = (index: number) => {
     setEditableRows(prev => prev.filter((_, i) => i !== index));
@@ -1925,6 +1963,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const value = row[column.key as keyof TaskRow];
 
     if (column.key === 'task_id') {
+      const taskIdValue = typeof row.task_id === 'string' ? row.task_id.trim() : '';
+      if (taskIdValue) {
+        return <span className="text-xs font-medium text-foreground">{taskIdValue}</span>;
+      }
       return <span className="text-xs text-muted-foreground">{row._isNew ? 'Novo' : String(value || '')}</span>;
     }
 
@@ -2351,10 +2393,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const isNullish = value === null || value === undefined;
 
     if (column.key === 'task_id') {
+      const taskIdValue = typeof row.task_id === 'string' ? row.task_id.trim() : '';
+      if (taskIdValue) {
+        return <span>{taskIdValue}</span>;
+      }
       if (row._isNew) {
         return <span className="text-muted-foreground">Novo</span>;
       }
-      return value ? <span>{String(value)}</span> : <span className="text-muted-foreground">-</span>;
+      return <span className="text-muted-foreground">-</span>;
     }
 
     if (column.key === 'tempo_total') {
