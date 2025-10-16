@@ -28,10 +28,57 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
     status: 'BACKLOG',
     custom_fields: {}
   });
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const handleCreateTask = () => {
-    if (newTask.nome) {
-      onTaskCreate(newTask);
+    const trimmedName = (newTask.nome ?? '').trim();
+
+    if (!trimmedName) {
+      setCreateError('Informe o nome da tarefa.');
+      return;
+    }
+
+    const rawDueDate = newTask.data_vencimento;
+    let normalizedDueDate = '';
+
+    if (rawDueDate instanceof Date) {
+      normalizedDueDate = rawDueDate.toISOString();
+    } else if (typeof rawDueDate === 'string') {
+      const parsedDate = rawDueDate ? new Date(rawDueDate) : null;
+      normalizedDueDate = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate.toISOString() : '';
+    }
+
+    let normalizedStatus = (newTask.status ?? '').toString();
+    switch (normalizedStatus) {
+      case 'EM ANDAMENTO':
+        normalizedStatus = 'EM_ANDAMENTO';
+        break;
+      case 'CONCLUÍDO':
+        normalizedStatus = 'CONCLUIDO';
+        break;
+      case 'EM_ANDAMENTO':
+      case 'CONCLUIDO':
+      case 'AGUARDA MIT010':
+      case 'BACKLOG':
+        break;
+      default:
+        normalizedStatus = 'BACKLOG';
+        break;
+    }
+
+    const normalizedPriority = newTask.prioridade ?? 'Média';
+
+    const payload: Partial<Task> = {
+      nome: trimmedName,
+      responsavel: newTask.responsavel ?? '',
+      data_vencimento: normalizedDueDate,
+      prioridade: normalizedPriority,
+      status: normalizedStatus,
+      custom_fields: newTask.custom_fields ?? {}
+    };
+
+    try {
+      onTaskCreate(payload);
       setNewTask({
         nome: '',
         responsavel: '',
@@ -41,6 +88,10 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
         custom_fields: {}
       });
       setShowNewTask(false);
+      setCreateError(null);
+    } catch (error) {
+      console.error(error);
+      setCreateError('Não foi possível criar a tarefa. Verifique os campos.');
     }
   };
 
@@ -78,8 +129,12 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Tarefas</h3>
-        <Button 
-          onClick={() => setShowNewTask(true)}
+        <Button
+          onClick={() => {
+            setCreateError(null);
+            setShowNewTask(true);
+          }}
+          type="button"
           size="sm"
           className="flex items-center gap-2"
         >
@@ -87,6 +142,10 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
           Adicionar Tarefa
         </Button>
       </div>
+
+      {createError && (
+        <div className="text-sm text-red-600">{createError}</div>
+      )}
 
       {/* Lista de tarefas em tabela */}
       {(tasks.length > 0 || showNewTask) && (
@@ -185,12 +244,14 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                     />
                   </TableCell>
                   <TableCell>
-                    <Select 
-                      value={newTask.prioridade} 
-                      onValueChange={(value) => setNewTask(prev => ({ ...prev, prioridade: value as any }))}
+                    <Select
+                      value={newTask.prioridade}
+                      onValueChange={(value) =>
+                        setNewTask(prev => ({ ...prev, prioridade: value as Task['prioridade'] }))
+                      }
                     >
                       <SelectTrigger className="h-8">
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Baixa">Baixa</SelectItem>
@@ -201,12 +262,12 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                     </Select>
                   </TableCell>
                   <TableCell>
-                    <Select 
-                      value={newTask.status} 
+                    <Select
+                      value={newTask.status}
                       onValueChange={(value) => setNewTask(prev => ({ ...prev, status: value }))}
                     >
                       <SelectTrigger className="h-8">
-                        <SelectValue />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="BACKLOG">BACKLOG</SelectItem>
@@ -223,6 +284,7 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                         size="sm"
                         className="h-6 w-6 p-0 text-green-600 hover:text-green-700"
                         onClick={handleCreateTask}
+                        type="button"
                       >
                         <Check className="h-3 w-3" />
                       </Button>
@@ -230,7 +292,11 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                         variant="ghost"
                         size="sm"
                         className="h-6 w-6 p-0 text-gray-500 hover:text-gray-700"
-                        onClick={() => setShowNewTask(false)}
+                        onClick={() => {
+                          setCreateError(null);
+                          setShowNewTask(false);
+                        }}
+                        type="button"
                       >
                         <X className="h-3 w-3" />
                       </Button>
