@@ -128,18 +128,15 @@ export function useTasks(projectId?: string) {
           .from('tasks')
           .select('task_id')
           .eq('project_id', projectId)
-          .limit(1000);
+          .not('task_id', 'is', null)
+          .order('task_id', { ascending: false })
+          .limit(1);
 
         if (fetchError) {
           console.error('Erro ao buscar último identificador de tarefa:', fetchError);
         }
 
-        const maxFromDatabase = (
-          (taskIdRows as Array<{ task_id?: string }> | null | undefined)?.reduce((max, row) => {
-            const parsed = parseTaskIdNumber(row?.task_id);
-            return parsed && parsed > max ? parsed : max;
-          }, 0) ?? 0
-        );
+        const maxFromDatabase = parseTaskIdNumber(taskIdRows?.[0]?.task_id) ?? 0;
 
         const maxFromState = tasks.reduce((max, task) => {
           const parsed = parseTaskIdNumber(task.task_id);
