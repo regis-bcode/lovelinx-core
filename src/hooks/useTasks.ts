@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
+import { generateNextTaskIdentifier } from '@/lib/tasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -127,11 +128,25 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const payload = {
+      const payload: Partial<TaskFormData> & { project_id: string; user_id: string } = {
         ...taskData,
         project_id: projectId,
         user_id: user.id,
       };
+
+      const trimmedTaskId =
+        typeof payload.task_id === 'string' ? payload.task_id.trim() : undefined;
+
+      if (trimmedTaskId && trimmedTaskId.length > 0) {
+        payload.task_id = trimmedTaskId;
+      } else {
+        try {
+          payload.task_id = await generateNextTaskIdentifier(projectId);
+        } catch (generationError) {
+          console.error('Erro ao gerar identificador da tarefa:', generationError);
+          payload.task_id = ensureTaskIdentifier(null, `${projectId}-${Date.now()}`);
+        }
+      }
 
       if (!payload.project_id) {
         toast({
