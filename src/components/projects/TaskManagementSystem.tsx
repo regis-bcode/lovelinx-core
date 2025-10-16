@@ -1256,49 +1256,57 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const nome = draft?.nome?.trim() || 'Nova tarefa';
       const prioridade = (draft?.prioridade as Task['prioridade']) ?? 'Média';
-      const status = draft?.status?.trim() || 'Atenção';
-      const vencimento = draft?.vencimento;
+      const status = draft?.status?.trim() || defaultStatusName || 'Atenção';
+      const vencimento = draft?.vencimento ?? format(new Date(), 'yyyy-MM-dd');
+      const extrasPayload: Record<string, unknown> = {
+        cliente: defaultClient || undefined,
+        percentual_conclusao: 0,
+        nivel: 0,
+        ordem: 0,
+        cronograma: false,
+        ...(draft?.extras ?? {}),
+      };
 
       try {
         setIsCreatingTask(true);
-        const result = await createTaskRecord({
+        const createdTask = await createTaskRecord({
           projectId,
           userId: user.id,
           nome,
           prioridade,
           vencimento,
           status,
-          extras: draft?.extras,
+          extras: extrasPayload,
         });
+
+        const normalizedTask: Task = {
+          ...createdTask,
+          custom_fields: (createdTask.custom_fields ?? {}) as Record<string, unknown>,
+          cliente: createdTask.cliente ?? (defaultClient || undefined),
+        } as Task;
 
         setTasks(prev => {
-          const current = Array.isArray(prev) ? [...prev] : [];
-          const now = new Date().toISOString();
-          const newTask = {
-            id: result.id,
-            project_id: projectId,
-            user_id: user.id,
-            task_id: result.task_id,
-            nome,
-            prioridade,
-            status,
-            custom_fields: {},
-            created_at: now,
-            updated_at: now,
-            percentual_conclusao: 0,
-            nivel: 0,
-            ordem: 0,
-            ...(vencimento ? { data_vencimento: vencimento } : {}),
-            ...(draft?.extras ?? {}),
-          } as Task;
-
-          current.unshift(newTask);
-          return current;
+          const current = Array.isArray(prev) ? prev.filter(task => task.id !== normalizedTask.id) : [];
+          return [normalizedTask, ...current];
         });
+
+        setEditableRows(prev => {
+          const pending = prev.filter(row => row._isNew || row.isDraft);
+          const committed = prev.filter(row => !(row._isNew || row.isDraft)).filter(row => row.id !== normalizedTask.id);
+          const normalizedRow: TaskRow = {
+            ...normalizedTask,
+            custom_fields: normalizedTask.custom_fields ?? {},
+            _isNew: false,
+            isDraft: false,
+          };
+          return [normalizedRow, ...committed, ...pending];
+        });
+
+        await refreshTasks();
 
         toast({
           title: 'Tarefa criada',
-          description: `Tarefa ${result.task_id} criada com sucesso.`,
+          description: `Tarefa ${createdTask.task_id} criada com sucesso.`,
         });
       } catch (error) {
         console.error('createTask:error', error);
@@ -1313,7 +1321,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         setIsCreatingTask(false);
       }
     },
-    [isCreatingTask, projectId, setTasks, toast, user],
+    [
+      defaultClient,
+      defaultStatusName,
+      isCreatingTask,
+      projectId,
+      refreshTasks,
+      setTasks,
+      toast,
+      user,
+    ],
   );
 
   const savePendingNewRows = useCallback(async () => {
