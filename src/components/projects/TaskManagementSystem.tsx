@@ -582,8 +582,27 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }), [projectId, defaultClient, defaultStatusName]);
 
   useEffect(() => {
-    setEditableRows(tasks.map(t => ({ ...t, custom_fields: t.custom_fields || {} })));
-    setHasChanges(false);
+    setEditableRows(prev => {
+      const pendingNewRows = prev.filter(row => row._isNew);
+      const normalizedTasks: TaskRow[] = tasks.map(task => ({
+        ...task,
+        custom_fields: task.custom_fields ?? {},
+        _isNew: false,
+      }));
+
+      if (
+        pendingNewRows.length === 0 &&
+        normalizedTasks.length === prev.length &&
+        normalizedTasks.every((taskRow, index) => {
+          const previous = prev[index];
+          return previous && !previous._isNew && previous.id === taskRow.id;
+        })
+      ) {
+        return prev;
+      }
+
+      return [...normalizedTasks, ...pendingNewRows];
+    });
   }, [tasks]);
 
   useEffect(() => {
