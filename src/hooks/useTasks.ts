@@ -104,6 +104,49 @@ export function useTasks(projectId?: string) {
     }
   };
 
+  const getNextTaskId = async (): Promise<string> => {
+    let nextId = 1;
+
+    if (!projectId) {
+      return `TASK-${nextId.toString().padStart(3, '0')}`;
+    }
+
+    try {
+      const { data: taskIdRows, error: fetchError } = await (supabase as any)
+        .from('tasks')
+        .select('task_id')
+        .eq('project_id', projectId)
+        .order('task_id', { ascending: false })
+        .limit(1);
+
+      if (fetchError) {
+        console.error('Erro ao buscar último identificador de tarefa:', fetchError);
+      }
+
+      const existingTaskId = taskIdRows?.[0]?.task_id as string | undefined;
+      if (existingTaskId) {
+        const match = existingTaskId.match(/TASK-(\d+)/);
+        if (match) {
+          nextId = parseInt(match[1], 10) + 1;
+        }
+      } else if (tasks.length > 0) {
+        const maxFromState = tasks.reduce((max, task) => {
+          const match = task.task_id?.match(/TASK-(\d+)/);
+          if (!match) return max;
+          const value = parseInt(match[1], 10);
+          return Number.isFinite(value) && value > max ? value : max;
+        }, 0);
+        if (maxFromState > 0) {
+          nextId = maxFromState + 1;
+        }
+      }
+    } catch (error) {
+      console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
+    }
+
+    return `TASK-${nextId.toString().padStart(3, '0')}`;
+  };
+
   const createTask = async (taskData: Partial<TaskFormData>): Promise<Task | null> => {
     if (!user || !projectId) {
       toast({
@@ -115,24 +158,7 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      // Gerar ID automático sequencial
-      const { data: existingTasks } = await (supabase as any)
-        .from('tasks')
-        .select('task_id')
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let nextId = 1;
-      if (existingTasks && existingTasks.length > 0) {
-        const lastId = existingTasks[0].task_id;
-        const match = lastId.match(/TASK-(\d+)/);
-        if (match) {
-          nextId = parseInt(match[1]) + 1;
-        }
-      }
-
-      const taskId = `TASK-${nextId.toString().padStart(3, '0')}`;
+      const taskId = await getNextTaskId();
 
       const { data, error } = await (supabase as any)
         .from('tasks')
