@@ -14,9 +14,10 @@ export function useTasks(projectId?: string) {
 
   const parseTaskIdNumber = (taskId?: string | null) => {
     if (!taskId) return null;
-    const match = taskId.match(/TASK-(\d+)/);
-    if (!match) return null;
-    const value = parseInt(match[1], 10);
+    const matches = taskId.match(/\d+/g);
+    if (!matches?.length) return null;
+    const numericPart = matches[matches.length - 1];
+    const value = parseInt(numericPart, 10);
     return Number.isFinite(value) ? value : null;
   };
 
@@ -117,11 +118,11 @@ export function useTasks(projectId?: string) {
 
   const getNextTaskId = async (): Promise<string> => {
     const resolveNextNumber = async () => {
-      let nextId = 1;
-
       if (!projectId) {
-        return nextId;
+        return 1;
       }
+
+      let maxFromDatabase = 0;
 
       try {
         const { data: taskIdRows, error: fetchError } = await (supabase as any)
@@ -129,27 +130,29 @@ export function useTasks(projectId?: string) {
           .select('task_id')
           .eq('project_id', projectId)
           .not('task_id', 'is', null)
-          .order('task_id', { ascending: false })
-          .limit(1);
+          .order('created_at', { ascending: false })
+          .limit(1000);
 
         if (fetchError) {
-          console.error('Erro ao buscar último identificador de tarefa:', fetchError);
+          console.error('Erro ao buscar identificadores de tarefas existentes:', fetchError);
+        } else {
+          maxFromDatabase = (taskIdRows as Array<{ task_id: string }> | null)?.reduce((max, row) => {
+            const parsed = parseTaskIdNumber(row.task_id);
+            return parsed && parsed > max ? parsed : max;
+          }, 0) ?? 0;
         }
-
-        const maxFromDatabase = parseTaskIdNumber(taskIdRows?.[0]?.task_id) ?? 0;
-
-        const maxFromState = tasks.reduce((max, task) => {
-          const parsed = parseTaskIdNumber(task.task_id);
-          return parsed && parsed > max ? parsed : max;
-        }, 0);
-
-        const computedNext = Math.max(maxFromDatabase + 1, maxFromState + 1, 1);
-        nextId = computedNext;
       } catch (error) {
         console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
       }
 
-      return nextId;
+      const maxFromState = tasks.reduce((max, task) => {
+        const parsed = parseTaskIdNumber(task.task_id);
+        return parsed && parsed > max ? parsed : max;
+      }, 0);
+
+      const maxFromRef = nextTaskNumberRef.current ?? 0;
+
+      return Math.max(maxFromDatabase, maxFromState, maxFromRef, 0) + 1;
     };
 
     if (nextTaskNumberRef.current === null) {
@@ -188,27 +191,41 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      const normalizedTaskId =
+      let normalizedTaskId =
         typeof taskData.task_id === 'string' && taskData.task_id.trim().length > 0
           ? taskData.task_id.trim()
           : await getNextTaskId();
 
-      const { data, error } = await (supabase as any)
-        .from('tasks')
-        .insert({
-          ...taskData,
-          task_id: normalizedTaskId,
-          project_id: projectId,
-          user_id: user.id,
-        })
-        .select()
-        .single();
+      const parsedProvidedId = parseTaskIdNumber(normalizedTaskId);
+      if (parsedProvidedId) {
+        nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, parsedProvidedId);
+      }
+
+      const attemptInsert = async (taskIdToUse: string) =>
+        (supabase as any)
+          .from('tasks')
+          .insert({
+            ...taskData,
+            task_id: taskIdToUse,
+            project_id: projectId,
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+      let { data, error } = await attemptInsert(normalizedTaskId);
+
+      if (error && error.code === '23505') {
+        console.warn('Conflito de identificador de tarefa detectado. Gerando novo identificador.', error);
+        normalizedTaskId = await getNextTaskId();
+        ({ data, error } = await attemptInsert(normalizedTaskId));
+      }
 
       if (error) {
         console.error('Erro ao criar tarefa:', error);
         toast({
           title: "Erro",
-          description: "Erro ao criar tarefa.",
+          description: error.message ?? "Erro ao criar tarefa.",
           variant: "destructive",
         });
         return null;
