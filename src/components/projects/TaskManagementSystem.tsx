@@ -44,7 +44,7 @@ interface TaskManagementSystemProps {
   projectClient?: string;
 }
 
-type TaskRow = Partial<Task> & { _isNew?: boolean; _tempId?: string };
+type TaskRow = Partial<Task> & { _isNew?: boolean; isDraft?: boolean; _tempId?: string };
 
 type ColumnDefinition =
   | {
@@ -167,7 +167,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     updateCustomField,
     deleteCustomField,
     refreshTasks,
-    getNextTaskId,
   } = useTasks(projectId);
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
@@ -472,6 +471,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         _tempId,
         id,
         task_id,
+        isDraft,
         created_at,
         updated_at,
         user_id,
@@ -564,11 +564,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   );
 
   // Inicializar rows com as tasks existentes
-  const createBlankRow = useCallback((order: number, taskId?: string): TaskRow => ({
+  const createBlankRow = useCallback((order: number): TaskRow => ({
     _isNew: true,
+    isDraft: true,
     _tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     project_id: projectId,
-    task_id: taskId ?? '',
+    task_id: '',
     nome: '',
     prioridade: 'Média',
     status: defaultStatusName || '',
@@ -583,11 +584,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   useEffect(() => {
     setEditableRows(prev => {
-      const pendingNewRows = prev.filter(row => row._isNew);
+      const pendingNewRows = prev.filter(row => row._isNew || row.isDraft);
       const normalizedTasks: TaskRow[] = tasks.map(task => ({
         ...task,
         custom_fields: task.custom_fields ?? {},
         _isNew: false,
+        isDraft: false,
       }));
 
       if (
@@ -595,7 +597,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         normalizedTasks.length === prev.length &&
         normalizedTasks.every((taskRow, index) => {
           const previous = prev[index];
-          return previous && !previous._isNew && previous.id === taskRow.id;
+          return (
+            previous &&
+            !(previous._isNew || previous.isDraft) &&
+            previous.id === taskRow.id
+          );
         })
       ) {
         return prev;
@@ -621,37 +627,24 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     let isMounted = true;
 
-    const prepareInitialRow = async () => {
-      try {
-        const nextId = await getNextTaskId();
-        if (!isMounted) return;
-        setEditableRows([createBlankRow(0, nextId)]);
-        setHasChanges(true);
-      } catch (error) {
-        console.error('Erro ao preparar nova tarefa padrão:', error);
-        if (isMounted) {
-          toast({
-            title: 'Erro ao gerar identificador',
-            description: 'Não foi possível gerar o identificador da tarefa inicial.',
-            variant: 'destructive',
-          });
-        }
-      }
+    const prepareInitialRow = () => {
+      setEditableRows([createBlankRow(0)]);
+      setHasChanges(true);
     };
 
-    void prepareInitialRow();
+    prepareInitialRow();
 
     return () => {
       isMounted = false;
     };
-  }, [loading, tasksLength, editableRows.length, createBlankRow, getNextTaskId, toast]);
+  }, [loading, tasksLength, editableRows.length, createBlankRow]);
 
   useEffect(() => {
     let modified = false;
     setEditableRows(prev => {
       if (!prev.length) return prev;
       const [first, ...rest] = prev;
-      if (!first._isNew) return prev;
+      if (!(first._isNew || first.isDraft)) return prev;
 
       const updatedFirst = { ...first };
 
@@ -1023,7 +1016,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       switch (column.key) {
         case 'task_id':
-          return row._isNew ? 'Novo' : normalizeValue(value);
+          return row.isDraft || row._isNew ? 'Novo' : normalizeValue(value);
         case 'percentual_conclusao':
           return typeof value === 'number' ? `${value}%` : '';
         case 'tempo_total': {
@@ -1231,7 +1224,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const savePendingNewRows = useCallback(async () => {
     const pendingRows = editableRows
       .map((row, index) => ({ row, index }))
-      .filter(({ row }) => row._isNew && typeof row.nome === 'string' && row.nome.trim().length > 0);
+      .filter(({ row }) =>
+        (row._isNew || row.isDraft) && typeof row.nome === 'string' && row.nome.trim().length > 0,
+      );
 
     if (pendingRows.length === 0) {
       return true;
@@ -1264,7 +1259,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           if (!created) {
             return row;
           }
-          return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false };
+          return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false, isDraft: false };
         }),
       );
       await refreshTasks();
@@ -1287,7 +1282,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const hasEmptyPendingRow = editableRows.some(
-      row => row._isNew && (!row.nome || (typeof row.nome === 'string' && row.nome.trim().length === 0)),
+      row =>
+        (row._isNew || row.isDraft) && (!row.nome || (typeof row.nome === 'string' && row.nome.trim().length === 0)),
     );
 
     if (hasEmptyPendingRow) {
@@ -1305,18 +1301,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     try {
-      const nextId = await getNextTaskId();
-      setEditableRows(prev => [...prev, createBlankRow(prev.length, nextId)]);
+      setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
       setHasChanges(true);
     } catch (error) {
-      console.error('Erro ao gerar identificador da nova tarefa:', error);
+      console.error('Erro ao preparar nova tarefa em rascunho:', error);
       toast({
-        title: 'Erro ao gerar identificador',
-        description: 'Não foi possível gerar o identificador da nova tarefa. Tente novamente.',
+        title: 'Erro ao preparar tarefa',
+        description: 'Não foi possível preparar a nova tarefa. Tente novamente.',
         variant: 'destructive',
       });
     }
-  }, [createBlankRow, editableRows, getNextTaskId, isSavingChanges, savePendingNewRows, toast]);
+  }, [createBlankRow, editableRows, isSavingChanges, savePendingNewRows, toast]);
 
   const deleteRow = (index: number) => {
     setEditableRows(prev => prev.filter((_, i) => i !== index));
@@ -1352,7 +1347,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       for (const [index, row] of editableRows.entries()) {
         const payload = sanitizeTaskForSave(row);
 
-        if (row._isNew) {
+        if (row._isNew || row.isDraft) {
           const created = await createTask(payload);
           if (created) {
             createdCount += 1;
@@ -1378,7 +1373,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const preservedIds = new Set<string>();
       editableRows.forEach((row, index) => {
-        if (row._isNew) {
+        if (row._isNew || row.isDraft) {
           const created = createdTasksMap.get(index);
           if (created?.id) {
             preservedIds.add(created.id);
@@ -1403,7 +1398,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           prev.map((row, index) => {
             const created = createdTasksMap.get(index);
             if (created) {
-              return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false };
+              return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false, isDraft: false };
             }
 
             if (row.id) {
@@ -1986,7 +1981,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (taskIdValue) {
         return <span className="text-xs font-medium text-foreground">{taskIdValue}</span>;
       }
-      return <span className="text-xs text-muted-foreground">{row._isNew ? 'Novo' : String(value || '')}</span>;
+      return (
+        <span className="text-xs text-muted-foreground">
+          {row.isDraft || row._isNew ? 'Novo' : String(value || '')}
+        </span>
+      );
     }
 
     if (column.key === 'cliente') {
@@ -2416,7 +2415,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (taskIdValue) {
         return <span>{taskIdValue}</span>;
       }
-      if (row._isNew) {
+      if (row.isDraft || row._isNew) {
         return <span className="text-muted-foreground">Novo</span>;
       }
       return <span className="text-muted-foreground">-</span>;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,19 +10,6 @@ export function useTasks(projectId?: string) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const nextTaskNumberRef = useRef<number | null>(null);
-
-  const parseTaskIdNumber = (taskId?: string | null) => {
-    if (!taskId) return null;
-    const matches = taskId.match(/\d+/g);
-    if (!matches?.length) return null;
-    const numericPart = matches[matches.length - 1];
-    const value = parseInt(numericPart, 10);
-    return Number.isFinite(value) ? value : null;
-  };
-
-  const formatTaskId = (value: number) => `TASK-${value.toString().padStart(3, '0')}`;
-
   useEffect(() => {
     if (!projectId || !user) return;
     loadTasks();
@@ -116,70 +103,6 @@ export function useTasks(projectId?: string) {
     }
   };
 
-  const getNextTaskId = async (): Promise<string> => {
-    const resolveNextNumber = async () => {
-      if (!projectId) {
-        return 1;
-      }
-
-      let maxFromDatabase = 0;
-
-      try {
-        const { data: taskIdRows, error: fetchError } = await (supabase as any)
-          .from('tasks')
-          .select('task_id')
-          .eq('project_id', projectId)
-          .not('task_id', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(1000);
-
-        if (fetchError) {
-          console.error('Erro ao buscar identificadores de tarefas existentes:', fetchError);
-        } else {
-          maxFromDatabase = (taskIdRows as Array<{ task_id: string }> | null)?.reduce((max, row) => {
-            const parsed = parseTaskIdNumber(row.task_id);
-            return parsed && parsed > max ? parsed : max;
-          }, 0) ?? 0;
-        }
-      } catch (error) {
-        console.error('Erro inesperado ao calcular próximo identificador de tarefa:', error);
-      }
-
-      const maxFromState = tasks.reduce((max, task) => {
-        const parsed = parseTaskIdNumber(task.task_id);
-        return parsed && parsed > max ? parsed : max;
-      }, 0);
-
-      const maxFromRef = nextTaskNumberRef.current ?? 0;
-
-      return Math.max(maxFromDatabase, maxFromState, maxFromRef, 0) + 1;
-    };
-
-    if (nextTaskNumberRef.current === null) {
-      const nextNumber = await resolveNextNumber();
-      nextTaskNumberRef.current = nextNumber;
-      return formatTaskId(nextNumber);
-    }
-
-    nextTaskNumberRef.current += 1;
-    return formatTaskId(nextTaskNumberRef.current);
-  };
-
-  useEffect(() => {
-    if (!tasks.length) return;
-    const maxFromState = tasks.reduce((max, task) => {
-      const parsed = parseTaskIdNumber(task.task_id);
-      return parsed && parsed > max ? parsed : max;
-    }, 0);
-    if (maxFromState > 0) {
-      nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, maxFromState);
-    }
-  }, [tasks]);
-
-  useEffect(() => {
-    nextTaskNumberRef.current = null;
-  }, [projectId]);
-
   const createTask = async (taskData: Partial<TaskFormData>): Promise<Task | null> => {
     if (!user || !projectId) {
       toast({
@@ -191,51 +114,42 @@ export function useTasks(projectId?: string) {
     }
 
     try {
-      let normalizedTaskId =
-        typeof taskData.task_id === 'string' && taskData.task_id.trim().length > 0
-          ? taskData.task_id.trim()
-          : await getNextTaskId();
+      const payload = {
+        ...taskData,
+        project_id: projectId,
+        user_id: user.id,
+      };
 
-      const parsedProvidedId = parseTaskIdNumber(normalizedTaskId);
-      if (parsedProvidedId) {
-        nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, parsedProvidedId);
+      if (!payload.project_id) {
+        toast({
+          title: "Erro",
+          description: "Projeto obrigatório para criar tarefas.",
+          variant: "destructive",
+        });
+        return null;
       }
 
-      const attemptInsert = async (taskIdToUse: string) =>
-        (supabase as any)
-          .from('tasks')
-          .insert({
-            ...taskData,
-            task_id: taskIdToUse,
-            project_id: projectId,
-            user_id: user.id,
-          })
-          .select()
-          .single();
-
-      let { data, error } = await attemptInsert(normalizedTaskId);
-
-      if (error && error.code === '23505') {
-        console.warn('Conflito de identificador de tarefa detectado. Gerando novo identificador.', error);
-        normalizedTaskId = await getNextTaskId();
-        ({ data, error } = await attemptInsert(normalizedTaskId));
-      }
+      const { data, error } = await (supabase as any)
+        .from('tasks')
+        .insert(payload)
+        .select()
+        .single();
 
       if (error) {
         console.error('Erro ao criar tarefa:', error);
+        const description =
+          error.code === '42501'
+            ? 'Você não tem permissão para criar tarefas neste projeto.'
+            : error.message ?? 'Erro ao criar tarefa.';
         toast({
           title: "Erro",
-          description: error.message ?? "Erro ao criar tarefa.",
+          description,
           variant: "destructive",
         });
         return null;
       }
 
       const newTask = data as Task;
-      const parsedNewTaskId = parseTaskIdNumber(newTask.task_id);
-      if (parsedNewTaskId) {
-        nextTaskNumberRef.current = Math.max(nextTaskNumberRef.current ?? 0, parsedNewTaskId);
-      }
       setTasks(prev => [newTask, ...prev]);
       toast({
         title: "Sucesso",
@@ -244,6 +158,11 @@ export function useTasks(projectId?: string) {
       return newTask;
     } catch (error) {
       console.error('Erro ao criar tarefa:', error);
+      toast({
+        title: "Erro",
+        description: "Erro inesperado ao criar tarefa.",
+        variant: "destructive",
+      });
       return null;
     }
   };
@@ -438,6 +357,6 @@ export function useTasks(projectId?: string) {
     deleteCustomField,
     refreshTasks: loadTasks,
     refreshCustomFields: loadCustomFields,
-    getNextTaskId,
   };
 }
+
