@@ -10,6 +10,7 @@ import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useGaps } from '@/hooks/useGaps';
 import { useTasks } from '@/hooks/useTasks';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +60,7 @@ const formatResumo = (descricao?: string | null) => {
 interface GapColumn {
   key: string;
   label: string;
-  width?: string;
+  minWidth?: number;
   cellClassName?: string;
   render: (gap: Gap) => ReactNode;
 }
@@ -252,159 +253,159 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       {
         key: 'task',
         label: 'Tarefa vinculada',
-        width: 'minmax(220px, 1.1fr)',
+        minWidth: 220,
         render: gap => renderTextValue(taskNameById[gap.task_id] ?? 'Tarefa não encontrada', { strong: true }),
       },
       {
         key: 'titulo',
         label: 'Título',
-        width: 'minmax(220px, 1fr)',
+        minWidth: 220,
         render: gap => renderTextValue(gap.titulo ?? null, { strong: true }),
       },
       {
         key: 'resumo',
         label: 'Resumo do GAP',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[320px]',
         render: gap => renderResumoValue(gap.descricao ?? null),
       },
       {
         key: 'descricao',
         label: 'Descrição',
-        width: 'minmax(260px, 1.2fr)',
+        minWidth: 260,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.descricao ?? null, { multiline: true }),
       },
       {
         key: 'tipo',
         label: 'Tipo de GAP',
-        width: 'minmax(160px, 0.9fr)',
+        minWidth: 160,
         render: gap => renderTextValue(gap.tipo ?? null),
       },
       {
         key: 'origem',
         label: 'Origem',
-        width: 'minmax(160px, 0.9fr)',
+        minWidth: 160,
         render: gap => renderTextValue(gap.origem ?? null),
       },
       {
         key: 'severidade',
         label: 'Severidade',
-        width: 'minmax(160px, 0.9fr)',
+        minWidth: 160,
         render: gap => renderTextValue(gap.severidade ?? null),
       },
       {
         key: 'urgencia',
         label: 'Urgência',
-        width: 'minmax(160px, 0.9fr)',
+        minWidth: 160,
         render: gap => renderTextValue(gap.urgencia ?? null),
       },
       {
         key: 'prioridade',
         label: 'Prioridade',
-        width: 'minmax(160px, 0.9fr)',
+        minWidth: 160,
         render: gap => renderTextValue(gap.prioridade ?? null),
       },
       {
         key: 'status',
         label: 'Status do GAP',
-        width: 'minmax(180px, 0.95fr)',
+        minWidth: 180,
         render: gap => renderTextValue(gap.status ?? null),
       },
       {
         key: 'impacto',
         label: 'Impacto',
-        width: 'minmax(200px, 1fr)',
+        minWidth: 200,
         render: gap => renderImpactValue(gap.impacto ?? null),
       },
       {
         key: 'faturavel',
         label: 'Faturável? (Gera cobrança adicional?)',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderBooleanValue(gap.faturavel ?? null),
       },
       {
         key: 'valor_impacto_financeiro',
         label: 'Valor de Impacto Financeiro',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderCurrencyValue(gap.valor_impacto_financeiro ?? null),
       },
       {
         key: 'causa_raiz',
         label: 'Causa raiz',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.causa_raiz ?? null, { multiline: true }),
       },
       {
         key: 'plano_acao',
         label: 'Plano de ação',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.plano_acao ?? null, { multiline: true }),
       },
       {
         key: 'responsavel',
         label: 'Responsável',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderTextValue(gap.responsavel ?? null),
       },
       {
         key: 'data_prometida',
         label: 'Data prometida para tratativa',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderTextValue(formatDate(gap.data_prometida) ?? null),
       },
       {
         key: 'necessita_aprovacao',
         label: 'Necessita aprovação?',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderBooleanValue(gap.necessita_aprovacao ?? null),
       },
       {
         key: 'decisao',
         label: 'Decisão',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.decisao ?? null, { multiline: true }),
       },
       {
         key: 'aprovado_por',
         label: 'Aprovado por',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderTextValue(gap.aprovado_por ?? null),
       },
       {
         key: 'data_aprovacao',
         label: 'Data de aprovação',
-        width: 'minmax(180px, 0.9fr)',
+        minWidth: 180,
         render: gap => renderTextValue(formatDate(gap.data_aprovacao) ?? null),
       },
       {
         key: 'impacto_financeiro_descricao',
         label: 'Impacto financeiro (descrição)',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.impacto_financeiro_descricao ?? null, { multiline: true }),
       },
       {
         key: 'impacto_resumo',
         label: 'Resumo do impacto',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.impacto_resumo ?? null, { multiline: true }),
       },
       {
         key: 'anexos',
         label: 'Anexos (um por linha)',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderAttachmentsValue(gap.anexos ?? null),
       },
       {
         key: 'observacoes',
         label: 'Observações',
-        width: 'minmax(240px, 1.1fr)',
+        minWidth: 240,
         cellClassName: 'max-w-[360px]',
         render: gap => renderTextValue(gap.observacoes ?? null, { multiline: true }),
       },
@@ -547,7 +548,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       {
         key: 'acoes',
         label: 'Ações',
-        width: 'minmax(200px, 0.9fr)',
+        minWidth: 200,
         render: gap => (
           <div className="flex flex-wrap gap-2">
             <Button
@@ -576,20 +577,13 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
     [gapColumns, handleDelete, openEditDialog],
   );
 
-  const gridTemplateColumns = useMemo(() => {
-    if (tableColumns.length === 0) {
-      return '1fr';
-    }
-    return tableColumns.map(column => column.width ?? 'minmax(200px, 1fr)').join(' ');
-  }, [tableColumns]);
-
   const selectedTaskHasGap = selectedTaskId === 'all'
     ? false
     : gaps.some(gap => gap.task_id === selectedTaskId);
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <Card className="border-border/80">
+    <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
+      <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl border-border/80">
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
             <CardTitle>Gestão de GAPs</CardTitle>
@@ -626,69 +620,77 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex items-center justify-center py-12 text-muted-foreground">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando registros de GAP...
-            </div>
-          ) : (
-            <div className="max-h-[520px] overflow-auto pr-1">
-              <div className="min-w-full overflow-auto">
-                <div
-                  className="grid min-w-[1200px]"
-                  style={{ gridTemplateColumns }}
-                  role="table"
-                >
-                  {tableColumns.map(column => (
-                    <div
-                      key={column.key}
-                      className="sticky top-0 z-10 border border-border bg-muted/80 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur"
-                      role="columnheader"
-                    >
-                      {column.label}
-                    </div>
-                  ))}
-                  {filteredGaps.length === 0 ? (
-                    <div className="contents" role="row">
-                      <div
-                        className="col-span-full border border-border/60 bg-background px-3 py-6 text-center text-sm text-muted-foreground"
-                        role="cell"
+        <CardContent className="flex flex-1 min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-background pt-4">
+          <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden rounded-2xl border border-border/60">
+            <div className="h-full w-full overflow-auto">
+              <Table className="min-w-max text-[10px]">
+                <TableHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+                  <TableRow className="h-10">
+                    {tableColumns.map(column => (
+                      <TableHead
+                        key={column.key}
+                        className="border-b border-border/60 bg-transparent px-3 py-2 text-left font-semibold uppercase tracking-wide text-muted-foreground"
+                        style={column.minWidth ? { minWidth: `${column.minWidth}px` } : undefined}
                       >
+                        {column.label}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={tableColumns.length} className="py-8 text-center text-[10px] text-muted-foreground">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Carregando registros de GAP...
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredGaps.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={tableColumns.length} className="py-8 text-center text-[10px] text-muted-foreground">
                         Nenhum GAP registrado para o filtro selecionado.
-                      </div>
-                    </div>
+                      </TableCell>
+                    </TableRow>
                   ) : (
                     filteredGaps.map((gap, index) => {
                       const highlight = highlightTaskId && gap.task_id === highlightTaskId;
                       const isZebra = index % 2 === 1;
+
                       return (
-                        <div key={gap.id} className="contents group" role="row">
-                          {tableColumns.map(column => (
-                            <div
+                        <TableRow
+                          key={gap.id}
+                          className={cn(
+                            'group border-border/60 text-[10px] transition-colors',
+                            highlight
+                              ? 'bg-primary/10 hover:bg-primary/20'
+                              : isZebra
+                                ? 'bg-muted/30 hover:bg-muted/40'
+                                : 'bg-background hover:bg-muted/40',
+                          )}
+                        >
+                          {tableColumns.map((column, columnIndex) => (
+                            <TableCell
                               key={`${gap.id}-${column.key}`}
                               className={cn(
-                                'border border-border/60 px-3 py-2 text-sm transition-colors',
-                                highlight
-                                  ? 'border-primary/50 bg-primary/10 group-hover:bg-primary/20'
-                                  : [
-                                      isZebra ? 'bg-muted/30' : 'bg-background',
-                                      'group-hover:bg-muted/40',
-                                    ],
+                                'border-x border-border/60 px-3 py-2 align-top text-[10px]',
                                 column.cellClassName,
+                                highlight && columnIndex === 0 ? 'border-l-4 border-l-primary/40' : undefined,
                               )}
-                              role="cell"
+                              style={column.minWidth ? { minWidth: `${column.minWidth}px` } : undefined}
                             >
                               {column.render(gap)}
-                            </div>
+                            </TableCell>
                           ))}
-                        </div>
+                        </TableRow>
                       );
                     })
                   )}
-                </div>
-              </div>
+                </TableBody>
+              </Table>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
