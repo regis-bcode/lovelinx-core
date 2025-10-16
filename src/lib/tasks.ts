@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import type { Task } from '@/types/task';
 
 interface CreateTaskParams {
   projectId: string;
@@ -61,7 +62,29 @@ const sanitizeExtras = (extras?: Record<string, unknown> | null) => {
   }, {});
 };
 
-export async function createTask(params: CreateTaskParams): Promise<{ id: string; task_id: string }> {
+type CreatedTask = Pick<
+  Task,
+  |
+    'id'
+    | 'task_id'
+    | 'project_id'
+    | 'user_id'
+    | 'nome'
+    | 'prioridade'
+    | 'status'
+    | 'data_vencimento'
+    | 'cliente'
+    | 'percentual_conclusao'
+    | 'nivel'
+    | 'ordem'
+    | 'custom_fields'
+    | 'cronograma'
+> & {
+  created_at: string;
+  updated_at: string;
+};
+
+export async function createTask(params: CreateTaskParams): Promise<CreatedTask> {
   const payload: Record<string, unknown> = {
     project_id: params.projectId,
     user_id: params.userId,
@@ -83,10 +106,28 @@ export async function createTask(params: CreateTaskParams): Promise<{ id: string
     payload.custom_fields = {};
   }
 
+  if (!('percentual_conclusao' in payload)) {
+    payload.percentual_conclusao = 0;
+  }
+
+  if (!('nivel' in payload)) {
+    payload.nivel = 0;
+  }
+
+  if (!('ordem' in payload)) {
+    payload.ordem = 0;
+  }
+
+  if (!('cronograma' in payload)) {
+    payload.cronograma = false;
+  }
+
   const { data, error } = await supabase
     .from('tasks')
     .insert(payload)
-    .select('id, task_id')
+    .select(
+      `id, task_id, project_id, user_id, nome, prioridade, status, data_vencimento, cliente, percentual_conclusao, nivel, ordem, custom_fields, cronograma, created_at, updated_at`,
+    )
     .single();
 
   if (error) {
@@ -97,5 +138,14 @@ export async function createTask(params: CreateTaskParams): Promise<{ id: string
     throw new Error('INSERT ok, mas task_id não retornou (trigger ausente?).');
   }
 
-  return data as { id: string; task_id: string };
+  const normalized: CreatedTask = {
+    ...data,
+    custom_fields: (data.custom_fields ?? {}) as Record<string, unknown>,
+    cronograma: Boolean(data.cronograma),
+    percentual_conclusao: typeof data.percentual_conclusao === 'number' ? data.percentual_conclusao : 0,
+    nivel: typeof data.nivel === 'number' ? data.nivel : 0,
+    ordem: typeof data.ordem === 'number' ? data.ordem : 0,
+  };
+
+  return normalized;
 }
