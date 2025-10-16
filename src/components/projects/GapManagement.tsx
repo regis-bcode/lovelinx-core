@@ -631,10 +631,6 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
             <div className="flex items-center justify-center py-12 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Carregando registros de GAP...
             </div>
-          ) : filteredGaps.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-muted p-8 text-center text-muted-foreground">
-              Nenhum GAP registrado para o filtro selecionado.
-            </div>
           ) : (
             <div className="max-h-[520px] overflow-auto pr-1">
               <div className="min-w-full overflow-auto">
@@ -652,32 +648,43 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                       {column.label}
                     </div>
                   ))}
-                  {filteredGaps.map((gap, index) => {
-                    const highlight = highlightTaskId && gap.task_id === highlightTaskId;
-                    const isZebra = index % 2 === 1;
-                    return (
-                      <div key={gap.id} className="contents group" role="row">
-                        {tableColumns.map(column => (
-                          <div
-                            key={`${gap.id}-${column.key}`}
-                            className={cn(
-                              'border border-border/60 px-3 py-2 text-sm transition-colors',
-                              highlight
-                                ? 'border-primary/50 bg-primary/10 group-hover:bg-primary/20'
-                                : [
-                                    isZebra ? 'bg-muted/30' : 'bg-background',
-                                    'group-hover:bg-muted/40',
-                                  ],
-                              column.cellClassName,
-                            )}
-                            role="cell"
-                          >
-                            {column.render(gap)}
-                          </div>
-                        ))}
+                  {filteredGaps.length === 0 ? (
+                    <div className="contents" role="row">
+                      <div
+                        className="col-span-full border border-border/60 bg-background px-3 py-6 text-center text-sm text-muted-foreground"
+                        role="cell"
+                      >
+                        Nenhum GAP registrado para o filtro selecionado.
                       </div>
-                    );
-                  })}
+                    </div>
+                  ) : (
+                    filteredGaps.map((gap, index) => {
+                      const highlight = highlightTaskId && gap.task_id === highlightTaskId;
+                      const isZebra = index % 2 === 1;
+                      return (
+                        <div key={gap.id} className="contents group" role="row">
+                          {tableColumns.map(column => (
+                            <div
+                              key={`${gap.id}-${column.key}`}
+                              className={cn(
+                                'border border-border/60 px-3 py-2 text-sm transition-colors',
+                                highlight
+                                  ? 'border-primary/50 bg-primary/10 group-hover:bg-primary/20'
+                                  : [
+                                      isZebra ? 'bg-muted/30' : 'bg-background',
+                                      'group-hover:bg-muted/40',
+                                    ],
+                                column.cellClassName,
+                              )}
+                              role="cell"
+                            >
+                              {column.render(gap)}
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
