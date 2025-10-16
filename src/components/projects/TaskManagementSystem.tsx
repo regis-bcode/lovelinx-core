@@ -464,20 +464,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return '';
   }, [filteredStatuses]);
 
-  const isOutsideScope = useCallback((value?: string | null) => {
-    if (!value) {
-      return false;
-    }
-
-    const normalized = String(value)
-      .trim()
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
-
-    return normalized === 'nao';
-  }, []);
-
   const sanitizeTaskForSave = useCallback(
     (row: TaskRow): Partial<TaskFormData> => {
       const {
@@ -1195,17 +1181,92 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     navigate(`/projects-tap/${projectId}?tab=gaps&gapTaskId=${taskId}`);
   };
 
-  const addNewRow = () => {
+  const savePendingNewRows = useCallback(async () => {
+    const pendingRows = editableRows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => row._isNew && typeof row.nome === 'string' && row.nome.trim().length > 0);
+
+    if (pendingRows.length === 0) {
+      return true;
+    }
+
+    setIsSavingChanges(true);
+
+    const createdMap = new Map<number, Task>();
+    let hadError = false;
+
+    try {
+      for (const { row, index } of pendingRows) {
+        const payload = sanitizeTaskForSave(row);
+        const created = await createTask(payload);
+        if (created) {
+          createdMap.set(index, created);
+          await ensureGapForTask(created);
+        } else {
+          hadError = true;
+        }
+      }
+    } finally {
+      setIsSavingChanges(false);
+    }
+
+    if (createdMap.size > 0) {
+      setEditableRows(prev =>
+        prev.map((row, index) => {
+          const created = createdMap.get(index);
+          if (!created) {
+            return row;
+          }
+          return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false };
+        }),
+      );
+      await refreshTasks();
+    }
+
+    if (hadError) {
+      toast({
+        title: 'Erro ao salvar tarefas pendentes',
+        description: 'Não foi possível salvar todas as tarefas antes de criar uma nova.',
+        variant: 'destructive',
+      });
+    }
+
+    return !hadError;
+  }, [createTask, editableRows, ensureGapForTask, refreshTasks, sanitizeTaskForSave, toast]);
+
+  const addNewRow = useCallback(async () => {
+    if (isSavingChanges) {
+      return;
+    }
+
+    const hasEmptyPendingRow = editableRows.some(
+      row => row._isNew && (!row.nome || (typeof row.nome === 'string' && row.nome.trim().length === 0)),
+    );
+
+    if (hasEmptyPendingRow) {
+      toast({
+        title: 'Preencha a tarefa pendente',
+        description: 'Informe o nome da tarefa atual antes de adicionar uma nova.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const saved = await savePendingNewRows();
+    if (!saved) {
+      return;
+    }
+
     setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
     setHasChanges(true);
-  };
+  }, [createBlankRow, editableRows, isSavingChanges, savePendingNewRows, toast]);
 
   const deleteRow = (index: number) => {
     setEditableRows(prev => prev.filter((_, i) => i !== index));
     setHasChanges(true);
   };
 
-  const saveAllChanges = async () => {
+  const saveAllChanges = useCallback(async () => {
     if (isSavingChanges) {
       return;
     }
@@ -1239,9 +1300,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           if (created) {
             createdCount += 1;
             createdTasksMap.set(index, created);
-            if (isOutsideScope(created.escopo ?? row.escopo)) {
-              await ensureGapForTask(created);
-            }
+            await ensureGapForTask(created);
           } else {
             hadError = true;
           }
@@ -1253,9 +1312,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           if (updated) {
             updatedCount += 1;
             updatedTasksMap.set(row.id, updated);
-            if (isOutsideScope(updated.escopo ?? row.escopo)) {
-              await ensureGapForTask(updated);
-            }
+            await ensureGapForTask(updated);
           } else {
             hadError = true;
           }
@@ -1341,7 +1398,18 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setIsSavingChanges(false);
     }
-  };
+  }, [
+    createTask,
+    deleteTask,
+    editableRows,
+    ensureGapForTask,
+    isSavingChanges,
+    refreshTasks,
+    sanitizeTaskForSave,
+    tasks,
+    toast,
+    updateTask,
+  ]);
 
   const exportToExcel = () => {
     const exportColumns = visibleColumns;
@@ -1640,9 +1708,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           if (result) {
             createdCount += 1;
             currentOrder += 1;
-            if (isOutsideScope(result.escopo ?? row.escopo)) {
-              await ensureGapForTask(result);
-            }
+            await ensureGapForTask(result);
           }
         } catch (error) {
           console.error('Erro ao importar tarefa', error);

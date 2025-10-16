@@ -9,6 +9,26 @@ export function useGaps(projectId?: string) {
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const normalizeGap = (gap: any): Gap => {
+    const impactoValue = Array.isArray(gap.impacto)
+      ? (gap.impacto as string[])
+      : gap.impacto
+        ? [gap.impacto as string]
+        : null;
+
+    const anexosValue = Array.isArray(gap.anexos)
+      ? (gap.anexos as string[])
+      : gap.anexos
+        ? [gap.anexos as string]
+        : null;
+
+    return {
+      ...gap,
+      impacto: impactoValue,
+      anexos: anexosValue,
+    } as Gap;
+  };
+
   const loadGaps = async () => {
     if (!projectId) return;
 
@@ -22,11 +42,7 @@ export function useGaps(projectId?: string) {
 
       if (error) throw error;
 
-      const normalized = (data ?? []).map(item => ({
-        ...item,
-        impacto: Array.isArray(item.impacto) ? (item.impacto as string[]) : item.impacto ? (item.impacto as string[]) : null,
-        anexos: Array.isArray(item.anexos) ? (item.anexos as string[]) : item.anexos ? (item.anexos as string[]) : null,
-      })) as Gap[];
+      const normalized = (data ?? []).map(item => normalizeGap(item));
 
       setGaps(normalized);
     } catch (error) {
@@ -108,12 +124,16 @@ export function useGaps(projectId?: string) {
 
       if (error) throw error;
 
+      const normalized = normalizeGap(data);
+
+      setGaps(prev => [normalized, ...prev]);
+
       toast({
         title: 'GAP criado',
         description: 'O registro de GAP foi criado com sucesso.',
       });
 
-      return data as Gap;
+      return normalized;
     } catch (error) {
       console.error('Erro ao criar GAP:', error);
       toast({
@@ -136,12 +156,16 @@ export function useGaps(projectId?: string) {
 
       if (error) throw error;
 
+      const normalized = normalizeGap(data);
+
+      setGaps(prev => prev.map(gap => (gap.id === id ? normalized : gap)));
+
       toast({
         title: 'GAP atualizado',
         description: 'As informações do GAP foram atualizadas.',
       });
 
-      return data as Gap;
+      return normalized;
     } catch (error) {
       console.error('Erro ao atualizar GAP:', error);
       toast({
@@ -161,6 +185,8 @@ export function useGaps(projectId?: string) {
         .eq('id', id);
 
       if (error) throw error;
+
+      setGaps(prev => prev.filter(gap => gap.id !== id));
 
       toast({
         title: 'GAP removido',
@@ -200,10 +226,6 @@ export function useGaps(projectId?: string) {
     };
 
     const created = await createGap(payload);
-    if (created) {
-      await loadGaps();
-    }
-
     return created;
   };
 
