@@ -693,9 +693,9 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
             </DialogDescription>
           </DialogHeader>
           <ScrollArea className="max-h-[65vh] pr-4">
-            <div className="space-y-6 py-2">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+            <div className="py-2">
+              <div className="grid gap-4 md:grid-cols-12 xl:gap-5">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Tarefa vinculada</label>
                   <Select
                     value={formState.task_id || ''}
@@ -713,7 +713,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-8">
                   <label className="text-sm font-semibold text-muted-foreground">Título</label>
                   <Input
                     value={formState.titulo || ''}
@@ -721,10 +721,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Resumo do GAP"
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-12">
                   <label className="text-sm font-semibold text-muted-foreground">Descrição</label>
                   <Textarea
                     value={formState.descricao || ''}
@@ -733,82 +730,74 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     className="min-h-[120px]"
                   />
                 </div>
-                <div className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Tipo de GAP</label>
-                      <Input
-                        value={formState.tipo || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, tipo: event.target.value }))}
-                        placeholder="Processo, Sistema..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Origem</label>
-                      <Input
-                        value={formState.origem || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, origem: event.target.value }))}
-                        placeholder="Cliente, Interno..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Severidade</label>
-                      <Input
-                        value={formState.severidade || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, severidade: event.target.value }))}
-                        placeholder="Baixa, Média, Alta..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Urgência</label>
-                      <Input
-                        value={formState.urgencia || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, urgencia: event.target.value }))}
-                        placeholder="Imediata, Breve..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Prioridade</label>
-                      <Input
-                        value={formState.prioridade || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, prioridade: event.target.value }))}
-                        placeholder="Baixa, Média, Alta..."
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-semibold text-muted-foreground">Status do GAP</label>
-                      <Input
-                        value={formState.status || ''}
-                        onChange={event => setFormState(prev => ({ ...prev, status: event.target.value }))}
-                        placeholder="Aberto, Em análise..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-muted-foreground">Impacto</label>
-                    <div className="flex flex-wrap gap-2">
-                      {IMPACT_OPTIONS.map(option => {
-                        const checked = formState.impacto?.includes(option) ?? false;
-                        return (
-                          <Button
-                            key={option}
-                            type="button"
-                            variant={checked ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => handleImpactToggle(option)}
-                          >
-                            {option}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Tipo de GAP</label>
+                  <Input
+                    value={formState.tipo || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, tipo: event.target.value }))}
+                    placeholder="Processo, Sistema..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Origem</label>
+                  <Input
+                    value={formState.origem || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, origem: event.target.value }))}
+                    placeholder="Cliente, Interno..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Severidade</label>
+                  <Input
+                    value={formState.severidade || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, severidade: event.target.value }))}
+                    placeholder="Baixa, Média, Alta..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Urgência</label>
+                  <Input
+                    value={formState.urgencia || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, urgencia: event.target.value }))}
+                    placeholder="Imediata, Breve..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Prioridade</label>
+                  <Input
+                    value={formState.prioridade || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, prioridade: event.target.value }))}
+                    placeholder="Baixa, Média, Alta..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-4 xl:col-span-3">
+                  <label className="text-sm font-semibold text-muted-foreground">Status do GAP</label>
+                  <Input
+                    value={formState.status || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, status: event.target.value }))}
+                    placeholder="Aberto, Em análise..."
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-12">
+                  <label className="text-sm font-semibold text-muted-foreground">Impacto</label>
+                  <div className="flex flex-wrap gap-2">
+                    {IMPACT_OPTIONS.map(option => {
+                      const checked = formState.impacto?.includes(option) ?? false;
+                      return (
+                        <Button
+                          key={option}
+                          type="button"
+                          variant={checked ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => handleImpactToggle(option)}
+                        >
+                          {option}
+                        </Button>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Faturável?</label>
                   <div className="flex items-center justify-between rounded-md border border-dashed border-muted px-3 py-2">
                     <span className="text-sm text-muted-foreground">Este GAP gera cobrança adicional?</span>
@@ -818,7 +807,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Valor de Impacto Financeiro</label>
                   <CurrencyInput
                     value={formState.valor_impacto_financeiro ?? ''}
@@ -826,10 +815,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="R$ 0,00"
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-6">
                   <label className="text-sm font-semibold text-muted-foreground">Causa raiz</label>
                   <Textarea
                     value={formState.causa_raiz || ''}
@@ -837,7 +823,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Explique a causa principal identificada..."
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-6">
                   <label className="text-sm font-semibold text-muted-foreground">Plano de ação</label>
                   <Textarea
                     value={formState.plano_acao || ''}
@@ -845,10 +831,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Defina as ações necessárias..."
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Responsável</label>
                   <Input
                     value={formState.responsavel || ''}
@@ -856,17 +839,14 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Nome do responsável"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Data prometida para tratativa</label>
                   <DateInput
                     value={formState.data_prometida || ''}
                     onChange={value => setFormState(prev => ({ ...prev, data_prometida: value }))}
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Necessita aprovação?</label>
                   <div className="flex items-center justify-between rounded-md border border-dashed border-muted px-3 py-2">
                     <span className="text-sm text-muted-foreground">Indica se o GAP exige aprovação formal.</span>
@@ -876,7 +856,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-8">
                   <label className="text-sm font-semibold text-muted-foreground">Decisão</label>
                   <Textarea
                     value={formState.decisao || ''}
@@ -884,10 +864,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Resumo da decisão tomada"
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Aprovado por</label>
                   <Input
                     value={formState.aprovado_por || ''}
@@ -895,17 +872,14 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Nome do aprovador"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
                   <label className="text-sm font-semibold text-muted-foreground">Data de aprovação</label>
                   <DateInput
                     value={formState.data_aprovacao || ''}
                     onChange={value => setFormState(prev => ({ ...prev, data_aprovacao: value }))}
                   />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-6">
                   <label className="text-sm font-semibold text-muted-foreground">Impacto financeiro (descrição)</label>
                   <Textarea
                     value={formState.impacto_financeiro_descricao || ''}
@@ -913,7 +887,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Descreva como o GAP impacta financeiramente o projeto"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 md:col-span-6 xl:col-span-6">
                   <label className="text-sm font-semibold text-muted-foreground">Resumo do impacto</label>
                   <Textarea
                     value={formState.impacto_resumo || ''}
@@ -921,26 +895,24 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="Resumo executivo do impacto"
                   />
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-muted-foreground">Anexos (um por linha)</label>
-                <Textarea
-                  value={formState.anexosTexto || ''}
-                  onChange={event => setFormState(prev => ({ ...prev, anexosTexto: event.target.value }))}
-                  placeholder="Cole URLs ou descrições de anexos, um por linha"
-                  className="min-h-[120px]"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-muted-foreground">Observações</label>
-                <Textarea
-                  value={formState.observacoes || ''}
-                  onChange={event => setFormState(prev => ({ ...prev, observacoes: event.target.value }))}
-                  placeholder="Informações adicionais relevantes"
-                  className="min-h-[100px]"
-                />
+                <div className="space-y-2 md:col-span-12">
+                  <label className="text-sm font-semibold text-muted-foreground">Anexos (um por linha)</label>
+                  <Textarea
+                    value={formState.anexosTexto || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, anexosTexto: event.target.value }))}
+                    placeholder="Cole URLs ou descrições de anexos, um por linha"
+                    className="min-h-[120px]"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-12">
+                  <label className="text-sm font-semibold text-muted-foreground">Observações</label>
+                  <Textarea
+                    value={formState.observacoes || ''}
+                    onChange={event => setFormState(prev => ({ ...prev, observacoes: event.target.value }))}
+                    placeholder="Informações adicionais relevantes"
+                    className="min-h-[100px]"
+                  />
+                </div>
               </div>
             </div>
           </ScrollArea>
