@@ -183,10 +183,6 @@ export function useTasks(projectId?: string) {
         task_id: ensureTaskIdentifier(newTask.task_id, newTask.id),
       };
       setTasks(prev => [normalized, ...prev]);
-      toast({
-        title: "Sucesso",
-        description: "Tarefa criada com sucesso!",
-      });
       return normalized;
     } catch (error) {
       console.error('Erro ao criar tarefa:', error);
@@ -224,10 +220,6 @@ export function useTasks(projectId?: string) {
         task_id: ensureTaskIdentifier(updatedTask.task_id, updatedTask.id),
       };
       setTasks(prev => prev.map(task => (task.id === id ? normalized : task)));
-      toast({
-        title: "Sucesso",
-        description: "Tarefa atualizada com sucesso!",
-      });
       return normalized;
     } catch (error) {
       console.error('Erro ao atualizar tarefa:', error);

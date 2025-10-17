@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
+import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Pause, Square, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -233,7 +233,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
-  const { getTaskTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
+  const { getTaskTotalTime, getResponsibleTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
@@ -266,6 +266,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [grouping, setGrouping] = useState<GroupingKey>('none');
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const [pausedDurations, setPausedDurations] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
@@ -313,6 +314,44 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [subStages]);
 
   useEffect(() => {
+    const validIds = new Set(
+      editableRows
+        .map(row => row.id)
+        .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    );
+
+    if (validIds.size === 0) {
+      if (Object.keys(activeTimers).length === 0 && Object.keys(pausedDurations).length === 0) {
+        return;
+      }
+    }
+
+    setActiveTimers(prev => {
+      const filteredEntries = Object.entries(prev).filter(([taskId]) => validIds.has(taskId));
+      if (filteredEntries.length === Object.keys(prev).length) {
+        return prev;
+      }
+
+      return filteredEntries.reduce<Record<string, number>>((acc, [taskId, value]) => {
+        acc[taskId] = value;
+        return acc;
+      }, {});
+    });
+
+    setPausedDurations(prev => {
+      const filteredEntries = Object.entries(prev).filter(([taskId]) => validIds.has(taskId));
+      if (filteredEntries.length === Object.keys(prev).length) {
+        return prev;
+      }
+
+      return filteredEntries.reduce<Record<string, number>>((acc, [taskId, value]) => {
+        acc[taskId] = value;
+        return acc;
+      }, {});
+    });
+  }, [editableRows]);
+
+  useEffect(() => {
     if (Object.keys(activeTimers).length === 0) {
       setTimerTick(0);
       return;
@@ -336,7 +375,116 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
   }, []);
 
+  const getRowAccumulatedSeconds = useCallback(
+    (row: TaskRow): number => {
+      if (!row.id) {
+        return 0;
+      }
+
+      const minutes = getTaskTotalTime(row.id);
+      const runningStart = activeTimers[row.id];
+      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
+      const referenceNow = timerTick || Date.now();
+
+      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
+      const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
+      const pausedSeconds = Math.max(0, Math.floor(pausedMilliseconds / 1000));
+
+      return baseSeconds + runningSeconds + pausedSeconds;
+    },
+    [activeTimers, getTaskTotalTime, pausedDurations, timerTick],
+  );
+
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
+
+  const { responsibleTimeSummaries, responsibleTimeSummaryMap } = useMemo(() => {
+    const assignments = editableRows
+      .filter(row => row.id && typeof row.responsavel === 'string' && row.responsavel.trim().length > 0)
+      .map(row => ({ taskId: row.id as string, responsavel: row.responsavel as string }));
+
+    const baseMinutesByResponsavel = getResponsibleTotalTime(assignments);
+    const aggregated = new Map<string, { label: string; seconds: number }>();
+
+    Object.entries(baseMinutesByResponsavel).forEach(([label, minutes]) => {
+      const normalized = label.trim().toLowerCase();
+      if (!normalized) {
+        return;
+      }
+
+      const safeMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+      aggregated.set(normalized, { label, seconds: Math.floor(safeMinutes * 60) });
+    });
+
+    editableRows.forEach(row => {
+      if (!row.id) {
+        return;
+      }
+
+      const responsavelName = typeof row.responsavel === 'string' ? row.responsavel.trim() : '';
+      if (!responsavelName) {
+        return;
+      }
+
+      const normalized = responsavelName.toLowerCase();
+      const runningStart = activeTimers[row.id];
+      const referenceNow = timerTick || Date.now();
+      const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
+      const pausedSeconds = Math.max(0, Math.floor((pausedDurations[row.id] ?? 0) / 1000));
+      const extras = runningSeconds + pausedSeconds;
+
+      if (!aggregated.has(normalized)) {
+        aggregated.set(normalized, { label: responsavelName, seconds: extras });
+        return;
+      }
+
+      const existing = aggregated.get(normalized)!;
+      const nextSeconds = existing.seconds + extras;
+      aggregated.set(normalized, {
+        label: responsavelName || existing.label,
+        seconds: nextSeconds,
+      });
+    });
+
+    const allEntries = Array.from(aggregated.values()).map(entry => {
+      const safeSeconds = Number.isFinite(entry.seconds) ? Math.max(0, Math.floor(entry.seconds)) : 0;
+      return {
+        label: entry.label,
+        seconds: safeSeconds,
+        minutes: Math.max(0, Math.round(safeSeconds / 60)),
+        formatted: formatDuration(safeSeconds),
+      };
+    });
+
+    const summaryMap = new Map<string, { label: string; seconds: number; minutes: number; formatted: string }>();
+    allEntries.forEach(entry => {
+      summaryMap.set(entry.label.trim().toLowerCase(), entry);
+    });
+
+    const summaryArray = allEntries
+      .filter(entry => entry.seconds > 0)
+      .sort((a, b) => b.seconds - a.seconds);
+
+    return { responsibleTimeSummaries: summaryArray, responsibleTimeSummaryMap: summaryMap };
+  }, [
+    editableRows,
+    getResponsibleTotalTime,
+    activeTimers,
+    pausedDurations,
+    timerTick,
+    formatDuration,
+  ]);
+
+  const getResponsibleTimeSummary = useCallback(
+    (responsavel: string) => {
+      const normalized = typeof responsavel === 'string' ? responsavel.trim().toLowerCase() : '';
+      if (!normalized) {
+        return null;
+      }
+      return responsibleTimeSummaryMap.get(normalized) ?? null;
+    },
+    [responsibleTimeSummaryMap],
+  );
+
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -349,30 +497,48 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      const parsed = JSON.parse(stored) as Record<string, unknown> | null;
+      const parsed = JSON.parse(stored);
       if (!parsed || typeof parsed !== 'object') {
         window.localStorage.removeItem(activeTimersStorageKey);
         return;
       }
 
-      const sanitizedEntries = Object.entries(parsed).filter(([, value]) => {
-        return typeof value === 'number' && Number.isFinite(value) && value > 0;
-      });
+      const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
+        if (!value || typeof value !== 'object') {
+          return {};
+        }
 
-      if (sanitizedEntries.length === 0) {
-        window.localStorage.removeItem(activeTimersStorageKey);
+        return Object.entries(value as Record<string, unknown>)
+          .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
+          .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
+            acc[taskId] = entryValue as number;
+            return acc;
+          }, {});
+      };
+
+      if ('active' in parsed || 'paused' in parsed) {
+        const restoredActive = sanitizeNumberRecord((parsed as { active?: unknown }).active ?? {});
+        const restoredPaused = sanitizeNumberRecord((parsed as { paused?: unknown }).paused ?? {});
+        setActiveTimers(restoredActive);
+        setPausedDurations(restoredPaused);
+        if (Object.keys(restoredActive).length === 0 && Object.keys(restoredPaused).length === 0) {
+          window.localStorage.removeItem(activeTimersStorageKey);
+        }
         return;
       }
 
-      const sanitizedTimers = sanitizedEntries.reduce<Record<string, number>>((acc, [taskId, value]) => {
-        acc[taskId] = value as number;
-        return acc;
-      }, {});
+      const restoredActive = sanitizeNumberRecord(parsed);
+      setActiveTimers(restoredActive);
+      setPausedDurations({});
 
-      setActiveTimers(sanitizedTimers);
+      if (Object.keys(restoredActive).length === 0) {
+        window.localStorage.removeItem(activeTimersStorageKey);
+      }
     } catch (error) {
       console.error('Erro ao restaurar temporizadores ativos:', error);
       window.localStorage.removeItem(activeTimersStorageKey);
+      setActiveTimers({});
+      setPausedDurations({});
     }
   }, [activeTimersStorageKey]);
 
@@ -381,17 +547,23 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    if (Object.keys(activeTimers).length === 0) {
+    const hasActive = Object.keys(activeTimers).length > 0;
+    const hasPaused = Object.keys(pausedDurations).length > 0;
+
+    if (!hasActive && !hasPaused) {
       window.localStorage.removeItem(activeTimersStorageKey);
       return;
     }
 
     try {
-      window.localStorage.setItem(activeTimersStorageKey, JSON.stringify(activeTimers));
+      window.localStorage.setItem(
+        activeTimersStorageKey,
+        JSON.stringify({ active: activeTimers, paused: pausedDurations }),
+      );
     } catch (error) {
       console.error('Erro ao persistir temporizadores ativos:', error);
     }
-  }, [activeTimers, activeTimersStorageKey]);
+  }, [activeTimers, pausedDurations, activeTimersStorageKey]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -1175,11 +1347,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return typeof value === 'number' ? `${value}%` : '';
         case 'tempo_total': {
           if (!row.id) {
-            return '';
+            return '0h 0m';
           }
-          const minutes = getTaskTotalTime(row.id);
-          const hours = Math.floor(minutes / 60);
-          const mins = minutes % 60;
+          const totalSeconds = getRowAccumulatedSeconds(row);
+          const hours = Math.floor(totalSeconds / 3600);
+          const mins = Math.floor((totalSeconds % 3600) / 60);
           return `${hours}h ${mins}m`;
         }
         case 'data_vencimento': {
@@ -1229,7 +1401,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         [columnKey]: computedWidth,
       };
     });
-  }, [allColumns, editableRows, getColumnBaseWidth, getTaskTotalTime]);
+  }, [allColumns, editableRows, getColumnBaseWidth, getRowAccumulatedSeconds]);
 
   const handleDragStart = useCallback((event: React.DragEvent<HTMLTableCellElement>, columnKey: string) => {
     event.dataTransfer.effectAllowed = 'move';
@@ -1325,6 +1497,35 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     });
   };
 
+  const handlePauseTimer = (row: TaskRow) => {
+    if (!row.id) {
+      toast({
+        title: 'Atenção',
+        description: 'Salve a tarefa antes de pausar o apontamento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const start = activeTimers[row.id];
+    if (!start) {
+      return;
+    }
+
+    const elapsedMilliseconds = Math.max(0, Date.now() - start);
+
+    setActiveTimers(prev => {
+      const next = { ...prev };
+      delete next[row.id!];
+      return next;
+    });
+
+    setPausedDurations(prev => ({
+      ...prev,
+      [row.id!]: (prev[row.id!] ?? 0) + elapsedMilliseconds,
+    }));
+  };
+
   const handleStopTimer = async (row: TaskRow) => {
     if (!row.id) {
       toast({
@@ -1336,28 +1537,57 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const start = activeTimers[row.id];
-    if (!start) {
+    const pausedMilliseconds = pausedDurations[row.id] ?? 0;
+
+    if (!start && pausedMilliseconds <= 0) {
       return;
     }
 
-    const elapsedMinutes = Math.max(1, Math.round((Date.now() - start) / 60000));
+    const now = Date.now();
+    const runningMilliseconds = start ? Math.max(0, now - start) : 0;
+    const totalMilliseconds = pausedMilliseconds + runningMilliseconds;
+
+    if (totalMilliseconds <= 0) {
+      toast({
+        title: 'Sem tempo registrado',
+        description: 'Inicie o cronômetro para registrar um novo apontamento.',
+      });
+      return;
+    }
+
+    const elapsedMinutes = Math.max(1, Math.round(totalMilliseconds / 60000));
+    const startedAt = now - totalMilliseconds;
+
     const payload = {
       task_id: row.id,
       tempo_minutos: elapsedMinutes,
       tipo_inclusao: 'automatico' as const,
       status_aprovacao: 'aprovado' as const,
-      data_inicio: new Date(start).toISOString(),
-      data_fim: new Date().toISOString(),
+      data_inicio: new Date(startedAt).toISOString(),
+      data_fim: new Date(now).toISOString(),
       observacoes: 'Registro automático pela Gestão de Tarefas',
     };
 
     const result = await createTimeLog(payload);
     if (result) {
       setActiveTimers(prev => {
+        if (!prev[row.id!]) {
+          return prev;
+        }
         const next = { ...prev };
         delete next[row.id!];
         return next;
       });
+
+      setPausedDurations(prev => {
+        if (!prev[row.id!]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[row.id!];
+        return next;
+      });
+
       refreshTimeLogs();
     }
   };
@@ -1425,6 +1655,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           delete next[rowId];
           return next;
         });
+
+        setPausedDurations(prev => {
+          if (!prev[rowId]) {
+            return prev;
+          }
+
+          const next = { ...prev };
+          delete next[rowId];
+          return next;
+        });
       }
 
       if (!rowId) {
@@ -1466,6 +1706,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     let rowToSave = row;
+    const wasDraft = !rowToSave.id || rowToSave._isNew || rowToSave.isDraft;
 
     if (!row.task_id || row.task_id.trim().length === 0) {
       const generatedId = getNextTaskIdentifier();
@@ -1511,6 +1752,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           };
         }),
       );
+
+      toast({
+        title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
+        description: 'A tarefa foi salva no Supabase e os apontamentos estão liberados.',
+      });
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
       toast({
@@ -1742,17 +1988,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
-      const minutes = getTaskTotalTime(row.id);
-      const runningStart = activeTimers[row.id];
-      const referenceNow = timerTick || Date.now();
-      const runningSeconds = runningStart ? Math.floor((referenceNow - runningStart) / 1000) : 0;
-      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
-      const totalSeconds = baseSeconds + runningSeconds;
+
+      const totalSeconds = getRowAccumulatedSeconds(row);
+      const isRunning = Boolean(activeTimers[row.id]);
+      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
+      const hasPausedTime = pausedMilliseconds > 0;
+      const isPaused = hasPausedTime && !isRunning;
+
       return (
         <div className="flex flex-col text-xs">
           <span>{formatDuration(totalSeconds)}</span>
-          {runningStart ? (
+          {isRunning ? (
             <span className="text-[10px] text-muted-foreground">Cronometrando...</span>
+          ) : null}
+          {isPaused ? (
+            <span className="text-[10px] text-muted-foreground">Pausado</span>
           ) : null}
         </div>
       );
@@ -2165,13 +2415,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-muted-foreground">-</span>;
-      const minutes = getTaskTotalTime(row.id);
-      const runningStart = activeTimers[row.id];
-      const referenceNow = timerTick || Date.now();
-      const runningSeconds = runningStart ? Math.floor((referenceNow - runningStart) / 1000) : 0;
-      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
-      const totalSeconds = baseSeconds + runningSeconds;
-      return <span>{formatDuration(totalSeconds)}</span>;
+      const totalSeconds = getRowAccumulatedSeconds(row);
+      const isRunning = Boolean(activeTimers[row.id]);
+      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
+      const hasPausedTime = pausedMilliseconds > 0;
+      const isPaused = hasPausedTime && !isRunning;
+      return (
+        <span>
+          {formatDuration(totalSeconds)}
+          {isRunning ? ' · Em andamento' : isPaused ? ' · Pausado' : ''}
+        </span>
+      );
     }
 
     if (column.key === 'percentual_conclusao') {
@@ -2225,7 +2479,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     return <span>{String(value)}</span>;
-  }, [getTaskTotalTime, activeTimers, timerTick, formatDuration, stageNameById, subStageNameById]);
+  }, [
+    getRowAccumulatedSeconds,
+    activeTimers,
+    pausedDurations,
+    timerTick,
+    formatDuration,
+    stageNameById,
+    subStageNameById,
+  ]);
 
   const closeTaskDialog = useCallback(() => setActiveTaskDialog(null), []);
 
@@ -2340,6 +2602,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
     const isRunning = Boolean(row.id && activeTimers[row.id]);
+    const pausedMilliseconds = row.id ? pausedDurations[row.id] ?? 0 : 0;
+    const hasPausedTime = pausedMilliseconds > 0;
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
     const isDeletingRow = deletingRowIndex === index;
@@ -2427,8 +2691,18 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-rose-500 hover:text-rose-600 focus-visible:ring-rose-500 disabled:text-rose-300 disabled:hover:text-rose-300"
+              className="h-8 w-8 text-amber-500 hover:text-amber-600 focus-visible:ring-amber-500 disabled:text-amber-300 disabled:hover:text-amber-300"
               disabled={isDraftRow || isSavingRow || !isRunning}
+              onClick={() => handlePauseTimer(row)}
+              aria-label="Pausar apontamento"
+            >
+              <Pause className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-rose-500 hover:text-rose-600 focus-visible:ring-rose-500 disabled:text-rose-300 disabled:hover:text-rose-300"
+              disabled={isDraftRow || isSavingRow || (!isRunning && !hasPausedTime)}
               onClick={() => handleStopTimer(row)}
               aria-label="Encerrar apontamento"
             >
@@ -2485,6 +2759,24 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 <span className="text-sm text-muted-foreground">Tudo sincronizado</span>
               )}
             </div>
+            {responsibleTimeSummaries.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="font-medium text-foreground">Tempo por responsável:</span>
+                {responsibleTimeSummaries.slice(0, 4).map(summary => (
+                  <span
+                    key={summary.label}
+                    className="rounded-full bg-muted px-2 py-1 text-[10px] text-foreground"
+                  >
+                    {summary.label}: {summary.formatted}
+                  </span>
+                ))}
+                {responsibleTimeSummaries.length > 4 ? (
+                  <span className="rounded-full bg-muted px-2 py-1 text-[10px] text-foreground">
+                    +{responsibleTimeSummaries.length - 4}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
           </div>
 
           <div className="flex w-full max-w-full flex-wrap items-center gap-2 justify-start xl:w-auto xl:justify-end">
@@ -2882,8 +3174,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                                   colSpan={visibleColumns.length + 1}
                                   className="border-l-4 border-l-primary/50 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide"
                                 >
-                                  <div className="flex items-center justify-between gap-4">
-                                    <span className="truncate text-foreground">{group.label}</span>
+                                  <div className="flex flex-col gap-1 text-foreground sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="truncate text-foreground">{group.label}</span>
+                                      {grouping === 'responsavel' ? (() => {
+                                        const summary = getResponsibleTimeSummary(group.label);
+                                        if (!summary) {
+                                          return null;
+                                        }
+                                        return (
+                                          <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-normal uppercase tracking-wide text-muted-foreground">
+                                            Tempo: {summary.formatted}
+                                          </span>
+                                        );
+                                      })() : null}
+                                    </div>
                                     <span className="text-[10px] font-medium text-foreground/80">
                                       {group.rows.length} tarefa{group.rows.length > 1 ? 's' : ''}
                                     </span>
