@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Square, Clock, Plus, Check, X } from 'lucide-react';
+import { Clock, Plus, Check, X } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -21,49 +21,67 @@ interface TimeManagementProps {
 export function TimeManagement({ projectId }: TimeManagementProps) {
   const { tasks, loading: tasksLoading } = useTasks(projectId);
   const { timeLogs, createTimeLog, approveTimeLog, getTaskTotalTime, getProjectTotalTime, loading: logsLoading } = useTimeLogs(projectId);
-  const { isGestor } = useUserRoles();
-  
-  const [activeTimer, setActiveTimer] = useState<{ taskId: string; startTime: Date } | null>(null);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
+  const { isGestor, isAdmin } = useUserRoles();
 
-  const timerActionButtonBase =
-    'h-9 w-9 rounded-full text-white shadow-sm transition-transform duration-200 hover:scale-105 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:scale-100';
+  const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
+  const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
+  const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
 
   // Timer effect
   useEffect(() => {
-    if (!activeTimer) return;
+    if (Object.keys(activeTimers).length === 0) return;
 
     const interval = setInterval(() => {
-      const now = new Date();
-      const elapsed = Math.floor((now.getTime() - activeTimer.startTime.getTime()) / 1000);
-      setElapsedSeconds(elapsed);
+      setElapsedSeconds(() => {
+        const updated: Record<string, number> = {};
+        Object.entries(activeTimers).forEach(([taskId, startTimestamp]) => {
+          const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+          updated[taskId] = elapsed >= 0 ? elapsed : 0;
+        });
+        return updated;
+      });
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [activeTimer]);
+  }, [activeTimers]);
 
   const startTimer = (taskId: string) => {
-    setActiveTimer({ taskId, startTime: new Date() });
-    setElapsedSeconds(0);
+    setActiveTimers(prev => ({ ...prev, [taskId]: Date.now() }));
+    setElapsedSeconds(prev => ({ ...prev, [taskId]: 0 }));
+    setManualOverrides(prev => {
+      if (!(taskId in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
   };
 
-  const stopTimer = async () => {
-    if (!activeTimer) return;
+  const stopTimer = async (taskId: string) => {
+    const startTimestamp = activeTimers[taskId];
+    if (!startTimestamp) return;
 
-    const minutes = Math.floor(elapsedSeconds / 60);
+    const minutes = Math.floor((Date.now() - startTimestamp) / 60000);
     if (minutes > 0) {
       await createTimeLog({
-        task_id: activeTimer.taskId,
+        task_id: taskId,
         tipo_inclusao: 'automatico',
         tempo_minutos: minutes,
-        data_inicio: activeTimer.startTime.toISOString(),
+        data_inicio: new Date(startTimestamp).toISOString(),
         data_fim: new Date().toISOString(),
       });
     }
 
-    setActiveTimer(null);
-    setElapsedSeconds(0);
+    setActiveTimers(prev => {
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
+    setElapsedSeconds(prev => {
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
   };
 
   const addManualTime = async (taskId: string) => {
@@ -71,11 +89,27 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!time || (time.hours === 0 && time.minutes === 0)) return;
 
     const totalMinutes = time.hours * 60 + time.minutes;
-    await createTimeLog({
+    const result = await createTimeLog({
       task_id: taskId,
       tipo_inclusao: 'manual',
       tempo_minutos: totalMinutes,
     });
+
+    if (result) {
+      setManualOverrides(prev => ({ ...prev, [taskId]: totalMinutes }));
+      setActiveTimers(prev => {
+        if (!prev[taskId]) return prev;
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
+      setElapsedSeconds(prev => {
+        if (!prev[taskId]) return prev;
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
+    }
 
     setManualTime(prev => ({ ...prev, [taskId]: { hours: 0, minutes: 0 } }));
   };
@@ -93,6 +127,43 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return `${hours}h ${mins}m`;
   };
 
+  const manualOverridesFromLogs = useMemo(() => {
+    const overrides: Record<string, number> = {};
+    timeLogs.forEach((log) => {
+      if (log.tipo_inclusao === 'manual' && overrides[log.task_id] === undefined) {
+        overrides[log.task_id] = log.tempo_minutos;
+      }
+    });
+    return overrides;
+  }, [timeLogs]);
+
+  useEffect(() => {
+    setManualOverrides(prev => {
+      const updated = { ...prev };
+      Object.keys(prev).forEach(taskId => {
+        if (manualOverridesFromLogs[taskId] !== undefined) {
+          delete updated[taskId];
+        }
+      });
+      return updated;
+    });
+  }, [manualOverridesFromLogs]);
+
+  const activeTimerEntries = useMemo(() => Object.entries(activeTimers), [activeTimers]);
+
+  const tasksWithLoggedTime = useMemo(() => {
+    const trackedTaskIds = new Set<string>();
+    timeLogs.forEach(log => {
+      if (log.task_id) {
+        trackedTaskIds.add(log.task_id);
+      }
+    });
+    activeTimerEntries.forEach(([taskId]) => trackedTaskIds.add(taskId));
+    Object.keys(manualOverrides).forEach(taskId => trackedTaskIds.add(taskId));
+
+    return tasks.filter(task => trackedTaskIds.has(task.id)).length;
+  }, [tasks, timeLogs, activeTimerEntries, manualOverrides]);
+
   const getStatusBadge = (status: ApprovalStatus) => {
     const variants = {
       pendente: 'secondary',
@@ -104,6 +175,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
+  const isGestorUser = isGestor();
+  const isAdminUser = isAdmin();
 
   if (tasksLoading || logsLoading) {
     return <div className="p-4">Carregando...</div>;
@@ -132,6 +205,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           <CardTitle>Tarefas e Controle de Tempo</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <span className="text-sm text-muted-foreground">
+              Total de tarefas contabilizadas: <span className="font-semibold text-foreground">{tasksWithLoggedTime}</span>
+            </span>
+            {activeTimerEntries.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {activeTimerEntries.map(([taskId]) => {
+                  const task = tasks.find(t => t.id === taskId);
+                  const currentSeconds = elapsedSeconds[taskId] || 0;
+                  return (
+                    <div key={taskId} className="rounded-md border px-3 py-2 shadow-sm">
+                      <div className="text-xs uppercase text-muted-foreground">Timer ativo</div>
+                      <div className="font-medium">{task?.nome || 'Tarefa'}</div>
+                      <div className="font-mono text-sm">{formatTime(currentSeconds)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
@@ -139,15 +232,21 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Responsável</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Tempo Total</TableHead>
-                <TableHead>Timer</TableHead>
                 <TableHead>Adicionar Manual</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tasks.map((task) => {
                 const taskTime = getTaskTotalTime(task.id);
-                const isTimerActive = activeTimer?.taskId === task.id;
+                const isTimerActive = Boolean(activeTimers[task.id]);
                 const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
+                const manualOverrideMinutes = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
+                const runningSeconds = elapsedSeconds[task.id] || 0;
+                const displayedTime = manualOverrideMinutes !== undefined
+                  ? `Manual: ${formatMinutes(manualOverrideMinutes)}`
+                  : isTimerActive
+                    ? formatTime(taskTime * 60 + runningSeconds)
+                    : formatMinutes(taskTime);
 
                 return (
                   <TableRow key={task.id}>
@@ -156,32 +255,30 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     <TableCell>
                       <Badge variant="outline">{task.status}</Badge>
                     </TableCell>
-                    <TableCell>{formatMinutes(taskTime)}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        {isTimerActive ? (
-                          <>
-                            <span className="font-mono text-sm">{formatTime(elapsedSeconds)}</span>
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="font-mono text-sm">{displayedTime}</span>
+                        <div className="flex gap-2">
+                          {isTimerActive ? (
                             <Button
-                              size="icon"
-                              variant="ghost"
-                              className={`${timerActionButtonBase} bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700`}
-                              onClick={stopTimer}
+                              size="sm"
+                              variant="outline"
+                              onClick={() => stopTimer(task.id)}
                             >
-                              <Square className="h-4 w-4" />
+                              Parar
                             </Button>
-                          </>
-                        ) : (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className={`${timerActionButtonBase} bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700`}
-                            onClick={() => startTimer(task.id)}
-                            disabled={activeTimer !== null}
-                          >
-                            <Play className="h-4 w-4" />
-                          </Button>
-                        )}
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => startTimer(task.id)}
+                              disabled={manualOverrideMinutes !== undefined}
+                              title={manualOverrideMinutes !== undefined ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.' : undefined}
+                            >
+                              Iniciar
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -238,7 +335,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Tipo</TableHead>
                 <TableHead>Tempo</TableHead>
                 <TableHead>Status</TableHead>
-                {isGestor() && <TableHead>Ações</TableHead>}
+                {isGestorUser && <TableHead>Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -253,12 +350,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
                       <TableCell>
                         <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
-                          {log.tipo_inclusao}
+                          {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
                         </Badge>
                       </TableCell>
                       <TableCell>{formatMinutes(log.tempo_minutos)}</TableCell>
                       <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
-                      {isGestor() && (
+                      {isGestorUser && (
                         <TableCell>
                           {log.status_aprovacao === 'pendente' && (
                             <div className="flex gap-2">
@@ -266,6 +363,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => approveTimeLog(log.id, 'aprovado')}
+                                disabled={!isAdminUser}
                               >
                                 <Check className="h-4 w-4 text-green-600" />
                               </Button>
@@ -273,6 +371,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => approveTimeLog(log.id, 'reprovado')}
+                                disabled={!isAdminUser}
                               >
                                 <X className="h-4 w-4 text-red-600" />
                               </Button>
@@ -285,7 +384,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={isGestor() ? 6 : 5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={isGestorUser ? 6 : 5} className="text-center text-muted-foreground">
                     Nenhum log de tempo registrado.
                   </TableCell>
                 </TableRow>
