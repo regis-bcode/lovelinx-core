@@ -1786,10 +1786,33 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       await refreshTasks();
 
+      const formattedCreatedAt = savedTask.created_at
+        ? format(new Date(savedTask.created_at), "dd/MM/yyyy HH:mm")
+        : null;
+
       toast({
         title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
-        description:
-          'Registro salvo com sucesso! A lista foi atualizada e uma nova linha está pronta para uso.',
+        description: (
+          <div className="space-y-1 text-sm">
+            <p>Registro salvo com sucesso!</p>
+            <div className="grid gap-1">
+              {formattedCreatedAt ? (
+                <p>
+                  <span className="font-semibold">Data de criação:</span> {formattedCreatedAt}
+                </p>
+              ) : null}
+              <p>
+                <span className="font-semibold">Número da tarefa:</span> {savedTask.task_id}
+              </p>
+              <p>
+                <span className="font-semibold">Nome:</span> {savedTask.nome}
+              </p>
+              <p>
+                <span className="font-semibold">Status:</span> {savedTask.status}
+              </p>
+            </div>
+          </div>
+        ),
       });
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
