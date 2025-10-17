@@ -1629,7 +1629,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       task_id: row.id,
       tempo_minutos: elapsedMinutes,
       tipo_inclusao: 'automatico' as const,
-      status_aprovacao: 'aprovado' as const,
+      status_aprovacao: 'pendente' as const,
       data_inicio: new Date(startedAt).toISOString(),
       data_fim: new Date(now).toISOString(),
       observacoes: 'Registro automático pela Gestão de Tarefas',

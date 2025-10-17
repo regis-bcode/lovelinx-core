@@ -80,7 +80,7 @@ export function useTimeLogs(projectId?: string) {
   const createTimeLog = async (logData: Partial<TimeLogFormData>): Promise<TimeLog | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast({
           title: 'Erro',
@@ -90,13 +90,30 @@ export function useTimeLogs(projectId?: string) {
         return null;
       }
 
+      if (!projectId) {
+        toast({
+          title: 'Projeto não selecionado',
+          description: 'Não foi possível identificar o projeto para registrar o tempo.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      const payload: Partial<TimeLogFormData> = {
+        ...logData,
+        user_id: user.id,
+        project_id: projectId,
+        status_aprovacao: logData.status_aprovacao ?? 'pendente',
+        aprovador_id: null,
+        aprovador_nome: null,
+        aprovacao_data: null,
+        aprovacao_hora: null,
+        justificativa_reprovacao: null,
+      };
+
       const { data, error } = await supabase
         .from('time_logs')
-        .insert({
-          ...logData,
-          user_id: user.id,
-          project_id: projectId,
-        } as any)
+        .insert(payload as any)
         .select()
         .single();
 
@@ -147,10 +164,14 @@ export function useTimeLogs(projectId?: string) {
     }
   };
 
-  const approveTimeLog = async (id: string, status: ApprovalStatus): Promise<boolean> => {
+  const approveTimeLog = async (
+    id: string,
+    status: ApprovalStatus,
+    options?: { justificativa?: string | null },
+  ): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         toast({
           title: 'Erro',
@@ -160,13 +181,41 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
+      const now = new Date();
+      const isoString = now.toISOString();
+      const [datePart, timePartWithMs] = isoString.split('T');
+      const approvalTime = timePartWithMs ? timePartWithMs.split('.')[0] : null;
+      const trimmedJustificativa = options?.justificativa?.trim() ?? null;
+
+      if (status === 'reprovado' && (!trimmedJustificativa || trimmedJustificativa.length === 0)) {
+        toast({
+          title: 'Justificativa obrigatória',
+          description: 'Informe uma justificativa para reprovar o tempo registrado.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
+      const approvalUpdates: Partial<TimeLogFormData> = {
+        status_aprovacao: status,
+        aprovador_id: user.id,
+        aprovador_nome: (user.user_metadata as any)?.full_name ?? user.email ?? user.id,
+        justificativa_reprovacao: status === 'reprovado' ? trimmedJustificativa : null,
+      };
+
+      if (status === 'aprovado') {
+        approvalUpdates.data_aprovacao = isoString;
+        approvalUpdates.aprovacao_data = datePart ?? null;
+        approvalUpdates.aprovacao_hora = approvalTime;
+      } else {
+        approvalUpdates.data_aprovacao = null;
+        approvalUpdates.aprovacao_data = null;
+        approvalUpdates.aprovacao_hora = null;
+      }
+
       const { error } = await supabase
         .from('time_logs')
-        .update({
-          status_aprovacao: status,
-          aprovador_id: user.id,
-          data_aprovacao: new Date().toISOString(),
-        } as any)
+        .update(approvalUpdates as any)
         .eq('id', id);
 
       if (error) throw error;
