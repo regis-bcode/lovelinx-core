@@ -232,6 +232,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     createCustomField,
     updateCustomField,
     deleteCustomField,
+    refreshTasks,
   } = useTasks(projectId);
   const { user } = useAuth();
   const { tap } = useTAP(projectId);
@@ -866,14 +867,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [defaultClient, defaultStatusName, projectId],
   );
 
-  const getNextTaskIdentifier = useCallback(() => {
+  const getNextTaskIdentifier = useCallback((rows: TaskRow[] = editableRows) => {
     let highest = 0;
 
     tasks.forEach(task => {
       highest = Math.max(highest, extractTaskNumber(task.task_id));
     });
 
-    editableRows.forEach(row => {
+    rows.forEach(row => {
       if (typeof row.task_id === 'string') {
         highest = Math.max(highest, extractTaskNumber(row.task_id));
       }
@@ -1758,8 +1759,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       await ensureGapForTask(savedTask);
 
-      setEditableRows(prev =>
-        prev.map((prevRow, idx) => {
+      setEditableRows(prev => {
+        const updatedRows = prev.map((prevRow, idx) => {
           if (idx !== index) {
             return prevRow;
           }
@@ -1769,12 +1770,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             _isNew: false,
             isDraft: false,
           };
-        }),
-      );
+        });
+
+        if (!wasDraft) {
+          return updatedRows;
+        }
+
+        const nextIdentifier = getNextTaskIdentifier(updatedRows);
+        return [...updatedRows, createBlankRow(updatedRows.length, nextIdentifier)];
+      });
+
+      if (wasDraft) {
+        setHasChanges(true);
+      }
+
+      await refreshTasks();
 
       toast({
         title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
-        description: 'A tarefa foi salva no Supabase e os apontamentos estão liberados.',
+        description:
+          'Registro salvo com sucesso! A lista foi atualizada e uma nova linha está pronta para uso.',
       });
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
@@ -1787,10 +1802,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       setSavingRowIndex(null);
     }
   }, [
+    createBlankRow,
     createTaskMutation,
     editableRows,
     ensureGapForTask,
     getNextTaskIdentifier,
+    refreshTasks,
     sanitizeTaskForSave,
     savingRowIndex,
     toast,
