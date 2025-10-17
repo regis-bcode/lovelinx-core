@@ -27,6 +27,115 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
+  const activeTimersStorageKey = useMemo(() => `task-active-timers-${projectId}`, [projectId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
+      if (!value || typeof value !== 'object') {
+        return {};
+      }
+
+      return Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
+        .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
+          acc[taskId] = entryValue as number;
+          return acc;
+        }, {});
+    };
+
+    const applyRestoredTimers = (restored: Record<string, number>) => {
+      setActiveTimers(prev => {
+        const prevEntries = Object.entries(prev);
+        const restoredEntries = Object.entries(restored);
+        if (prevEntries.length === restoredEntries.length && restoredEntries.every(([key, value]) => prev[key] === value)) {
+          return prev;
+        }
+        return restored;
+      });
+
+      setElapsedSeconds(() => {
+        const now = Date.now();
+        return Object.entries(restored).reduce<Record<string, number>>((acc, [taskId, start]) => {
+          const elapsed = Math.floor((now - start) / 1000);
+          acc[taskId] = elapsed >= 0 ? elapsed : 0;
+          return acc;
+        }, {});
+      });
+    };
+
+    const restoreActiveTimers = () => {
+      try {
+        const stored = window.localStorage.getItem(activeTimersStorageKey);
+        if (!stored) {
+          applyRestoredTimers({});
+          return;
+        }
+
+        const parsed = JSON.parse(stored);
+        if (!parsed || typeof parsed !== 'object') {
+          window.localStorage.removeItem(activeTimersStorageKey);
+          applyRestoredTimers({});
+          return;
+        }
+
+        const normalized = (parsed && typeof parsed === 'object' && 'active' in parsed)
+          ? (parsed as { active?: unknown }).active
+          : parsed;
+
+        const restored = sanitizeNumberRecord(normalized);
+        applyRestoredTimers(restored);
+
+        if (Object.keys(restored).length === 0) {
+          window.localStorage.removeItem(activeTimersStorageKey);
+        }
+      } catch (error) {
+        console.error('Erro ao restaurar temporizadores compartilhados:', error);
+        window.localStorage.removeItem(activeTimersStorageKey);
+        applyRestoredTimers({});
+      }
+    };
+
+    restoreActiveTimers();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== activeTimersStorageKey) {
+        return;
+      }
+      restoreActiveTimers();
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [activeTimersStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const entries = Object.entries(activeTimers).filter(([, value]) => typeof value === 'number' && Number.isFinite(value) && value > 0);
+    if (entries.length === 0) {
+      window.localStorage.removeItem(activeTimersStorageKey);
+      return;
+    }
+
+    const sanitized = entries.reduce<Record<string, number>>((acc, [taskId, value]) => {
+      acc[taskId] = value;
+      return acc;
+    }, {});
+
+    try {
+      window.localStorage.setItem(activeTimersStorageKey, JSON.stringify({ active: sanitized }));
+    } catch (error) {
+      console.error('Erro ao persistir temporizadores compartilhados:', error);
+    }
+  }, [activeTimers, activeTimersStorageKey]);
 
   // Timer effect
   useEffect(() => {
@@ -47,7 +156,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [activeTimers]);
 
   const startTimer = (taskId: string) => {
-    setActiveTimers(prev => ({ ...prev, [taskId]: Date.now() }));
+    setActiveTimers(prev => {
+      if (prev[taskId]) {
+        return prev;
+      }
+      return { ...prev, [taskId]: Date.now() };
+    });
     setElapsedSeconds(prev => ({ ...prev, [taskId]: 0 }));
     setManualOverrides(prev => {
       if (!(taskId in prev)) return prev;
@@ -61,7 +175,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     const startTimestamp = activeTimers[taskId];
     if (!startTimestamp) return;
 
-    const minutes = Math.floor((Date.now() - startTimestamp) / 60000);
+    const totalMilliseconds = Math.max(0, Date.now() - startTimestamp);
+    const minutes = Math.max(1, Math.round(totalMilliseconds / 60000));
     if (minutes > 0) {
       await createTimeLog({
         task_id: taskId,
