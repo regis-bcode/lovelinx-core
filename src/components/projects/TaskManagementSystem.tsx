@@ -1810,29 +1810,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   ]);
 
   const handleSuccessDialogDismiss = useCallback(() => {
-    setSuccessDialogData(prev => {
-      if (!prev) {
-        return null;
-      }
-
-      if (prev.wasDraft) {
-        setEditableRows(rows => {
-          const hasDraftRow = rows.some(row => row._isNew || row.isDraft);
-          if (hasDraftRow) {
-            return rows;
-          }
-
-          const referenceRows: TaskRow[] = prev.task
-            ? [...rows, { ...prev.task, _isNew: false, isDraft: false }]
-            : rows;
-          const nextIdentifier = getNextTaskIdentifier(referenceRows);
-          return [...rows, createBlankRow(rows.length, nextIdentifier)];
-        });
-      }
-
-      return null;
-    });
-  }, [createBlankRow, getNextTaskIdentifier]);
+    setSuccessDialogData(null);
+  }, []);
 
 
   const updateCustomFieldValue = (index: number, fieldName: string, value: unknown) => {
