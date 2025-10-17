@@ -133,12 +133,23 @@ const CUSTOM_FIELD_TYPES: Array<{
 ];
 
 const TASK_ACTION_ICON_BASE_CLASS =
-  'h-8 w-8 rounded-full text-white shadow-sm transition-transform duration-200 hover:scale-105 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:scale-100';
+  'h-8 w-8 rounded-full shadow-sm transition-transform duration-200 hover:scale-105 focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:scale-100';
 
 const TASK_ACTION_ICON_VARIANTS = {
-  start: 'bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
-  pause: 'bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
-  stop: 'bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
+  view: 'bg-slate-500 text-white hover:bg-slate-600 hover:text-white focus-visible:ring-slate-500',
+  edit: 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white focus-visible:ring-indigo-500',
+  gaps: 'bg-purple-500 text-white hover:bg-purple-600 hover:text-white focus-visible:ring-purple-500',
+  save: 'bg-sky-500 text-white hover:bg-sky-600 hover:text-white focus-visible:ring-sky-500 disabled:bg-sky-300 disabled:text-sky-700',
+  saveDisabled:
+    'bg-muted text-muted-foreground hover:bg-muted focus-visible:ring-muted-foreground/40 hover:text-muted-foreground',
+  start:
+    'bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
+  pause:
+    'bg-amber-500 text-white hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
+  stop:
+    'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
+  delete:
+    'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
 } as const;
 
 const extractTaskNumber = (identifier?: string | null): number => {
@@ -2648,7 +2659,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.view)}
               onClick={() => setActiveTaskDialog({ mode: 'view', index })}
               aria-label="Visualizar resumo da tarefa"
             >
@@ -2657,7 +2668,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.edit)}
               onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
               aria-label="Editar tarefa"
             >
@@ -2666,7 +2677,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-primary hover:text-primary"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.gaps)}
               onClick={() => navigateToGaps(row.id)}
               aria-label="Abrir gestão de GAPs"
             >
@@ -2676,10 +2687,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               variant="ghost"
               size="icon"
               className={cn(
-                'h-8 w-8 focus-visible:ring-sky-500 disabled:text-muted-foreground',
-                canPersistRow
-                  ? 'text-sky-500 hover:text-sky-600'
-                  : 'text-muted-foreground hover:text-muted-foreground'
+                TASK_ACTION_ICON_BASE_CLASS,
+                canPersistRow ? TASK_ACTION_ICON_VARIANTS.save : TASK_ACTION_ICON_VARIANTS.saveDisabled
               )}
               onClick={() => void handleSaveRow(index)}
               disabled={isSavingRow || !canPersistRow}
@@ -2720,7 +2729,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.delete)}
               onClick={() => void deleteRow(index)}
               aria-label="Excluir tarefa"
               disabled={isDeletingRow}
