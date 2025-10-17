@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
-import { generateNextTaskIdentifier } from '@/lib/tasks';
+import { createTask as createTaskService } from '@/lib/tasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -127,68 +127,54 @@ export function useTasks(projectId?: string) {
       return null;
     }
 
-    try {
-      const payload: Partial<TaskFormData> & { project_id: string; user_id: string } = {
-        ...taskData,
-        project_id: projectId,
-        user_id: user.id,
-      };
+    const nome = typeof taskData.nome === 'string' ? taskData.nome.trim() : '';
 
-      const trimmedTaskId =
-        typeof payload.task_id === 'string' ? payload.task_id.trim() : undefined;
-
-      if (trimmedTaskId && trimmedTaskId.length > 0) {
-        payload.task_id = trimmedTaskId;
-      } else {
-        try {
-          payload.task_id = await generateNextTaskIdentifier(projectId);
-        } catch (generationError) {
-          console.error('Erro ao gerar identificador da tarefa:', generationError);
-          payload.task_id = ensureTaskIdentifier(null, `${projectId}-${Date.now()}`);
-        }
-      }
-
-      if (!payload.project_id) {
-        toast({
-          title: "Erro",
-          description: "Projeto obrigatório para criar tarefas.",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      const { data, error } = await (supabase as any)
-        .from('tasks')
-        .insert(payload)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Erro ao criar tarefa:', error);
-        const description =
-          error.code === '42501'
-            ? 'Você não tem permissão para criar tarefas neste projeto.'
-            : error.message ?? 'Erro ao criar tarefa.';
-        toast({
-          title: "Erro",
-          description,
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      const newTask = data as Task;
-      const normalized: Task = {
-        ...newTask,
-        task_id: ensureTaskIdentifier(newTask.task_id, newTask.id),
-      };
-      setTasks(prev => [normalized, ...prev]);
-      return normalized;
-    } catch (error) {
-      console.error('Erro ao criar tarefa:', error);
+    if (!nome) {
       toast({
         title: "Erro",
-        description: "Erro inesperado ao criar tarefa.",
+        description: "Informe um nome para criar a tarefa.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const {
+        project_id: _ignoredProjectId,
+        nome: _ignoredNome,
+        data_vencimento,
+        prioridade,
+        status,
+        ...extras
+      } = taskData;
+
+      const createdTask = await createTaskService({
+        projectId,
+        userId: user.id,
+        nome,
+        prioridade,
+        status,
+        vencimento: data_vencimento ?? null,
+        extras: extras as Record<string, unknown>,
+      });
+
+      setTasks(prev => [createdTask, ...prev.filter(task => task.id !== createdTask.id)]);
+      return createdTask;
+    } catch (error) {
+      console.error('Erro ao criar tarefa:', error);
+
+      const supabaseError =
+        typeof error === 'object' && error !== null && 'code' in error
+          ? (error as { code?: string; message?: string })
+          : null;
+
+      const description = supabaseError?.code === '42501'
+        ? 'Você não tem permissão para criar tarefas neste projeto.'
+        : supabaseError?.message ?? 'Erro inesperado ao criar tarefa.';
+
+      toast({
+        title: "Erro",
+        description,
         variant: "destructive",
       });
       return null;
