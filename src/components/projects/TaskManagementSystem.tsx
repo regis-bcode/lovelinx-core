@@ -36,6 +36,7 @@ import { useProjectStages } from '@/hooks/useProjectStages';
 import { useGaps } from '@/hooks/useGaps';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getStatusColorValue } from '@/lib/status-colors';
 
 interface TaskManagementSystemProps {
@@ -2653,85 +2654,127 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           )}
           style={{ width: '210px', minWidth: '210px' }}
         >
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.view)}
-              onClick={() => setActiveTaskDialog({ mode: 'view', index })}
-              aria-label="Visualizar resumo da tarefa"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.edit)}
-              onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
-              aria-label="Editar tarefa"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.gaps)}
-              onClick={() => navigateToGaps(row.id)}
-              aria-label="Abrir gestão de GAPs"
-            >
-              <FileWarning className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.save)}
-              onClick={() => void handleSaveRow(index)}
-              disabled={isSavingRow || !canPersistRow}
-              aria-label="Salvar tarefa"
-            >
-              {isSavingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.start)}
-              disabled={isDraftRow || isSavingRow || isRunning}
-              onClick={() => handleStartTimer(row)}
-              aria-label="Iniciar apontamento"
-            >
-              <Play className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.pause)}
-              disabled={isDraftRow || isSavingRow || !isRunning}
-              onClick={() => handlePauseTimer(row)}
-              aria-label="Pausar apontamento"
-            >
-              <Pause className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.stop)}
-              disabled={isDraftRow || isSavingRow || (!isRunning && !hasPausedTime)}
-              onClick={() => handleStopTimer(row)}
-              aria-label="Encerrar apontamento"
-            >
-              <Square className="h-3.5 w-3.5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.delete)}
-              onClick={() => void deleteRow(index)}
-              aria-label="Excluir tarefa"
-              disabled={isDeletingRow}
-            >
-              {isDeletingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            </Button>
-          </div>
+          <TooltipProvider delayDuration={200}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.view)}
+                    onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+                    aria-label="Visualizar resumo da tarefa"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Visualizar tarefa</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.edit)}
+                    onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+                    aria-label="Editar tarefa"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Editar tarefa</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.gaps)}
+                    onClick={() => navigateToGaps(row.id)}
+                    aria-label="Abrir gestão de GAPs"
+                  >
+                    <FileWarning className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Abrir gestão de GAPs</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.save)}
+                    onClick={() => void handleSaveRow(index)}
+                    disabled={isSavingRow || !canPersistRow}
+                    aria-label="Salvar tarefa"
+                  >
+                    {isSavingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Salvar tarefa</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.start)}
+                    disabled={isDraftRow || isSavingRow || isRunning}
+                    onClick={() => handleStartTimer(row)}
+                    aria-label="Iniciar apontamento"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Iniciar apontamento</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.pause)}
+                    disabled={isDraftRow || isSavingRow || !isRunning}
+                    onClick={() => handlePauseTimer(row)}
+                    aria-label="Pausar apontamento"
+                  >
+                    <Pause className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Pausar apontamento</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.stop)}
+                    disabled={isDraftRow || isSavingRow || (!isRunning && !hasPausedTime)}
+                    onClick={() => handleStopTimer(row)}
+                    aria-label="Encerrar apontamento"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Encerrar apontamento</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.delete)}
+                    onClick={() => void deleteRow(index)}
+                    aria-label="Excluir tarefa"
+                    disabled={isDeletingRow}
+                  >
+                    {isDeletingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Excluir tarefa</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </TableCell>
         {visibleColumns.map(col => {
           const width = getColumnWidth(col.key);
