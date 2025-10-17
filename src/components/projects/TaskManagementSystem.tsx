@@ -947,6 +947,38 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         isDraft: false,
       }));
 
+      if (pendingNewRows.length > 0) {
+        const normalizedTaskIds = new Set(
+          normalizedTasks
+            .map(taskRow => taskRow.id)
+            .filter((value): value is string => typeof value === 'string' && value.length > 0),
+        );
+        const normalizedTaskIdentifiers = new Set(
+          normalizedTasks
+            .map(taskRow => (typeof taskRow.task_id === 'string' ? taskRow.task_id.trim() : ''))
+            .filter(identifier => identifier.length > 0),
+        );
+
+        const filteredPendingRows = pendingNewRows.filter(row => {
+          if (row.id && normalizedTaskIds.has(row.id)) {
+            return false;
+          }
+
+          if (typeof row.task_id === 'string') {
+            const trimmed = row.task_id.trim();
+            if (trimmed.length > 0 && normalizedTaskIdentifiers.has(trimmed)) {
+              return false;
+            }
+          }
+
+          return true;
+        });
+
+        if (filteredPendingRows.length !== pendingNewRows.length) {
+          return [...normalizedTasks, ...filteredPendingRows];
+        }
+      }
+
       if (
         pendingNewRows.length === 0 &&
         normalizedTasks.length === prev.length &&
