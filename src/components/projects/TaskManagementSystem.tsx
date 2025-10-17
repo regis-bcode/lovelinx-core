@@ -213,8 +213,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     createCustomField,
     updateCustomField,
     deleteCustomField,
-    refreshTasks,
-    setTasks,
   } = useTasks(projectId);
   const { user } = useAuth();
   const { tap } = useTAP(projectId);
@@ -252,8 +250,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCondensedView, setIsCondensedView] = useState(false);
-  const [isSavingChanges, setIsSavingChanges] = useState(false);
   const [savingRowIndex, setSavingRowIndex] = useState<number | null>(null);
+  const [deletingRowIndex, setDeletingRowIndex] = useState<number | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
   const [selectedFieldType, setSelectedFieldType] = useState<CustomField['field_type'] | null>(null);
   const [fieldName, setFieldName] = useState('');
@@ -1312,21 +1310,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   };
 
   const addNewRow = useCallback(() => {
-    if (isSavingChanges) {
-      return;
-    }
-
-    const hasDraftRow = editableRows.some(row => row._isNew || row.isDraft || !row.id);
-
-    if (hasDraftRow) {
-      toast({
-        title: 'Finalize a tarefa atual',
-        description: 'Salve a tarefa em edição antes de adicionar uma nova.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     const nextTaskId = getNextTaskIdentifier();
 
     try {
@@ -1340,12 +1323,47 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         variant: 'destructive',
       });
     }
-  }, [createBlankRow, editableRows, getNextTaskIdentifier, isSavingChanges, toast]);
+  }, [createBlankRow, editableRows, getNextTaskIdentifier, toast]);
 
-  const deleteRow = (index: number) => {
-    setEditableRows(prev => prev.filter((_, i) => i !== index));
-    setHasChanges(true);
-  };
+  const deleteRow = useCallback(async (index: number) => {
+    const row = editableRows[index];
+    if (!row) {
+      return;
+    }
+
+    if (deletingRowIndex !== null) {
+      return;
+    }
+
+    setDeletingRowIndex(index);
+
+    try {
+      if (row.id) {
+        const success = await deleteTask(row.id);
+        if (!success) {
+          return;
+        }
+      }
+
+      setEditableRows(prev => prev.filter((_, i) => i !== index));
+
+      if (!row.id) {
+        toast({
+          title: 'Rascunho removido',
+          description: 'A tarefa em rascunho foi removida.',
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao excluir tarefa:', error);
+      toast({
+        title: 'Erro ao excluir tarefa',
+        description: 'Não foi possível remover esta tarefa. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingRowIndex(null);
+    }
+  }, [deleteTask, deletingRowIndex, editableRows, toast]);
 
   const handleSaveRow = useCallback(async (index: number) => {
     const row = editableRows[index];
@@ -1367,16 +1385,31 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
+    let rowToSave = row;
+
+    if (!row.task_id || row.task_id.trim().length === 0) {
+      const generatedId = getNextTaskIdentifier();
+      rowToSave = { ...row, task_id: generatedId };
+      setEditableRows(prev =>
+        prev.map((prevRow, idx) => {
+          if (idx !== index) {
+            return prevRow;
+          }
+          return { ...prevRow, task_id: generatedId };
+        }),
+      );
+    }
+
     setSavingRowIndex(index);
 
     try {
-      const payload = sanitizeTaskForSave(row);
+      const payload = sanitizeTaskForSave(rowToSave);
       let savedTask: Task | null = null;
 
-      if (!row.id || row._isNew || row.isDraft) {
+      if (!rowToSave.id || rowToSave._isNew || rowToSave.isDraft) {
         savedTask = await createTaskMutation(payload);
       } else {
-        savedTask = await updateTask(row.id, payload);
+        savedTask = await updateTask(rowToSave.id, payload);
       }
 
       if (!savedTask) {
@@ -1408,152 +1441,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setSavingRowIndex(null);
     }
-  }, [createTaskMutation, editableRows, ensureGapForTask, sanitizeTaskForSave, savingRowIndex, toast, updateTask]);
-
-  const saveAllChanges = useCallback(async () => {
-    if (isSavingChanges) {
-      return;
-    }
-
-    const invalidRow = editableRows.find(row => !row.nome || row.nome.trim().length === 0);
-    if (invalidRow) {
-      toast({
-        title: 'Atenção',
-        description: 'Informe o nome da tarefa antes de salvar.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSavingChanges(true);
-
-    try {
-      let createdCount = 0;
-      let updatedCount = 0;
-      let deletedCount = 0;
-      let hadError = false;
-
-      const createdTasksMap = new Map<number, Task>();
-      const updatedTasksMap = new Map<string, Task>();
-
-      for (const [index, row] of editableRows.entries()) {
-        const payload = sanitizeTaskForSave(row);
-
-        if (row._isNew || row.isDraft) {
-          const created = await createTaskMutation(payload);
-          if (created) {
-            createdCount += 1;
-            createdTasksMap.set(index, created);
-            await ensureGapForTask(created);
-          } else {
-            hadError = true;
-          }
-          continue;
-        }
-
-        if (row.id) {
-          const updated = await updateTask(row.id, payload);
-          if (updated) {
-            updatedCount += 1;
-            updatedTasksMap.set(row.id, updated);
-            await ensureGapForTask(updated);
-          } else {
-            hadError = true;
-          }
-        }
-      }
-
-      const preservedIds = new Set<string>();
-      editableRows.forEach((row, index) => {
-        if (row._isNew || row.isDraft) {
-          const created = createdTasksMap.get(index);
-          if (created?.id) {
-            preservedIds.add(created.id);
-          }
-        } else if (row.id) {
-          preservedIds.add(row.id);
-        }
-      });
-
-      const tasksToDelete = tasks.filter(task => !preservedIds.has(task.id));
-      for (const task of tasksToDelete) {
-        const success = await deleteTask(task.id);
-        if (success) {
-          deletedCount += 1;
-        } else {
-          hadError = true;
-        }
-      }
-
-      if (createdTasksMap.size > 0 || updatedTasksMap.size > 0) {
-        setEditableRows(prev =>
-          prev.map((row, index) => {
-            const created = createdTasksMap.get(index);
-            if (created) {
-              return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false, isDraft: false };
-            }
-
-            if (row.id) {
-              const updated = updatedTasksMap.get(row.id);
-              if (updated) {
-                return { ...updated, custom_fields: updated.custom_fields ?? {} };
-              }
-            }
-
-            return row;
-          }),
-        );
-      }
-
-      if (!hadError) {
-        await refreshTasks();
-        setHasChanges(false);
-
-        const summaryParts: string[] = [];
-        if (createdCount > 0) {
-          summaryParts.push(`${createdCount} ${createdCount === 1 ? 'tarefa criada' : 'tarefas criadas'}`);
-        }
-        if (updatedCount > 0) {
-          summaryParts.push(`${updatedCount} ${updatedCount === 1 ? 'tarefa atualizada' : 'tarefas atualizadas'}`);
-        }
-        if (deletedCount > 0) {
-          summaryParts.push(`${deletedCount} ${deletedCount === 1 ? 'tarefa removida' : 'tarefas removidas'}`);
-        }
-
-        toast({
-          title: 'Sucesso',
-          description: summaryParts.length > 0 ? summaryParts.join(' • ') : 'Nenhuma alteração necessária.',
-        });
-      } else {
-        toast({
-          title: 'Atenção',
-          description:
-            'Algumas alterações foram salvas, mas ocorreram erros ao processar parte dos registros. Verifique os avisos e tente novamente.',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao salvar:', error);
-      toast({
-        title: 'Erro',
-        description: 'Erro ao salvar as alterações',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsSavingChanges(false);
-    }
   }, [
     createTaskMutation,
-    deleteTask,
     editableRows,
     ensureGapForTask,
-    isSavingChanges,
-    refreshTasks,
+    getNextTaskIdentifier,
     sanitizeTaskForSave,
-    tasks,
+    savingRowIndex,
     toast,
     updateTask,
   ]);
+
 
   const updateCustomFieldValue = (index: number, fieldName: string, value: unknown) => {
     setEditableRows(prev => {
@@ -2362,6 +2260,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const isRunning = Boolean(row.id && activeTimers[row.id]);
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
+    const isDeletingRow = deletingRowIndex === index;
+
+    const originalTask = row.id ? tasks.find(task => task.id === row.id) : null;
+    const normalizedOriginal = originalTask
+      ? { ...originalTask, custom_fields: originalTask.custom_fields ?? {} }
+      : null;
+    const sanitizedRow = sanitizeTaskForSave(row);
+    const sanitizedOriginal = normalizedOriginal ? sanitizeTaskForSave(normalizedOriginal) : null;
+    const hasRowChanges = !sanitizedOriginal || !deepEqual(sanitizedRow, sanitizedOriginal);
+    const trimmedRowName = typeof row.nome === 'string' ? row.nome.trim() : '';
+    const canPersistRow = trimmedRowName.length > 0 && hasRowChanges;
 
     return (
       <TableRow
@@ -2408,18 +2317,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             >
               <FileWarning className="h-3.5 w-3.5" />
             </Button>
-            {isDraftRow && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-sky-500 hover:text-sky-600 focus-visible:ring-sky-500 disabled:text-muted-foreground"
-                onClick={() => void handleSaveRow(index)}
-                disabled={isSavingRow}
-                aria-label="Salvar tarefa"
-              >
-                {isSavingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'h-8 w-8 focus-visible:ring-sky-500 disabled:text-muted-foreground',
+                canPersistRow
+                  ? 'text-sky-500 hover:text-sky-600'
+                  : 'text-muted-foreground hover:text-muted-foreground'
+              )}
+              onClick={() => void handleSaveRow(index)}
+              disabled={isSavingRow || !canPersistRow}
+              aria-label="Salvar tarefa"
+            >
+              {isSavingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -2444,10 +2356,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-destructive hover:text-destructive"
-              onClick={() => deleteRow(index)}
+              onClick={() => void deleteRow(index)}
               aria-label="Excluir tarefa"
+              disabled={isDeletingRow}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              {isDeletingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             </Button>
           </div>
         </TableCell>
@@ -2794,24 +2707,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 {isCondensedView ? 'Visão padrão' : 'Visão condensada'}
               </Button>
 
-              <Button
-                size="sm"
-                onClick={saveAllChanges}
-                disabled={!hasChanges || loading || isSavingChanges}
-                variant={hasChanges ? 'default' : 'outline'}
-              >
-                {isSavingChanges ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-4 w-4 mr-2" />
-                    Salvar alterações
-                  </>
-                )}
-              </Button>
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-background pt-4">
@@ -2993,21 +2888,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           ) : null}
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={closeTaskDialog}>Fechar</Button>
-            {activeTaskDialog?.mode === 'edit' && (
-              <Button onClick={saveAllChanges} disabled={!hasChanges || loading || isSavingChanges}>
-                {isSavingChanges ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Salvando...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Salvar alterações
-                  </>
-                )}
-              </Button>
-            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
