@@ -140,8 +140,6 @@ const TASK_ACTION_ICON_VARIANTS = {
   edit: 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white focus-visible:ring-indigo-500',
   gaps: 'bg-purple-500 text-white hover:bg-purple-600 hover:text-white focus-visible:ring-purple-500',
   save: 'bg-sky-500 text-white hover:bg-sky-600 hover:text-white focus-visible:ring-sky-500 disabled:bg-sky-300 disabled:text-sky-700',
-  saveDisabled:
-    'bg-muted text-muted-foreground hover:bg-muted focus-visible:ring-muted-foreground/40 hover:text-muted-foreground',
   start:
     'bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
   pause:
@@ -2686,10 +2684,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className={cn(
-                TASK_ACTION_ICON_BASE_CLASS,
-                canPersistRow ? TASK_ACTION_ICON_VARIANTS.save : TASK_ACTION_ICON_VARIANTS.saveDisabled
-              )}
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.save)}
               onClick={() => void handleSaveRow(index)}
               disabled={isSavingRow || !canPersistRow}
               aria-label="Salvar tarefa"
