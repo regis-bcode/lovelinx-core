@@ -4,7 +4,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Calendar, FileText, Users, AlertTriangle, ClipboardList, MessageCircle, FileX, RotateCw, FolderOpen, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Edit, Calendar, FileText, Users, AlertTriangle, ClipboardList, MessageCircle, FileX, RotateCw, FolderOpen, Timer, type LucideIcon } from "lucide-react";
 import { useProjects } from "@/hooks/useProjects";
 import { ProjectTabs } from "@/components/projects/ProjectTabs";
 import { StakeholdersList } from "@/components/projects/StakeholdersList";
@@ -16,6 +16,7 @@ import { GapManagement } from "@/components/projects/GapManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { Project } from "@/types/project";
 import { cn } from "@/lib/utils";
+import { useProjectActiveTimersIndicator } from "@/hooks/useProjectActiveTimersIndicator";
 const getOverflowClasses = (
   orientation: "vertical" | "horizontal" | "both" = "vertical",
 ) => {
@@ -41,6 +42,7 @@ export default function ProjectDetails() {
   const [activeTab, setActiveTab] = useState("tap");
   const projectFromStore = id ? getProject(id) : null;
   const project = projectFromStore ?? fetchedProject;
+  const hasActiveTimers = useProjectActiveTimersIndicator(project?.id);
 
   useEffect(() => {
     if (!id) return;
@@ -246,6 +248,7 @@ export default function ProjectDetails() {
       <div className="relative z-10 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
         {tabItems.map((tab) => {
           const isActive = tab.value === activeTab;
+          const showRunningIndicator = tab.value === "time" && hasActiveTimers;
           return (
             <button
               key={tab.value}
@@ -254,10 +257,24 @@ export default function ProjectDetails() {
               className={cn(
                 topNavTriggerClass,
                 "min-w-[110px] sm:min-w-[130px]",
-                isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass
+                isActive ? activeTopNavTriggerClass : inactiveTopNavTriggerClass,
+                showRunningIndicator ? "ring-1 ring-primary/40" : undefined,
               )}
+              data-running-timers={showRunningIndicator ? "true" : undefined}
+              aria-label={
+                showRunningIndicator ? "Tempo (temporizadores em execução)" : undefined
+              }
             >
-              <tab.icon className="h-4 w-4" />
+              {showRunningIndicator ? (
+                <Timer
+                  className={cn(
+                    "h-4 w-4 animate-[spin_1.6s_linear_infinite]",
+                    isActive ? "text-primary-foreground" : "text-primary",
+                  )}
+                />
+              ) : (
+                <tab.icon className="h-4 w-4" />
+              )}
               <span>{tab.label}</span>
             </button>
           );
