@@ -2,8 +2,8 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Task } from '@/types/task';
 import { ensureTaskIdentifier } from './taskIdentifier';
 
-const TASK_ID_PREFIX = 'TASK-';
-const TASK_ID_PADDING = 3;
+const TASK_ID_PREFIX = 'TSK-';
+const TASK_ID_PADDING = 1;
 
 const extractNumericPortion = (taskId: string | null | undefined): number | null => {
   if (typeof taskId !== 'string') {

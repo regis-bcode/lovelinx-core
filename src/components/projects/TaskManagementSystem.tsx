@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import type { ChangeEvent } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Download, Save, Trash2, Upload, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
+import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -36,9 +35,6 @@ import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useProjectStages } from '@/hooks/useProjectStages';
 import { useGaps } from '@/hooks/useGaps';
 import { useAuth } from '@/contexts/AuthContext';
-import { createTask as createTaskRecord } from '@/lib/tasks';
-import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
-import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { getStatusColorValue } from '@/lib/status-colors';
 
@@ -75,24 +71,10 @@ type GroupingKey =
   | 'area'
   | 'categoria'
   | 'criticidade'
-  | 'escopo';
-
-const GROUPING_OPTIONS: Array<{ value: GroupingKey; label: string }> = [
-  { value: 'none', label: 'Sem agrupamento' },
-  { value: 'prioridade', label: 'Prioridade' },
-  { value: 'data_vencimento', label: 'Vencimento' },
-  { value: 'status', label: 'Status' },
-  { value: 'responsavel', label: 'Responsável' },
-  { value: 'percentual_conclusao', label: 'Conclusão' },
-  { value: 'modulo', label: 'Módulo' },
-  { value: 'area', label: 'Área' },
-  { value: 'categoria', label: 'Categoria' },
-  { value: 'criticidade', label: 'Criticidade' },
-  { value: 'escopo', label: 'Escopo' },
-  { value: 'etapa_projeto', label: 'Etapa do Projeto' },
-  { value: 'sub_etapa_projeto', label: 'Sub-Etapa do Projeto' },
-  { value: 'cronograma', label: 'Cronograma' },
-];
+  | 'escopo'
+  | 'etapa_projeto'
+  | 'sub_etapa_projeto'
+  | 'cronograma';
 
 const CUSTOM_FIELD_TYPES: Array<{
   type: CustomField['field_type'];
@@ -149,6 +131,68 @@ const CUSTOM_FIELD_TYPES: Array<{
     icon: CheckSquare,
   },
 ];
+
+const extractTaskNumber = (identifier?: string | null): number => {
+  if (!identifier) {
+    return 0;
+  }
+
+  const match = String(identifier).trim().match(/(\d+)(?!.*\d)/);
+  if (!match) {
+    return 0;
+  }
+
+  const numeric = Number.parseInt(match[1], 10);
+  return Number.isFinite(numeric) ? numeric : 0;
+};
+
+const deepEqual = (a: unknown, b: unknown): boolean => {
+  if (a === b) {
+    return true;
+  }
+
+  if (typeof a !== typeof b) {
+    return false;
+  }
+
+  if (a === null || b === null) {
+    return false;
+  }
+
+  if (Array.isArray(a) && Array.isArray(b)) {
+    if (a.length !== b.length) {
+      return false;
+    }
+    return a.every((value, index) => deepEqual(value, b[index]));
+  }
+
+  if (typeof a === 'object' && typeof b === 'object') {
+    const keysA = Object.keys(a as Record<string, unknown>);
+    const keysB = Object.keys(b as Record<string, unknown>);
+
+    if (keysA.length !== keysB.length) {
+      return false;
+    }
+
+    const sortedKeysA = [...keysA].sort();
+    const sortedKeysB = [...keysB].sort();
+
+    return sortedKeysA.every((key, index) => {
+      if (key !== sortedKeysB[index]) {
+        return false;
+      }
+      return deepEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]);
+    });
+  }
+
+  if (typeof a === 'number' && typeof b === 'number') {
+    if (Number.isNaN(a) && Number.isNaN(b)) {
+      return true;
+    }
+  }
+
+  return false;
+};
 
 const GROUP_HIGHLIGHT_CLASSES = [
   'bg-primary/10 dark:bg-primary/20',
@@ -208,10 +252,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCondensedView, setIsCondensedView] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
   const [isSavingChanges, setIsSavingChanges] = useState(false);
-  const [isCreatingTask, setIsCreatingTask] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [savingRowIndex, setSavingRowIndex] = useState<number | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
   const [selectedFieldType, setSelectedFieldType] = useState<CustomField['field_type'] | null>(null);
   const [fieldName, setFieldName] = useState('');
@@ -569,13 +611,54 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [defaultClient, defaultStatusName, projectId],
   );
 
+  const getNextTaskIdentifier = useCallback(() => {
+    let highest = 0;
+
+    tasks.forEach(task => {
+      highest = Math.max(highest, extractTaskNumber(task.task_id));
+    });
+
+    editableRows.forEach(row => {
+      if (typeof row.task_id === 'string') {
+        highest = Math.max(highest, extractTaskNumber(row.task_id));
+      }
+    });
+
+    return `TSK-${highest + 1}`;
+  }, [editableRows, tasks]);
+
+  const computeHasPendingChanges = useCallback(
+    (rows: TaskRow[]): boolean => {
+      return rows.some(row => {
+        if (row._isNew || row.isDraft || !row.id) {
+          return true;
+        }
+
+        const original = tasks.find(task => task.id === row.id);
+        if (!original) {
+          return true;
+        }
+
+        const sanitizedRow = sanitizeTaskForSave(row);
+        const normalizedOriginal: TaskRow = {
+          ...original,
+          custom_fields: original.custom_fields ?? {},
+        };
+        const sanitizedOriginal = sanitizeTaskForSave(normalizedOriginal);
+
+        return !deepEqual(sanitizedRow, sanitizedOriginal);
+      });
+    },
+    [sanitizeTaskForSave, tasks],
+  );
+
   // Inicializar rows com as tasks existentes
-  const createBlankRow = useCallback((order: number): TaskRow => ({
+  const createBlankRow = useCallback((order: number, taskIdentifier?: string): TaskRow => ({
     _isNew: true,
     isDraft: true,
     _tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     project_id: projectId,
-    task_id: '',
+    task_id: taskIdentifier ?? '',
     nome: '',
     prioridade: 'Média',
     status: defaultStatusName || '',
@@ -631,19 +714,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (tasksLength > 0) return;
     if (editableRows.length > 0) return;
 
-    let isMounted = true;
-
     const prepareInitialRow = () => {
-      setEditableRows([createBlankRow(0)]);
+      const identifier = getNextTaskIdentifier();
+      setEditableRows([createBlankRow(0, identifier)]);
       setHasChanges(true);
     };
 
     prepareInitialRow();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [loading, tasksLength, editableRows.length, createBlankRow]);
+  }, [loading, tasksLength, editableRows.length, createBlankRow, getNextTaskIdentifier]);
+
+  useEffect(() => {
+    const pending = computeHasPendingChanges(editableRows);
+    setHasChanges(prev => (prev === pending ? prev : pending));
+  }, [computeHasPendingChanges, editableRows]);
 
   useEffect(() => {
     let modified = false;
@@ -1227,195 +1311,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     navigate(`/projects-tap/${projectId}?tab=gaps&gapTaskId=${taskId}`);
   };
 
-  const handleCreateTask = useCallback(
-    async (draft?: {
-      nome?: string;
-      prioridade?: Task['prioridade'];
-      vencimento?: string;
-      status?: string;
-      extras?: Record<string, unknown>;
-    }) => {
-      if (isCreatingTask) {
-        return;
-      }
-      if (!projectId) {
-        toast({
-          title: 'Projeto não identificado',
-          description: 'Não foi possível determinar o projeto para criar a tarefa.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (!user?.id) {
-        toast({
-          title: 'Usuário não identificado',
-          description: 'Você precisa estar autenticado para criar tarefas.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const nome = draft?.nome?.trim() || 'Nova tarefa';
-      const prioridade = (draft?.prioridade as Task['prioridade']) ?? 'Média';
-      const status = draft?.status?.trim() || defaultStatusName || 'Atenção';
-      const vencimento = draft?.vencimento ?? format(new Date(), 'yyyy-MM-dd');
-      const extrasPayload: Record<string, unknown> = {
-        cliente: defaultClient || undefined,
-        percentual_conclusao: 0,
-        nivel: 0,
-        ordem: 0,
-        cronograma: false,
-        ...(draft?.extras ?? {}),
-      };
-
-      try {
-        setIsCreatingTask(true);
-        const createdTask = await createTaskRecord({
-          projectId,
-          userId: user.id,
-          nome,
-          prioridade,
-          vencimento,
-          status,
-          extras: extrasPayload,
-        });
-
-        const normalizedTask: Task = {
-          ...createdTask,
-          task_id: ensureTaskIdentifier(createdTask.task_id, createdTask.id),
-          custom_fields: (createdTask.custom_fields ?? {}) as Record<string, unknown>,
-          cliente: createdTask.cliente ?? (defaultClient || undefined),
-        } as Task;
-
-        setTasks(prev => {
-          const current = Array.isArray(prev) ? prev.filter(task => task.id !== normalizedTask.id) : [];
-          return [normalizedTask, ...current];
-        });
-
-        setEditableRows(prev => {
-          const pending = prev.filter(row => row._isNew || row.isDraft);
-          const committed = prev.filter(row => !(row._isNew || row.isDraft)).filter(row => row.id !== normalizedTask.id);
-          const normalizedRow: TaskRow = {
-            ...normalizedTask,
-            custom_fields: normalizedTask.custom_fields ?? {},
-            _isNew: false,
-            isDraft: false,
-          };
-          return [normalizedRow, ...committed, ...pending];
-        });
-
-        await refreshTasks();
-
-        toast({
-          title: 'Tarefa criada',
-          description: `Tarefa ${createdTask.task_id} criada com sucesso.`,
-        });
-      } catch (error) {
-        console.error('createTask:error', error);
-        const description =
-          error instanceof Error ? error.message : 'Falha ao criar tarefa.';
-        toast({
-          title: 'Erro ao criar tarefa',
-          description,
-          variant: 'destructive',
-        });
-      } finally {
-        setIsCreatingTask(false);
-      }
-    },
-    [
-      defaultClient,
-      defaultStatusName,
-      isCreatingTask,
-      projectId,
-      refreshTasks,
-      setTasks,
-      toast,
-      user,
-    ],
-  );
-
-  const savePendingNewRows = useCallback(async () => {
-    const pendingRows = editableRows
-      .map((row, index) => ({ row, index }))
-      .filter(({ row }) =>
-        (row._isNew || row.isDraft) && typeof row.nome === 'string' && row.nome.trim().length > 0,
-      );
-
-    if (pendingRows.length === 0) {
-      return true;
-    }
-
-    setIsSavingChanges(true);
-
-    const createdMap = new Map<number, Task>();
-    let hadError = false;
-
-    try {
-      for (const { row, index } of pendingRows) {
-        const payload = sanitizeTaskForSave(row);
-        const created = await createTaskMutation(payload);
-        if (created) {
-          createdMap.set(index, created);
-          await ensureGapForTask(created);
-        } else {
-          hadError = true;
-        }
-      }
-    } finally {
-      setIsSavingChanges(false);
-    }
-
-    if (createdMap.size > 0) {
-      setEditableRows(prev =>
-        prev.map((row, index) => {
-          const created = createdMap.get(index);
-          if (!created) {
-            return row;
-          }
-          return { ...created, custom_fields: created.custom_fields ?? {}, _isNew: false, isDraft: false };
-        }),
-      );
-      await refreshTasks();
-    }
-
-    if (hadError) {
-      toast({
-        title: 'Erro ao salvar tarefas pendentes',
-        description: 'Não foi possível salvar todas as tarefas antes de criar uma nova.',
-        variant: 'destructive',
-      });
-    }
-
-    return !hadError;
-  }, [createTaskMutation, editableRows, ensureGapForTask, refreshTasks, sanitizeTaskForSave, toast]);
-
-  const addNewRow = useCallback(async () => {
+  const addNewRow = useCallback(() => {
     if (isSavingChanges) {
       return;
     }
 
-    const hasEmptyPendingRow = editableRows.some(
-      row =>
-        (row._isNew || row.isDraft) && (!row.nome || (typeof row.nome === 'string' && row.nome.trim().length === 0)),
-    );
+    const hasDraftRow = editableRows.some(row => row._isNew || row.isDraft || !row.id);
 
-    if (hasEmptyPendingRow) {
+    if (hasDraftRow) {
       toast({
-        title: 'Preencha a tarefa pendente',
-        description: 'Informe o nome da tarefa atual antes de adicionar uma nova.',
+        title: 'Finalize a tarefa atual',
+        description: 'Salve a tarefa em edição antes de adicionar uma nova.',
         variant: 'destructive',
       });
       return;
     }
 
-    const saved = await savePendingNewRows();
-    if (!saved) {
-      return;
-    }
+    const nextTaskId = getNextTaskIdentifier();
 
     try {
-      setEditableRows(prev => [...prev, createBlankRow(prev.length)]);
+      setEditableRows(prev => [...prev, createBlankRow(prev.length, nextTaskId)]);
       setHasChanges(true);
     } catch (error) {
       console.error('Erro ao preparar nova tarefa em rascunho:', error);
@@ -1425,12 +1340,75 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         variant: 'destructive',
       });
     }
-  }, [createBlankRow, editableRows, isSavingChanges, savePendingNewRows, toast]);
+  }, [createBlankRow, editableRows, getNextTaskIdentifier, isSavingChanges, toast]);
 
   const deleteRow = (index: number) => {
     setEditableRows(prev => prev.filter((_, i) => i !== index));
     setHasChanges(true);
   };
+
+  const handleSaveRow = useCallback(async (index: number) => {
+    const row = editableRows[index];
+    if (!row) {
+      return;
+    }
+
+    const trimmedName = typeof row.nome === 'string' ? row.nome.trim() : '';
+    if (!trimmedName) {
+      toast({
+        title: 'Informe o nome da tarefa',
+        description: 'Defina um título para a tarefa antes de salvar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (savingRowIndex !== null) {
+      return;
+    }
+
+    setSavingRowIndex(index);
+
+    try {
+      const payload = sanitizeTaskForSave(row);
+      let savedTask: Task | null = null;
+
+      if (!row.id || row._isNew || row.isDraft) {
+        savedTask = await createTaskMutation(payload);
+      } else {
+        savedTask = await updateTask(row.id, payload);
+      }
+
+      if (!savedTask) {
+        return;
+      }
+
+      await ensureGapForTask(savedTask);
+
+      setEditableRows(prev =>
+        prev.map((prevRow, idx) => {
+          if (idx !== index) {
+            return prevRow;
+          }
+          return {
+            ...savedTask,
+            custom_fields: savedTask.custom_fields ?? {},
+            _isNew: false,
+            isDraft: false,
+          };
+        }),
+      );
+    } catch (error) {
+      console.error('Erro ao salvar tarefa individual:', error);
+      toast({
+        title: 'Erro ao salvar tarefa',
+        description: 'Não foi possível salvar esta tarefa. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingRowIndex(null);
+    }
+  }, [createTaskMutation, editableRows, ensureGapForTask, sanitizeTaskForSave, savingRowIndex, toast, updateTask]);
 
   const saveAllChanges = useCallback(async () => {
     if (isSavingChanges) {
@@ -1576,335 +1554,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     toast,
     updateTask,
   ]);
-
-  const exportToExcel = () => {
-    const exportColumns = visibleColumns;
-    const groupingColumnLabel = grouping !== 'none' ? 'Agrupamento' : null;
-
-    const createEmptyRow = () => {
-      const row: Record<string, unknown> = {};
-      if (groupingColumnLabel) {
-        row[groupingColumnLabel] = '';
-      }
-      exportColumns.forEach(col => {
-        row[col.label] = '';
-      });
-      return row;
-    };
-
-    const mapTaskToRow = (task: TaskRow, groupLabel?: string) => {
-      const row = createEmptyRow();
-      if (groupingColumnLabel) {
-        row[groupingColumnLabel] = groupLabel ?? '';
-      }
-      exportColumns.forEach(col => {
-        if ('isCustom' in col && col.isCustom) {
-          const customValue = task.custom_fields?.[col.field.field_name];
-          if (Array.isArray(customValue)) {
-            row[col.label] = customValue.join(', ');
-          } else if (typeof customValue === 'boolean') {
-            row[col.label] = customValue ? 'Sim' : 'Não';
-          } else {
-            row[col.label] = customValue ?? '';
-          }
-        } else {
-          row[col.label] = task[col.key as keyof Task] ?? '';
-        }
-      });
-      return row;
-    };
-
-    const exportData: Record<string, unknown>[] = [];
-
-    if (grouping === 'none' || !groupedRows) {
-      editableRows.forEach(task => {
-        exportData.push(mapTaskToRow(task));
-      });
-    } else {
-      groupedRows.forEach(group => {
-        const headerRow = createEmptyRow();
-        headerRow[groupingColumnLabel!] = `${group.label} (${group.rows.length} tarefa${group.rows.length > 1 ? 's' : ''})`;
-        exportData.push(headerRow);
-
-        group.rows.forEach(item => {
-          exportData.push(mapTaskToRow(item.row, group.label));
-        });
-      });
-    }
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Tarefas');
-    XLSX.writeFile(wb, `tarefas-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
-  };
-
-  const handleExportTemplate = () => {
-    const templateRow: Record<string, string> = {
-      'Nome da Tarefa': '',
-      'Prioridade': 'Média',
-      'Status': filteredStatuses[0]?.nome ?? '',
-      'Cliente': defaultClient,
-      'Responsável': '',
-      'Vencimento (dd/mm/aaaa)': '',
-      'Percentual de Conclusão (%)': '0',
-      'Módulo': '',
-      'Área': '',
-      'Categoria': '',
-      'Criticidade': '',
-      'Escopo': '',
-    };
-
-    customFields.forEach(field => {
-      templateRow[field.field_name] = '';
-    });
-
-    const worksheet = XLSX.utils.json_to_sheet([templateRow]);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Modelo Tarefas');
-    XLSX.writeFile(workbook, 'modelo-tarefas.xlsx');
-  };
-
-  const handleImportClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const parseDateValue = (value: unknown): string | undefined => {
-    if (!value) return undefined;
-    if (typeof value === 'number') {
-      const ssf = XLSX.SSF as { parse_date_code?: (value: number) => { y: number; m: number; d: number } };
-      const date = ssf.parse_date_code?.(value);
-      if (!date) return undefined;
-      const year = String(date.y).padStart(4, '0');
-      const month = String(date.m).padStart(2, '0');
-      const day = String(date.d).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    if (typeof value === 'string') {
-      const trimmed = value.trim();
-      if (!trimmed) return undefined;
-
-      const dateParts = trimmed.split(/[/\\]/);
-      if (dateParts.length === 3) {
-        const [day, month, year] = dateParts;
-        if (day && month && year) {
-          const isoYear = year.padStart(4, '0');
-          const isoMonth = month.padStart(2, '0');
-          const isoDay = day.padStart(2, '0');
-          return `${isoYear}-${isoMonth}-${isoDay}`;
-        }
-      }
-
-      const parsed = new Date(trimmed);
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed.toISOString().split('T')[0];
-      }
-    }
-
-    return undefined;
-  };
-
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const input = event.target;
-    const file = input.files?.[0];
-
-    if (!file) {
-      return;
-    }
-
-    try {
-      setIsImporting(true);
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-
-      if (!worksheet) {
-        throw new Error('Planilha inválida');
-      }
-
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
-
-      const priorityOptions = ['Baixa', 'Média', 'Alta', 'Crítica'];
-      const statusOptions = filteredStatuses.map(status => status.nome.toLowerCase());
-
-      const formattedRows = rows.map<TaskRow | null>((row) => {
-        const nome = String(row['Nome da Tarefa'] ?? row['Nome'] ?? '').trim();
-        if (!nome) {
-          return null;
-        }
-
-        const prioridadeValue = String(row['Prioridade'] ?? '').trim();
-        const prioridade = priorityOptions.includes(prioridadeValue) ? prioridadeValue : 'Média';
-
-        const statusValue = String(row['Status'] ?? '').trim();
-        const status = statusOptions.includes(statusValue.toLowerCase())
-          ? filteredStatuses.find(s => s.nome.toLowerCase() === statusValue.toLowerCase())?.nome ?? ''
-          : filteredStatuses[0]?.nome ?? '';
-
-        const clienteValue = String(row['Cliente'] ?? '').trim();
-        const responsavelValue = String(row['Responsável'] ?? '').trim();
-        const percentualValue = row['Percentual de Conclusão (%)'] ?? row['Percentual de Conclusão'] ?? row['% Conclusão'];
-        const percentualNumber = typeof percentualValue === 'number'
-          ? percentualValue
-          : parseInt(String(percentualValue).replace(/[^0-9]/g, ''), 10);
-        const percentualConclusao = Number.isFinite(percentualNumber)
-          ? Math.min(Math.max(Number(percentualNumber), 0), 100)
-          : 0;
-
-        const customFieldValues: Record<string, unknown> = {};
-        customFields.forEach(field => {
-          const rawValue = row[field.field_name];
-          if (rawValue === undefined || rawValue === null || rawValue === '') {
-            return;
-          }
-
-          switch (field.field_type) {
-            case 'numeric': {
-              const numericValue = Number(rawValue);
-              if (!Number.isNaN(numericValue)) {
-                customFieldValues[field.field_name] = numericValue;
-              }
-              break;
-            }
-            case 'monetary': {
-              const monetaryValue = typeof rawValue === 'number'
-                ? rawValue
-                : Number(String(rawValue).replace(/[^0-9,-]/g, '').replace(',', '.'));
-              if (!Number.isNaN(monetaryValue)) {
-                customFieldValues[field.field_name] = monetaryValue;
-              }
-              break;
-            }
-            case 'percentage': {
-              const percentageValue = typeof rawValue === 'number'
-                ? rawValue
-                : Number(String(rawValue).replace(/[^0-9]/g, ''));
-              if (!Number.isNaN(percentageValue)) {
-                customFieldValues[field.field_name] = Math.min(Math.max(percentageValue, 0), 100);
-              }
-              break;
-            }
-            case 'checkbox': {
-              if (typeof rawValue === 'boolean') {
-                customFieldValues[field.field_name] = rawValue;
-              } else {
-                const normalized = String(rawValue).toLowerCase();
-                customFieldValues[field.field_name] = ['true', 'sim', '1', 'yes', 'y'].includes(normalized);
-              }
-              break;
-            }
-            case 'tags': {
-              if (Array.isArray(rawValue)) {
-                const tagsValues = rawValue.map(value => String(value).trim()).filter(Boolean);
-                if (tagsValues.length) {
-                  customFieldValues[field.field_name] = tagsValues;
-                }
-              } else {
-                const tagsValues = String(rawValue)
-                  .split(/[,;\n]/)
-                  .map(tag => tag.trim())
-                  .filter(Boolean);
-                if (tagsValues.length) {
-                  customFieldValues[field.field_name] = tagsValues;
-                }
-              }
-              break;
-            }
-            case 'dropdown': {
-              const dropdownValue = String(rawValue).trim();
-              if (dropdownValue) {
-                customFieldValues[field.field_name] = dropdownValue;
-              }
-              break;
-            }
-            default: {
-              const stringValue = String(rawValue ?? '');
-              if (field.field_type === 'text_long') {
-                customFieldValues[field.field_name] = stringValue.slice(0, 5000);
-              } else if (field.field_type === 'text_short' || field.field_type === 'text') {
-                customFieldValues[field.field_name] = stringValue.trim().slice(0, 200);
-              } else {
-                customFieldValues[field.field_name] = stringValue.trim();
-              }
-            }
-          }
-        });
-
-        return {
-          nome,
-          prioridade: prioridade as Task["prioridade"],
-          status,
-          cliente: clienteValue || defaultClient || undefined,
-          responsavel: responsavelValue || undefined,
-          data_vencimento: parseDateValue(row['Vencimento (dd/mm/aaaa)'] ?? row['Vencimento'] ?? row['Data de Vencimento']),
-          percentual_conclusao: percentualConclusao,
-          modulo: String(row['Módulo'] ?? row['Modulo'] ?? '').trim() || undefined,
-          area: String(row['Área'] ?? row['Area'] ?? '').trim() || undefined,
-          categoria: String(row['Categoria'] ?? '').trim() || undefined,
-          criticidade: String(row['Criticidade'] ?? '').trim() || undefined,
-          escopo: String(row['Escopo'] ?? '').trim() || undefined,
-          nivel: 0,
-          ordem: tasks.length,
-          custom_fields: customFieldValues,
-        } as TaskRow;
-      }).filter((row): row is TaskRow => row !== null);
-
-      if (formattedRows.length === 0) {
-        toast({
-          title: 'Nenhum dado válido encontrado na planilha',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      let createdCount = 0;
-      let currentOrder = tasks.length;
-
-      for (const row of formattedRows) {
-        try {
-          const { nivel, ordem, ...taskData } = row;
-          const result = await createTaskMutation({
-            ...taskData,
-            nivel: 0,
-            ordem: currentOrder,
-            percentual_conclusao: row.percentual_conclusao ?? 0,
-            custom_fields: row.custom_fields ?? {},
-          });
-          if (result) {
-            createdCount += 1;
-            currentOrder += 1;
-            await ensureGapForTask(result);
-          }
-        } catch (error) {
-          console.error('Erro ao importar tarefa', error);
-        }
-      }
-
-      if (createdCount > 0) {
-        toast({
-          title: 'Importação concluída',
-          description: `${createdCount} tarefa(s) importada(s) com sucesso!`,
-        });
-      } else {
-        toast({
-          title: 'Não foi possível importar os dados',
-          variant: 'destructive',
-        });
-      }
-    } catch (error) {
-      console.error(error);
-      toast({
-        title: 'Erro ao importar planilha',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsImporting(false);
-      if (input) {
-        input.value = '';
-      }
-    }
-  };
 
   const updateCustomFieldValue = (index: number, fieldName: string, value: unknown) => {
     setEditableRows(prev => {
@@ -2711,6 +2360,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
     const isRunning = Boolean(row.id && activeTimers[row.id]);
+    const isDraftRow = !row.id || row._isNew || row.isDraft;
+    const isSavingRow = savingRowIndex === index;
 
     return (
       <TableRow
@@ -2757,11 +2408,23 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             >
               <FileWarning className="h-3.5 w-3.5" />
             </Button>
+            {isDraftRow && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-sky-500 hover:text-sky-600 focus-visible:ring-sky-500 disabled:text-muted-foreground"
+                onClick={() => void handleSaveRow(index)}
+                disabled={isSavingRow}
+                aria-label="Salvar tarefa"
+              >
+                {isSavingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-emerald-500 hover:text-emerald-600 focus-visible:ring-emerald-500 disabled:text-emerald-300 disabled:hover:text-emerald-300"
-              disabled={!row.id || isRunning}
+              disabled={isDraftRow || isSavingRow || isRunning}
               onClick={() => handleStartTimer(row)}
               aria-label="Iniciar apontamento"
             >
@@ -2771,7 +2434,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-rose-500 hover:text-rose-600 focus-visible:ring-rose-500 disabled:text-rose-300 disabled:hover:text-rose-300"
-              disabled={!row.id || !isRunning}
+              disabled={isDraftRow || isSavingRow || !isRunning}
               onClick={() => handleStopTimer(row)}
               aria-label="Encerrar apontamento"
             >
@@ -2830,35 +2493,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </div>
 
           <div className="flex w-full max-w-full flex-wrap items-center gap-2 justify-start xl:w-auto xl:justify-end">
-            <input
-              type="file"
-              accept=".xls,.xlsx"
-              className="hidden"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-            />
-
-            <Select value={grouping} onValueChange={value => setGrouping(value as GroupingKey)}>
-              <SelectTrigger className="h-9 w-[200px]" aria-label="Agrupar tarefas">
-                <SelectValue placeholder="Agrupar tarefas" />
-              </SelectTrigger>
-              <SelectContent>
-                {GROUPING_OPTIONS.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button
-              size="sm"
-              onClick={() => void handleCreateTask()}
-              disabled={loading || isCreatingTask}
-            >
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Nova tarefa
-            </Button>
 
             <Dialog
               open={isCustomFieldDialogOpen}
@@ -3160,21 +2794,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 {isCondensedView ? 'Visão padrão' : 'Visão condensada'}
               </Button>
 
-              <Button size="sm" variant="outline" onClick={handleExportTemplate}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar modelo
-              </Button>
-
-              <Button size="sm" variant="outline" onClick={handleImportClick} disabled={isImporting}>
-                <Upload className="h-4 w-4 mr-2" />
-                {isImporting ? 'Importando...' : 'Importar dados'}
-              </Button>
-
-              <Button size="sm" variant="outline" onClick={exportToExcel}>
-                <Download className="h-4 w-4 mr-2" />
-                Exportar
-              </Button>
-
               <Button
                 size="sm"
                 onClick={saveAllChanges}
@@ -3304,12 +2923,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           className={cn(
                             'cursor-pointer border-b border-border/60 bg-background hover:bg-muted/30 text-[10px]',
                             isCondensedView ? 'h-8' : 'h-9',
-                            isCreatingTask && 'pointer-events-none opacity-60'
                           )}
                           onClick={() => {
-                            if (!isCreatingTask) {
-                              void handleCreateTask();
-                            }
+                            addNewRow();
                           }}
                         >
                           <TableCell
@@ -3321,12 +2937,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               <button
                                 type="button"
                                 className="font-medium text-primary hover:underline disabled:opacity-60"
-                                disabled={isCreatingTask}
                                 onClick={event => {
                                   event.stopPropagation();
-                                  if (!isCreatingTask) {
-                                    void handleCreateTask();
-                                  }
+                                  addNewRow();
                                 }}
                               >
                                 Adicionar Tarefa
