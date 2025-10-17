@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,6 +17,13 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
+import {
+  areActiveTimerRecordsEqual,
+  persistActiveTimerRecord,
+  readActiveTimerRecord,
+  sanitizeActiveTimerRecord,
+  type ActiveTimerRecord,
+} from '@/lib/active-timers';
 
 interface TimeManagementProps {
   projectId: string;
@@ -39,77 +46,52 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [isAssigning, setIsAssigning] = useState(false);
   const activeTimersStorageKey = useMemo(() => `task-active-timers-${projectId}`, [projectId]);
 
-  useEffect(() => {
-    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
-  }, [activeTimers, projectId]);
+  type ActiveTimersUpdater = ActiveTimerRecord | ((prev: ActiveTimerRecord) => ActiveTimerRecord);
+
+  const applyActiveTimersUpdate = useCallback(
+    (updater: ActiveTimersUpdater) => {
+      setActiveTimers(prev => {
+        const nextCandidate =
+          typeof updater === 'function'
+            ? (updater as (current: ActiveTimerRecord) => ActiveTimerRecord)(prev)
+            : updater;
+
+        const sanitizedNext = sanitizeActiveTimerRecord(nextCandidate);
+
+        if (areActiveTimerRecordsEqual(prev, sanitizedNext)) {
+          return prev;
+        }
+
+        persistActiveTimerRecord(activeTimersStorageKey, sanitizedNext);
+        notifyProjectActiveTimersChange(projectId, Object.keys(sanitizedNext).length > 0);
+        return sanitizedNext;
+      });
+    },
+    [activeTimersStorageKey, projectId],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
     }
 
-    const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
-      if (!value || typeof value !== 'object') {
-        return {};
-      }
-
-      return Object.entries(value as Record<string, unknown>)
-        .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
-        .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
-          acc[taskId] = entryValue as number;
-          return acc;
-        }, {});
-    };
-
-    const applyRestoredTimers = (restored: Record<string, number>) => {
-      setActiveTimers(prev => {
-        const prevEntries = Object.entries(prev);
-        const restoredEntries = Object.entries(restored);
-        if (prevEntries.length === restoredEntries.length && restoredEntries.every(([key, value]) => prev[key] === value)) {
-          return prev;
-        }
-        return restored;
-      });
-
-      setElapsedSeconds(() => {
-        const now = Date.now();
-        return Object.entries(restored).reduce<Record<string, number>>((acc, [taskId, start]) => {
-          const elapsed = Math.floor((now - start) / 1000);
-          acc[taskId] = elapsed >= 0 ? elapsed : 0;
-          return acc;
-        }, {});
-      });
-    };
-
     const restoreActiveTimers = () => {
       try {
-        const stored = window.localStorage.getItem(activeTimersStorageKey);
-        if (!stored) {
-          applyRestoredTimers({});
-          return;
-        }
-
-        const parsed = JSON.parse(stored);
-        if (!parsed || typeof parsed !== 'object') {
-          window.localStorage.removeItem(activeTimersStorageKey);
-          applyRestoredTimers({});
-          return;
-        }
-
-        const normalized = (parsed && typeof parsed === 'object' && 'active' in parsed)
-          ? (parsed as { active?: unknown }).active
-          : parsed;
-
-        const restored = sanitizeNumberRecord(normalized);
-        applyRestoredTimers(restored);
-
-        if (Object.keys(restored).length === 0) {
-          window.localStorage.removeItem(activeTimersStorageKey);
-        }
+        const restored = readActiveTimerRecord(activeTimersStorageKey);
+        applyActiveTimersUpdate(restored);
+        setElapsedSeconds(() => {
+          const now = Date.now();
+          return Object.entries(restored).reduce<Record<string, number>>((acc, [taskId, start]) => {
+            const elapsed = Math.floor((now - start) / 1000);
+            acc[taskId] = elapsed >= 0 ? elapsed : 0;
+            return acc;
+          }, {});
+        });
       } catch (error) {
         console.error('Erro ao restaurar temporizadores compartilhados:', error);
         window.localStorage.removeItem(activeTimersStorageKey);
-        applyRestoredTimers({});
+        applyActiveTimersUpdate({});
+        setElapsedSeconds({});
       }
     };
 
@@ -126,30 +108,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const entries = Object.entries(activeTimers).filter(([, value]) => typeof value === 'number' && Number.isFinite(value) && value > 0);
-    if (entries.length === 0) {
-      window.localStorage.removeItem(activeTimersStorageKey);
-      return;
-    }
-
-    const sanitized = entries.reduce<Record<string, number>>((acc, [taskId, value]) => {
-      acc[taskId] = value;
-      return acc;
-    }, {});
-
-    try {
-      window.localStorage.setItem(activeTimersStorageKey, JSON.stringify({ active: sanitized }));
-    } catch (error) {
-      console.error('Erro ao persistir temporizadores compartilhados:', error);
-    }
-  }, [activeTimers, activeTimersStorageKey]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
 
   // Timer effect
   useEffect(() => {
@@ -170,7 +129,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [activeTimers]);
 
   const startTimer = (taskId: string) => {
-    setActiveTimers(prev => {
+    applyActiveTimersUpdate(prev => {
       if (prev[taskId]) {
         return prev;
       }
@@ -201,7 +160,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       });
     }
 
-    setActiveTimers(prev => {
+    applyActiveTimersUpdate(prev => {
+      if (!prev[taskId]) {
+        return prev;
+      }
       const updated = { ...prev };
       delete updated[taskId];
       return updated;
@@ -226,8 +188,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     if (result) {
       setManualOverrides(prev => ({ ...prev, [taskId]: totalMinutes }));
-      setActiveTimers(prev => {
-        if (!prev[taskId]) return prev;
+      applyActiveTimersUpdate(prev => {
+        if (!prev[taskId]) {
+          return prev;
+        }
         const updated = { ...prev };
         delete updated[taskId];
         return updated;
@@ -491,7 +455,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     <TableCell className="font-medium">{task.nome}</TableCell>
                     <TableCell>{task.responsavel || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{task.status}</Badge>
+                      {isTimerActive ? (
+                        <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
+                          CRONOMETRANDO
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">{task.status || 'Sem status'}</Badge>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-between gap-4">
