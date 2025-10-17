@@ -56,6 +56,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getStatusColorValue } from '@/lib/status-colors';
+import {
+  areActiveTimerRecordsEqual,
+  persistActiveTimerRecord,
+  readActiveTimerRecord,
+  sanitizeActiveTimerRecord,
+  type ActiveTimerRecord,
+} from '@/lib/active-timers';
 
 interface TaskManagementSystemProps {
   projectId: string;
@@ -328,9 +335,29 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [projectId]
   );
 
-  useEffect(() => {
-    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
-  }, [activeTimers, projectId]);
+  type ActiveTimersUpdater = ActiveTimerRecord | ((prev: ActiveTimerRecord) => ActiveTimerRecord);
+
+  const applyActiveTimersUpdate = useCallback(
+    (updater: ActiveTimersUpdater) => {
+      setActiveTimers(prev => {
+        const nextCandidate =
+          typeof updater === 'function'
+            ? (updater as (current: ActiveTimerRecord) => ActiveTimerRecord)(prev)
+            : updater;
+
+        const sanitizedNext = sanitizeActiveTimerRecord(nextCandidate);
+
+        if (areActiveTimerRecordsEqual(prev, sanitizedNext)) {
+          return prev;
+        }
+
+        persistActiveTimerRecord(activeTimersStorageKey, sanitizedNext);
+        notifyProjectActiveTimersChange(projectId, Object.keys(sanitizedNext).length > 0);
+        return sanitizedNext;
+      });
+    },
+    [activeTimersStorageKey, projectId],
+  );
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -379,7 +406,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         .filter((id): id is string => typeof id === 'string' && id.length > 0),
     );
 
-    setActiveTimers(prev => {
+    applyActiveTimersUpdate(prev => {
       if (validIds.size === 0) {
         return prev;
       }
@@ -395,7 +422,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }, {});
     });
 
-  }, [editableRows]);
+  }, [applyActiveTimersUpdate, editableRows]);
 
   useEffect(() => {
     if (Object.keys(activeTimers).length === 0) {
@@ -532,59 +559,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
-      if (!value || typeof value !== 'object') {
-        return {};
-      }
-
-      return Object.entries(value as Record<string, unknown>)
-        .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
-        .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
-          acc[taskId] = entryValue as number;
-          return acc;
-        }, {});
-    };
-
-    const applyRestoredTimers = (restored: Record<string, number>) => {
-      setActiveTimers(prev => {
-        const prevEntries = Object.entries(prev);
-        const restoredEntries = Object.entries(restored);
-        if (prevEntries.length === restoredEntries.length && restoredEntries.every(([key, value]) => prev[key] === value)) {
-          return prev;
-        }
-        return restored;
-      });
-    };
-
     const restoreFromStorage = () => {
       try {
-        const stored = window.localStorage.getItem(activeTimersStorageKey);
-        if (!stored) {
-          applyRestoredTimers({});
-          return;
-        }
-
-        const parsed = JSON.parse(stored);
-        if (!parsed || typeof parsed !== 'object') {
-          window.localStorage.removeItem(activeTimersStorageKey);
-          applyRestoredTimers({});
-          return;
-        }
-
-        const normalizedParsed = (parsed && typeof parsed === 'object' && 'active' in parsed)
-          ? (parsed as { active?: unknown }).active
-          : parsed;
-
-        const restoredActive = sanitizeNumberRecord(normalizedParsed);
-        applyRestoredTimers(restoredActive);
-
-        if (Object.keys(restoredActive).length === 0) {
-          window.localStorage.removeItem(activeTimersStorageKey);
-        }
+        const restoredActive = readActiveTimerRecord(activeTimersStorageKey);
+        applyActiveTimersUpdate(restoredActive);
       } catch (error) {
         console.error('Erro ao restaurar temporizadores ativos:', error);
         window.localStorage.removeItem(activeTimersStorageKey);
-        applyRestoredTimers({});
+        applyActiveTimersUpdate({});
       }
     };
 
@@ -602,29 +584,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const hasActive = Object.keys(activeTimers).length > 0;
-
-    if (!hasActive) {
-      window.localStorage.removeItem(activeTimersStorageKey);
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(
-        activeTimersStorageKey,
-        JSON.stringify({ active: activeTimers }),
-      );
-    } catch (error) {
-      console.error('Erro ao persistir temporizadores ativos:', error);
-    }
-  }, [activeTimers, activeTimersStorageKey]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -1588,14 +1548,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      setActiveTimers(prev => {
+      applyActiveTimersUpdate(prev => {
         if (prev[row.id!]) {
           return prev;
         }
         return { ...prev, [row.id!]: Date.now() };
       });
     },
-    [toast],
+    [toast, applyActiveTimersUpdate],
   );
 
   const handleStartTimer = (row: TaskRow, rowIndex: number) => {
@@ -1665,7 +1625,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const result = await createTimeLog(payload);
     if (result) {
-      setActiveTimers(prev => {
+      applyActiveTimersUpdate(prev => {
         if (!prev[row.id!]) {
           return prev;
         }
@@ -1744,7 +1704,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       setEditableRows(prev => prev.filter((_, i) => i !== index));
 
       if (rowId) {
-        setActiveTimers(prev => {
+        applyActiveTimersUpdate(prev => {
           if (!prev[rowId]) {
             return prev;
           }
@@ -1771,7 +1731,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setDeletingRowIndex(null);
     }
-  }, [deleteTask, deletingRowIndex, editableRows, timeLogs, toast]);
+  }, [applyActiveTimersUpdate, deleteTask, deletingRowIndex, editableRows, timeLogs, toast]);
 
   const handleSaveRow = useCallback(async (index: number) => {
     const row = editableRows[index];
