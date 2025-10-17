@@ -132,6 +132,15 @@ const CUSTOM_FIELD_TYPES: Array<{
   },
 ];
 
+const TASK_ACTION_ICON_BASE_CLASS =
+  'h-8 w-8 rounded-full text-white shadow-sm transition-transform duration-200 hover:scale-105 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:scale-100';
+
+const TASK_ACTION_ICON_VARIANTS = {
+  start: 'bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
+  pause: 'bg-amber-500 hover:bg-amber-600 focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
+  stop: 'bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
+} as const;
+
 const extractTaskNumber = (identifier?: string | null): number => {
   if (!identifier) {
     return 0;
@@ -2681,7 +2690,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-emerald-500 hover:text-emerald-600 focus-visible:ring-emerald-500 disabled:text-emerald-300 disabled:hover:text-emerald-300"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.start)}
               disabled={isDraftRow || isSavingRow || isRunning}
               onClick={() => handleStartTimer(row)}
               aria-label="Iniciar apontamento"
@@ -2691,7 +2700,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-amber-500 hover:text-amber-600 focus-visible:ring-amber-500 disabled:text-amber-300 disabled:hover:text-amber-300"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.pause)}
               disabled={isDraftRow || isSavingRow || !isRunning}
               onClick={() => handlePauseTimer(row)}
               aria-label="Pausar apontamento"
@@ -2701,7 +2710,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8 text-rose-500 hover:text-rose-600 focus-visible:ring-rose-500 disabled:text-rose-300 disabled:hover:text-rose-300"
+              className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.stop)}
               disabled={isDraftRow || isSavingRow || (!isRunning && !hasPausedTime)}
               onClick={() => handleStopTimer(row)}
               aria-label="Encerrar apontamento"
