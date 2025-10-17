@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Pause, Clock, Plus, Check, X } from 'lucide-react';
+import { Play, Square, Clock, Plus, Check, X } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -26,6 +26,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [activeTimer, setActiveTimer] = useState<{ taskId: string; startTime: Date } | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
+
+  const timerActionButtonBase =
+    'h-9 w-9 rounded-full text-white shadow-sm transition-transform duration-200 hover:scale-105 hover:text-white focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60 disabled:hover:scale-100';
 
   // Timer effect
   useEffect(() => {
@@ -159,14 +162,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         {isTimerActive ? (
                           <>
                             <span className="font-mono text-sm">{formatTime(elapsedSeconds)}</span>
-                            <Button size="sm" variant="destructive" onClick={stopTimer}>
-                              <Pause className="h-4 w-4" />
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className={`${timerActionButtonBase} bg-rose-500 hover:bg-rose-600 focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700`}
+                              onClick={stopTimer}
+                            >
+                              <Square className="h-4 w-4" />
                             </Button>
                           </>
                         ) : (
                           <Button
-                            size="sm"
-                            variant="outline"
+                            size="icon"
+                            variant="ghost"
+                            className={`${timerActionButtonBase} bg-emerald-500 hover:bg-emerald-600 focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700`}
                             onClick={() => startTimer(task.id)}
                             disabled={activeTimer !== null}
                           >
