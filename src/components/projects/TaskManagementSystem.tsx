@@ -324,6 +324,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     rowIndex: number;
   } | null>(null);
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
+  const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
@@ -1580,15 +1581,57 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     startTimer(row);
   };
 
-  const handleConfirmResponsavelAssignment = () => {
+  const handleConfirmResponsavelAssignment = async () => {
     if (!pendingResponsavelAssignment || !selectedResponsavelForTimer) {
       return;
     }
 
+    const trimmedResponsavel = selectedResponsavelForTimer.trim();
+    if (!trimmedResponsavel) {
+      return;
+    }
+
     const { row, rowIndex } = pendingResponsavelAssignment;
-    updateCell(rowIndex, 'responsavel', selectedResponsavelForTimer);
-    startTimer({ ...row, responsavel: selectedResponsavelForTimer });
-    closeResponsavelDialog();
+    const previousResponsavel = typeof row.responsavel === 'string' ? row.responsavel : null;
+
+    const applyLocalResponsavelUpdate = (value: string | null) => {
+      setEditableRows(prev => {
+        if (rowIndex < 0 || rowIndex >= prev.length) {
+          return prev;
+        }
+
+        const next = [...prev];
+        next[rowIndex] = { ...next[rowIndex], responsavel: value ?? undefined };
+        return next;
+      });
+    };
+
+    setIsSavingResponsavelForTimer(true);
+
+    try {
+      applyLocalResponsavelUpdate(trimmedResponsavel);
+
+      if (row.id) {
+        const updated = await updateTask(row.id, { responsavel: trimmedResponsavel });
+        if (!updated) {
+          applyLocalResponsavelUpdate(previousResponsavel);
+          return;
+        }
+      }
+
+      startTimer({ ...row, responsavel: trimmedResponsavel });
+      closeResponsavelDialog();
+    } catch (error) {
+      console.error('Erro ao associar responsável antes de iniciar o cronômetro:', error);
+      applyLocalResponsavelUpdate(previousResponsavel);
+      toast({
+        title: 'Erro ao definir responsável',
+        description: 'Não foi possível associar o responsável selecionado. Tente novamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingResponsavelForTimer(false);
+    }
   };
 
   interface StopTimerOptions {
@@ -1635,8 +1678,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       observacoes: 'Registro automático pela Gestão de Tarefas',
     };
 
-    const result = await createTimeLog(payload);
-    if (result) {
+    const removeActiveTimer = () => {
       applyActiveTimersUpdate(prev => {
         if (!prev[row.id!]) {
           return prev;
@@ -1645,7 +1687,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         delete next[row.id!];
         return next;
       });
+    };
 
+    const result = await createTimeLog(payload);
+    if (result) {
+      removeActiveTimer();
       refreshTimeLogs();
       if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
         updateCell(options.rowIndex, 'status', options.statusAfterStop);
@@ -1653,6 +1699,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return true;
     }
 
+    removeActiveTimer();
+    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+      updateCell(options.rowIndex, 'status', options.statusAfterStop);
+    }
+    toast({
+      title: 'Tempo não registrado',
+      description: 'O cronômetro foi encerrado, mas o registro não pôde ser salvo.',
+    });
     return false;
   };
 
@@ -2767,18 +2821,51 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.start)}
-                    disabled={isDraftRow || isSavingRow || isRunning}
-                    onClick={() => handleStartTimer(row, index)}
-                    aria-label="Iniciar apontamento"
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        if (isDraftRow || isSavingRow || isRunning) {
+                          return;
+                        }
+                        handleStartTimer(row, index);
+                      }
+                    }}
+                    onClick={event => {
+                      event.preventDefault();
+                      if (isDraftRow || isSavingRow || isRunning) {
+                        return;
+                      }
+                      handleStartTimer(row, index);
+                    }}
+                    className={cn(
+                      'inline-flex rounded-full transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60'
+                    )}
+                    aria-disabled={!hasAssignedResponsible(row.responsavel)}
                   >
-                    <Play className="h-3.5 w-3.5" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        TASK_ACTION_ICON_BASE_CLASS,
+                        TASK_ACTION_ICON_VARIANTS.start,
+                        !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
+                      )}
+                      disabled={isDraftRow || isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
+                      aria-label="Iniciar apontamento"
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                    </Button>
+                  </span>
                 </TooltipTrigger>
-                <TooltipContent>Iniciar apontamento</TooltipContent>
+                <TooltipContent>
+                  {hasAssignedResponsible(row.responsavel)
+                    ? 'Iniciar apontamento'
+                    : 'Associe um responsável para iniciar'}
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -3416,11 +3503,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 Cancelar
               </Button>
               <Button
-                onClick={handleConfirmResponsavelAssignment}
-                disabled={!selectedResponsavelForTimer}
+                onClick={() => void handleConfirmResponsavelAssignment()}
+                disabled={!selectedResponsavelForTimer || isSavingResponsavelForTimer}
                 className="flex items-center gap-2"
               >
-                <Play className="h-4 w-4" /> Iniciar
+                {isSavingResponsavelForTimer ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                Iniciar
               </Button>
             </DialogFooter>
           </DialogContent>
