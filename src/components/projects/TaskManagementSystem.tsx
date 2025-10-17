@@ -34,7 +34,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Pause, Square, FileWarning } from 'lucide-react';
+import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -168,8 +168,6 @@ const TASK_ACTION_ICON_VARIANTS = {
   save: 'bg-sky-500 text-white hover:bg-sky-600 hover:text-white focus-visible:ring-sky-500 disabled:bg-sky-300 disabled:text-sky-700',
   start:
     'bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
-  pause:
-    'bg-amber-500 text-white hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
   stop:
     'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
   delete:
@@ -770,11 +768,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     return '';
-  }, [filteredStatuses]);
-
-  const pausedStatusName = useMemo(() => {
-    const match = filteredStatuses.find(status => status.nome?.trim().toLowerCase() === 'pausado');
-    return match?.nome ?? null;
   }, [filteredStatuses]);
 
   const sanitizeTaskForSave = useCallback(
@@ -1708,18 +1701,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       description: 'O cronômetro foi encerrado, mas o registro não pôde ser salvo.',
     });
     return false;
-  };
-
-  const handlePauseTimer = (row: TaskRow, rowIndex: number) => {
-    if (!pausedStatusName) {
-      void handleStopTimer(row);
-      return;
-    }
-
-    void handleStopTimer(row, {
-      rowIndex,
-      statusAfterStop: pausedStatusName,
-    });
   };
 
   const navigateToGaps = (taskId?: string) => {
@@ -2866,21 +2847,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     ? 'Iniciar apontamento'
                     : 'Associe um responsável para iniciar'}
                 </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.pause)}
-                    disabled={isDraftRow || isSavingRow || !isRunning}
-                    onClick={() => handlePauseTimer(row, index)}
-                    aria-label="Pausar apontamento"
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Pausar apontamento</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
