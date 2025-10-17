@@ -309,7 +309,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [subStages]);
 
   useEffect(() => {
-    if (Object.keys(activeTimers).length === 0) return;
+    if (Object.keys(activeTimers).length === 0) {
+      setTimerTick(0);
+      return;
+    }
 
     const interval = window.setInterval(() => {
       setTimerTick(Date.now());
@@ -318,11 +321,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return () => window.clearInterval(interval);
   }, [activeTimers]);
 
-  const formatMinutes = useCallback((minutes: number) => {
-    const safeMinutes = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes)) : 0;
-    const hours = Math.floor(safeMinutes / 60);
-    const mins = safeMinutes % 60;
-    return `${hours}h ${mins}m`;
+  const formatDuration = useCallback((totalSeconds: number) => {
+    const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0;
+    const hours = Math.floor(safeSeconds / 3600);
+    const minutes = Math.floor((safeSeconds % 3600) / 60);
+    const seconds = safeSeconds % 60;
+
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
   }, []);
 
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
@@ -1665,11 +1672,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const minutes = getTaskTotalTime(row.id);
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
-      const runningMinutes = runningStart ? Math.floor((referenceNow - runningStart) / 60000) : 0;
-      const totalMinutes = minutes + runningMinutes;
+      const runningSeconds = runningStart ? Math.floor((referenceNow - runningStart) / 1000) : 0;
+      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
+      const totalSeconds = baseSeconds + runningSeconds;
       return (
         <div className="flex flex-col text-xs">
-          <span>{formatMinutes(totalMinutes)}</span>
+          <span>{formatDuration(totalSeconds)}</span>
           {runningStart ? (
             <span className="text-[10px] text-muted-foreground">Cronometrando...</span>
           ) : null}
@@ -2087,9 +2095,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const minutes = getTaskTotalTime(row.id);
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
-      const runningMinutes = runningStart ? Math.floor((referenceNow - runningStart) / 60000) : 0;
-      const totalMinutes = minutes + runningMinutes;
-      return <span>{formatMinutes(totalMinutes)}</span>;
+      const runningSeconds = runningStart ? Math.floor((referenceNow - runningStart) / 1000) : 0;
+      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
+      const totalSeconds = baseSeconds + runningSeconds;
+      return <span>{formatDuration(totalSeconds)}</span>;
     }
 
     if (column.key === 'percentual_conclusao') {
@@ -2143,7 +2152,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     return <span>{String(value)}</span>;
-  }, [getTaskTotalTime, activeTimers, timerTick, formatMinutes, stageNameById, subStageNameById]);
+  }, [getTaskTotalTime, activeTimers, timerTick, formatDuration, stageNameById, subStageNameById]);
 
   const closeTaskDialog = useCallback(() => setActiveTaskDialog(null), []);
 
