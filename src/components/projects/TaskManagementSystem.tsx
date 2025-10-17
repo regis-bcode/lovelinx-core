@@ -1817,7 +1817,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       if (prev.wasDraft) {
         setEditableRows(rows => {
-          const nextIdentifier = getNextTaskIdentifier(rows);
+          const hasDraftRow = rows.some(row => row._isNew || row.isDraft);
+          if (hasDraftRow) {
+            return rows;
+          }
+
+          const referenceRows: TaskRow[] = prev.task
+            ? [...rows, { ...prev.task, _isNew: false, isDraft: false }]
+            : rows;
+          const nextIdentifier = getNextTaskIdentifier(referenceRows);
           return [...rows, createBlankRow(rows.length, nextIdentifier)];
         });
       }
