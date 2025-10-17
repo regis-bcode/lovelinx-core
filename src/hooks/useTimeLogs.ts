@@ -10,6 +10,7 @@ export function useTimeLogs(projectId?: string) {
 
   useEffect(() => {
     if (!projectId) {
+      setTimeLogs([]);
       setLoading(false);
       return;
     }
@@ -38,14 +39,19 @@ export function useTimeLogs(projectId?: string) {
   }, [projectId]);
 
   const loadTimeLogs = async () => {
-    if (!projectId) return;
+    if (!projectId) {
+      setTimeLogs([]);
+      return;
+    }
 
     try {
       setLoading(true);
+      setTimeLogs([]);
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (!user) {
         console.error('Usuário não autenticado');
+        setTimeLogs([]);
         return;
       }
 
@@ -60,6 +66,7 @@ export function useTimeLogs(projectId?: string) {
       setTimeLogs(data || []);
     } catch (error) {
       console.error('Erro ao carregar logs de tempo:', error);
+      setTimeLogs([]);
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar os logs de tempo',
