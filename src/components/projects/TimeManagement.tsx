@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Plus, Check, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Clock, Plus, Check, X, Loader2 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -14,20 +15,28 @@ import { Task } from '@/types/task';
 import { TimeLog, ApprovalStatus } from '@/types/time-log';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useProjectAllocations } from '@/hooks/useProjectAllocations';
+import { useToast } from '@/hooks/use-toast';
 
 interface TimeManagementProps {
   projectId: string;
 }
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
-  const { tasks, loading: tasksLoading } = useTasks(projectId);
+  const { tasks, loading: tasksLoading, updateTask } = useTasks(projectId);
   const { timeLogs, createTimeLog, approveTimeLog, getTaskTotalTime, getProjectTotalTime, loading: logsLoading } = useTimeLogs(projectId);
   const { isGestor, isAdmin } = useUserRoles();
+  const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
+  const { toast } = useToast();
 
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
+  const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [taskPendingAssignment, setTaskPendingAssignment] = useState<Task | null>(null);
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
   const activeTimersStorageKey = useMemo(() => `task-active-timers-${projectId}`, [projectId]);
 
   useEffect(() => {
@@ -257,6 +266,40 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return overrides;
   }, [timeLogs]);
 
+  const teamMembers = useMemo(() => {
+    if (!projectAllocations.length) {
+      return [] as Array<{ id: string; name: string }>;
+    }
+
+    const membersMap = new Map<string, { id: string; name: string }>();
+
+    projectAllocations.forEach((allocation) => {
+      if (allocation.status_participacao !== 'Ativo') {
+        return;
+      }
+
+      const memberId = allocation.allocated_user_id;
+      const memberName = allocation.user?.nome_completo?.trim();
+
+      if (!memberId || !memberName) {
+        return;
+      }
+
+      if (!membersMap.has(memberId)) {
+        membersMap.set(memberId, { id: memberId, name: memberName });
+      }
+    });
+
+    return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [projectAllocations]);
+
+  useEffect(() => {
+    if (!isAssignDialogOpen) {
+      setTaskPendingAssignment(null);
+      setSelectedAssignee('');
+    }
+  }, [isAssignDialogOpen]);
+
   useEffect(() => {
     setManualOverrides(prev => {
       const updated = { ...prev };
@@ -297,6 +340,75 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const totalProjectTime = getProjectTotalTime();
   const isGestorUser = isGestor();
   const isAdminUser = isAdmin();
+
+  const handleAssignmentDialogOpenChange = (open: boolean) => {
+    if (!open && isAssigning) {
+      return;
+    }
+
+    setIsAssignDialogOpen(open);
+  };
+
+  const handleStartTimerRequest = (task: Task) => {
+    const hasResponsavel = typeof task.responsavel === 'string' && task.responsavel.trim().length > 0;
+
+    if (!hasResponsavel) {
+      setTaskPendingAssignment(task);
+      setSelectedAssignee('');
+      setIsAssignDialogOpen(true);
+      return;
+    }
+
+    startTimer(task.id);
+  };
+
+  const handleConfirmAssignment = async () => {
+    if (!taskPendingAssignment) {
+      return;
+    }
+
+    if (!teamMembers.length) {
+      toast({
+        title: 'Equipe não encontrada',
+        description: 'Não há membros ativos disponíveis para atribuir a tarefa.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!selectedAssignee) {
+      toast({
+        title: 'Selecione um responsável',
+        description: 'Escolha um membro da equipe para associar à tarefa.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsAssigning(true);
+      const updatedTask = await updateTask(taskPendingAssignment.id, { responsavel: selectedAssignee });
+
+      if (!updatedTask) {
+        toast({
+          title: 'Erro ao atualizar tarefa',
+          description: 'Não foi possível associar o responsável selecionado.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      toast({
+        title: 'Responsável definido',
+        description: `${selectedAssignee} foi associado à tarefa com sucesso.`,
+      });
+
+      setIsAssignDialogOpen(false);
+      startTimer(updatedTask.id);
+    } finally {
+      setIsAssigning(false);
+    }
+  };
 
   if (tasksLoading || logsLoading) {
     return <div className="p-4">Carregando...</div>;
@@ -362,6 +474,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
                 const manualOverrideMinutes = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
                 const runningSeconds = elapsedSeconds[task.id] || 0;
+                const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
+                const startButtonTitle = manualOverrideMinutes !== undefined
+                  ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.'
+                  : requiresResponsavel
+                    ? 'Associe um responsável antes de iniciar o cronômetro.'
+                    : undefined;
                 const displayedTime = manualOverrideMinutes !== undefined
                   ? `Manual: ${formatMinutes(manualOverrideMinutes)}`
                   : isTimerActive
@@ -391,16 +509,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => startTimer(task.id)}
+                              onClick={() => handleStartTimerRequest(task)}
                               disabled={manualOverrideMinutes !== undefined}
-                              title={manualOverrideMinutes !== undefined ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.' : undefined}
+                              title={startButtonTitle}
                             >
-                              Iniciar
+                              {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
                             </Button>
                           )}
-                        </div>
                       </div>
-                    </TableCell>
+                    </div>
+                  </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Input
@@ -513,6 +631,66 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isAssignDialogOpen} onOpenChange={handleAssignmentDialogOpenChange}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Definir responsável</DialogTitle>
+            <DialogDescription>
+              Selecione um membro da equipe para associar à tarefa "{taskPendingAssignment?.nome}" antes de iniciar o cronômetro.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {allocationsLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Carregando membros da equipe...
+              </div>
+            ) : teamMembers.length > 0 ? (
+              <Select
+                value={selectedAssignee || undefined}
+                onValueChange={setSelectedAssignee}
+                disabled={isAssigning}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um responsável" />
+                </SelectTrigger>
+                <SelectContent>
+                  {teamMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.name}>
+                      {member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Nenhum membro ativo foi encontrado para este projeto. Cadastre ou ative um membro para prosseguir.
+              </p>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsAssignDialogOpen(false)}
+              disabled={isAssigning}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleConfirmAssignment}
+              disabled={
+                isAssigning ||
+                allocationsLoading ||
+                !teamMembers.length ||
+                selectedAssignee.length === 0
+              }
+            >
+              {isAssigning ? 'Salvando...' : 'Atribuir e iniciar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
