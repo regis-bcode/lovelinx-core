@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
@@ -219,6 +219,39 @@ export function useTimeLogs(projectId?: string) {
       .reduce((total, log) => total + log.tempo_minutos, 0);
   };
 
+  const getResponsibleTotalTime = useCallback(
+    (assignments: Array<{ taskId: string; responsavel?: string | null }>): Record<string, number> => {
+      if (!Array.isArray(assignments) || assignments.length === 0) {
+        return {};
+      }
+
+      const taskTimeCache = new Map<string, number>();
+      assignments.forEach(({ taskId }) => {
+        if (!taskId || taskTimeCache.has(taskId)) {
+          return;
+        }
+        taskTimeCache.set(taskId, getTaskTotalTime(taskId));
+      });
+
+      return assignments.reduce<Record<string, number>>((acc, { taskId, responsavel }) => {
+        if (!taskId || typeof responsavel !== 'string') {
+          return acc;
+        }
+
+        const trimmedResponsavel = responsavel.trim();
+        if (!trimmedResponsavel) {
+          return acc;
+        }
+
+        const minutes = taskTimeCache.get(taskId) ?? 0;
+        const safeMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+        acc[trimmedResponsavel] = (acc[trimmedResponsavel] ?? 0) + safeMinutes;
+        return acc;
+      }, {});
+    },
+    [timeLogs],
+  );
+
   return {
     timeLogs,
     loading,
@@ -228,6 +261,7 @@ export function useTimeLogs(projectId?: string) {
     deleteTimeLog,
     getTaskTotalTime,
     getProjectTotalTime,
+    getResponsibleTotalTime,
     refreshTimeLogs: loadTimeLogs,
   };
 }
