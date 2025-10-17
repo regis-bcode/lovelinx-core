@@ -13,6 +13,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -288,6 +297,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [pausedDurations, setPausedDurations] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
+  const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
     [projectId]
@@ -1759,8 +1769,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       await ensureGapForTask(savedTask);
 
-      setEditableRows(prev => {
-        const updatedRows = prev.map((prevRow, idx) => {
+      setEditableRows(prev =>
+        prev.map((prevRow, idx) => {
           if (idx !== index) {
             return prevRow;
           }
@@ -1770,50 +1780,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             _isNew: false,
             isDraft: false,
           };
-        });
+        }),
+      );
 
-        if (!wasDraft) {
-          return updatedRows;
-        }
-
-        const nextIdentifier = getNextTaskIdentifier(updatedRows);
-        return [...updatedRows, createBlankRow(updatedRows.length, nextIdentifier)];
-      });
-
-      if (wasDraft) {
-        setHasChanges(true);
-      }
+      setSuccessDialogData({ task: savedTask, wasDraft });
 
       await refreshTasks();
-
-      const formattedCreatedAt = savedTask.created_at
-        ? format(new Date(savedTask.created_at), "dd/MM/yyyy HH:mm")
-        : null;
-
-      toast({
-        title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
-        description: (
-          <div className="space-y-1 text-sm">
-            <p>Registro salvo com sucesso!</p>
-            <div className="grid gap-1">
-              {formattedCreatedAt ? (
-                <p>
-                  <span className="font-semibold">Data de criação:</span> {formattedCreatedAt}
-                </p>
-              ) : null}
-              <p>
-                <span className="font-semibold">Número da tarefa:</span> {savedTask.task_id}
-              </p>
-              <p>
-                <span className="font-semibold">Nome:</span> {savedTask.nome}
-              </p>
-              <p>
-                <span className="font-semibold">Status:</span> {savedTask.status}
-              </p>
-            </div>
-          </div>
-        ),
-      });
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
       toast({
@@ -1836,6 +1808,23 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     toast,
     updateTask,
   ]);
+
+  const handleSuccessDialogDismiss = useCallback(() => {
+    setSuccessDialogData(prev => {
+      if (!prev) {
+        return null;
+      }
+
+      if (prev.wasDraft) {
+        setEditableRows(rows => {
+          const nextIdentifier = getNextTaskIdentifier(rows);
+          return [...rows, createBlankRow(rows.length, nextIdentifier)];
+        });
+      }
+
+      return null;
+    });
+  }, [createBlankRow, getNextTaskIdentifier]);
 
 
   const updateCustomFieldValue = (index: number, fieldName: string, value: unknown) => {
@@ -2835,6 +2824,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     );
   };
 
+  const successTask = successDialogData?.task ?? null;
+  const successDialogTitle = successDialogData
+    ? successDialogData.wasDraft
+      ? 'Tarefa criada'
+      : 'Tarefa atualizada'
+    : null;
+  const successDialogCreatedAt = successTask?.created_at
+    ? format(new Date(successTask.created_at), 'dd/MM/yyyy HH:mm')
+    : null;
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
@@ -3374,6 +3373,47 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={Boolean(successDialogData)}
+        onOpenChange={open => {
+          if (!open) {
+            handleSuccessDialogDismiss();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{successDialogTitle ?? 'Tarefa salva'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              <div className="space-y-2 text-sm">
+                <p>Registro salvo com sucesso!</p>
+                {successTask ? (
+                  <div className="grid gap-1">
+                    {successDialogCreatedAt ? (
+                      <p>
+                        <span className="font-semibold">Data de criação:</span> {successDialogCreatedAt}
+                      </p>
+                    ) : null}
+                    <p>
+                      <span className="font-semibold">Número da tarefa:</span> {successTask.task_id}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Nome:</span> {successTask.nome}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Status:</span> {successTask.status}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleSuccessDialogDismiss}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
