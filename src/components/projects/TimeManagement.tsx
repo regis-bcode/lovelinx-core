@@ -9,6 +9,7 @@ import { Clock, Plus, Check, X } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
+import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { Task } from '@/types/task';
 import { TimeLog, ApprovalStatus } from '@/types/time-log';
 import { format } from 'date-fns';
@@ -28,6 +29,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
   const activeTimersStorageKey = useMemo(() => `task-active-timers-${projectId}`, [projectId]);
+
+  useEffect(() => {
+    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
+  }, [activeTimers, projectId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {

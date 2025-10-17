@@ -38,6 +38,7 @@ import { useModulos } from '@/hooks/useModulos';
 import { useAreas } from '@/hooks/useAreas';
 import { useCategorias } from '@/hooks/useCategorias';
 import { useTimeLogs } from '@/hooks/useTimeLogs';
+import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { useToast } from '@/hooks/use-toast';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
@@ -299,6 +300,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     () => `task-active-timers-${projectId}`,
     [projectId]
   );
+
+  useEffect(() => {
+    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
+  }, [activeTimers, projectId]);
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
