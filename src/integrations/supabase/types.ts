@@ -1376,12 +1376,16 @@ export type Database = {
       }
       time_logs: {
         Row: {
+          aprovacao_data: string | null
+          aprovacao_hora: string | null
+          aprovador_nome: string | null
           aprovador_id: string | null
           created_at: string
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
           id: string
+          justificativa_reprovacao: string | null
           observacoes: string | null
           project_id: string
           status_aprovacao: Database["public"]["Enums"]["approval_status"]
@@ -1392,12 +1396,16 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aprovacao_data?: string | null
+          aprovacao_hora?: string | null
+          aprovador_nome?: string | null
           aprovador_id?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           id?: string
+          justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
@@ -1408,12 +1416,16 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aprovacao_data?: string | null
+          aprovacao_hora?: string | null
+          aprovador_nome?: string | null
           aprovador_id?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           id?: string
+          justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id?: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
