@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Pause, Square, FileWarning } from 'lucide-react';
+import { Settings, Save, Trash2, PlusCircle, PlusSquare, Type, Hash, Percent, Coins, ListChecks, Tags, CheckSquare, Pencil, Eye, Table as TableIcon, Loader2, Play, Square, FileWarning } from 'lucide-react';
 import { format } from 'date-fns';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -152,8 +152,6 @@ const TASK_ACTION_ICON_VARIANTS = {
   save: 'bg-sky-500 text-white hover:bg-sky-600 hover:text-white focus-visible:ring-sky-500 disabled:bg-sky-300 disabled:text-sky-700',
   start:
     'bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
-  pause:
-    'bg-amber-500 text-white hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
   stop:
     'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
   delete:
@@ -262,7 +260,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
-  const { getTaskTotalTime, getResponsibleTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
+  const { timeLogs, getTaskTotalTime, getResponsibleTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
@@ -295,7 +293,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [deletingFieldId, setDeletingFieldId] = useState<string | null>(null);
   const [grouping, setGrouping] = useState<GroupingKey>('none');
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
-  const [pausedDurations, setPausedDurations] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const activeTimersStorageKey = useMemo(
@@ -350,13 +347,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         .filter((id): id is string => typeof id === 'string' && id.length > 0),
     );
 
-    if (validIds.size === 0) {
-      if (Object.keys(activeTimers).length === 0 && Object.keys(pausedDurations).length === 0) {
-        return;
-      }
-    }
-
     setActiveTimers(prev => {
+      if (validIds.size === 0) {
+        return prev;
+      }
+
       const filteredEntries = Object.entries(prev).filter(([taskId]) => validIds.has(taskId));
       if (filteredEntries.length === Object.keys(prev).length) {
         return prev;
@@ -368,17 +363,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }, {});
     });
 
-    setPausedDurations(prev => {
-      const filteredEntries = Object.entries(prev).filter(([taskId]) => validIds.has(taskId));
-      if (filteredEntries.length === Object.keys(prev).length) {
-        return prev;
-      }
-
-      return filteredEntries.reduce<Record<string, number>>((acc, [taskId, value]) => {
-        acc[taskId] = value;
-        return acc;
-      }, {});
-    });
   }, [editableRows]);
 
   useEffect(() => {
@@ -413,16 +397,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const minutes = getTaskTotalTime(row.id);
       const runningStart = activeTimers[row.id];
-      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
       const referenceNow = timerTick || Date.now();
 
       const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
       const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
-      const pausedSeconds = Math.max(0, Math.floor(pausedMilliseconds / 1000));
-
-      return baseSeconds + runningSeconds + pausedSeconds;
+      return baseSeconds + runningSeconds;
     },
-    [activeTimers, getTaskTotalTime, pausedDurations, timerTick],
+    [activeTimers, getTaskTotalTime, timerTick],
   );
 
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
@@ -459,8 +440,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
       const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
-      const pausedSeconds = Math.max(0, Math.floor((pausedDurations[row.id] ?? 0) / 1000));
-      const extras = runningSeconds + pausedSeconds;
+      const extras = runningSeconds;
 
       if (!aggregated.has(normalized)) {
         aggregated.set(normalized, { label: responsavelName, seconds: extras });
@@ -499,7 +479,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     editableRows,
     getResponsibleTotalTime,
     activeTimers,
-    pausedDurations,
     timerTick,
     formatDuration,
   ]);
@@ -521,55 +500,76 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    try {
-      const stored = window.localStorage.getItem(activeTimersStorageKey);
-      if (!stored) {
-        return;
+    const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
+      if (!value || typeof value !== 'object') {
+        return {};
       }
 
-      const parsed = JSON.parse(stored);
-      if (!parsed || typeof parsed !== 'object') {
-        window.localStorage.removeItem(activeTimersStorageKey);
-        return;
-      }
+      return Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
+        .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
+          acc[taskId] = entryValue as number;
+          return acc;
+        }, {});
+    };
 
-      const sanitizeNumberRecord = (value: unknown): Record<string, number> => {
-        if (!value || typeof value !== 'object') {
-          return {};
+    const applyRestoredTimers = (restored: Record<string, number>) => {
+      setActiveTimers(prev => {
+        const prevEntries = Object.entries(prev);
+        const restoredEntries = Object.entries(restored);
+        if (prevEntries.length === restoredEntries.length && restoredEntries.every(([key, value]) => prev[key] === value)) {
+          return prev;
+        }
+        return restored;
+      });
+    };
+
+    const restoreFromStorage = () => {
+      try {
+        const stored = window.localStorage.getItem(activeTimersStorageKey);
+        if (!stored) {
+          applyRestoredTimers({});
+          return;
         }
 
-        return Object.entries(value as Record<string, unknown>)
-          .filter(([, entryValue]) => typeof entryValue === 'number' && Number.isFinite(entryValue) && entryValue > 0)
-          .reduce<Record<string, number>>((acc, [taskId, entryValue]) => {
-            acc[taskId] = entryValue as number;
-            return acc;
-          }, {});
-      };
+        const parsed = JSON.parse(stored);
+        if (!parsed || typeof parsed !== 'object') {
+          window.localStorage.removeItem(activeTimersStorageKey);
+          applyRestoredTimers({});
+          return;
+        }
 
-      if ('active' in parsed || 'paused' in parsed) {
-        const restoredActive = sanitizeNumberRecord((parsed as { active?: unknown }).active ?? {});
-        const restoredPaused = sanitizeNumberRecord((parsed as { paused?: unknown }).paused ?? {});
-        setActiveTimers(restoredActive);
-        setPausedDurations(restoredPaused);
-        if (Object.keys(restoredActive).length === 0 && Object.keys(restoredPaused).length === 0) {
+        const normalizedParsed = (parsed && typeof parsed === 'object' && 'active' in parsed)
+          ? (parsed as { active?: unknown }).active
+          : parsed;
+
+        const restoredActive = sanitizeNumberRecord(normalizedParsed);
+        applyRestoredTimers(restoredActive);
+
+        if (Object.keys(restoredActive).length === 0) {
           window.localStorage.removeItem(activeTimersStorageKey);
         }
+      } catch (error) {
+        console.error('Erro ao restaurar temporizadores ativos:', error);
+        window.localStorage.removeItem(activeTimersStorageKey);
+        applyRestoredTimers({});
+      }
+    };
+
+    restoreFromStorage();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key !== activeTimersStorageKey) {
         return;
       }
+      restoreFromStorage();
+    };
 
-      const restoredActive = sanitizeNumberRecord(parsed);
-      setActiveTimers(restoredActive);
-      setPausedDurations({});
+    window.addEventListener('storage', handleStorage);
 
-      if (Object.keys(restoredActive).length === 0) {
-        window.localStorage.removeItem(activeTimersStorageKey);
-      }
-    } catch (error) {
-      console.error('Erro ao restaurar temporizadores ativos:', error);
-      window.localStorage.removeItem(activeTimersStorageKey);
-      setActiveTimers({});
-      setPausedDurations({});
-    }
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+    };
   }, [activeTimersStorageKey]);
 
   useEffect(() => {
@@ -578,9 +578,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const hasActive = Object.keys(activeTimers).length > 0;
-    const hasPaused = Object.keys(pausedDurations).length > 0;
 
-    if (!hasActive && !hasPaused) {
+    if (!hasActive) {
       window.localStorage.removeItem(activeTimersStorageKey);
       return;
     }
@@ -588,12 +587,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     try {
       window.localStorage.setItem(
         activeTimersStorageKey,
-        JSON.stringify({ active: activeTimers, paused: pausedDurations }),
+        JSON.stringify({ active: activeTimers }),
       );
     } catch (error) {
       console.error('Erro ao persistir temporizadores ativos:', error);
     }
-  }, [activeTimers, pausedDurations, activeTimersStorageKey]);
+  }, [activeTimers, activeTimersStorageKey]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -1559,35 +1558,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     });
   };
 
-  const handlePauseTimer = (row: TaskRow) => {
-    if (!row.id) {
-      toast({
-        title: 'Atenção',
-        description: 'Salve a tarefa antes de pausar o apontamento.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const start = activeTimers[row.id];
-    if (!start) {
-      return;
-    }
-
-    const elapsedMilliseconds = Math.max(0, Date.now() - start);
-
-    setActiveTimers(prev => {
-      const next = { ...prev };
-      delete next[row.id!];
-      return next;
-    });
-
-    setPausedDurations(prev => ({
-      ...prev,
-      [row.id!]: (prev[row.id!] ?? 0) + elapsedMilliseconds,
-    }));
-  };
-
   const handleStopTimer = async (row: TaskRow) => {
     if (!row.id) {
       toast({
@@ -1599,15 +1569,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const start = activeTimers[row.id];
-    const pausedMilliseconds = pausedDurations[row.id] ?? 0;
-
-    if (!start && pausedMilliseconds <= 0) {
+    if (!start) {
       return;
     }
 
     const now = Date.now();
-    const runningMilliseconds = start ? Math.max(0, now - start) : 0;
-    const totalMilliseconds = pausedMilliseconds + runningMilliseconds;
+    const totalMilliseconds = Math.max(0, now - start);
 
     if (totalMilliseconds <= 0) {
       toast({
@@ -1618,7 +1585,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const elapsedMinutes = Math.max(1, Math.round(totalMilliseconds / 60000));
-    const startedAt = now - totalMilliseconds;
+    const startedAt = start;
 
     const payload = {
       task_id: row.id,
@@ -1633,15 +1600,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const result = await createTimeLog(payload);
     if (result) {
       setActiveTimers(prev => {
-        if (!prev[row.id!]) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[row.id!];
-        return next;
-      });
-
-      setPausedDurations(prev => {
         if (!prev[row.id!]) {
           return prev;
         }
@@ -1691,6 +1649,18 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const rowId = row.id;
 
+    if (rowId) {
+      const hasLoggedTime = timeLogs.some(log => log.task_id === rowId);
+      if (hasLoggedTime) {
+        toast({
+          title: 'Tempo já contabilizado',
+          description: 'Esta tarefa não pode ser excluída porque já possui tempo registrado.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     if (deletingRowIndex !== null) {
       return;
     }
@@ -1717,16 +1687,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           delete next[rowId];
           return next;
         });
-
-        setPausedDurations(prev => {
-          if (!prev[rowId]) {
-            return prev;
-          }
-
-          const next = { ...prev };
-          delete next[rowId];
-          return next;
-        });
       }
 
       if (!rowId) {
@@ -1745,7 +1705,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setDeletingRowIndex(null);
     }
-  }, [deleteTask, deletingRowIndex, editableRows, toast]);
+  }, [deleteTask, deletingRowIndex, editableRows, timeLogs, toast]);
 
   const handleSaveRow = useCallback(async (index: number) => {
     const row = editableRows[index];
@@ -2058,18 +2018,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const totalSeconds = getRowAccumulatedSeconds(row);
       const isRunning = Boolean(activeTimers[row.id]);
-      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
-      const hasPausedTime = pausedMilliseconds > 0;
-      const isPaused = hasPausedTime && !isRunning;
 
       return (
         <div className="flex flex-col text-xs">
           <span>{formatDuration(totalSeconds)}</span>
           {isRunning ? (
             <span className="text-[10px] text-muted-foreground">Cronometrando...</span>
-          ) : null}
-          {isPaused ? (
-            <span className="text-[10px] text-muted-foreground">Pausado</span>
           ) : null}
         </div>
       );
@@ -2484,13 +2438,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (!row.id) return <span className="text-muted-foreground">-</span>;
       const totalSeconds = getRowAccumulatedSeconds(row);
       const isRunning = Boolean(activeTimers[row.id]);
-      const pausedMilliseconds = pausedDurations[row.id] ?? 0;
-      const hasPausedTime = pausedMilliseconds > 0;
-      const isPaused = hasPausedTime && !isRunning;
       return (
         <span>
           {formatDuration(totalSeconds)}
-          {isRunning ? ' · Em andamento' : isPaused ? ' · Pausado' : ''}
+          {isRunning ? ' · Em andamento' : ''}
         </span>
       );
     }
@@ -2549,7 +2500,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [
     getRowAccumulatedSeconds,
     activeTimers,
-    pausedDurations,
     timerTick,
     formatDuration,
     stageNameById,
@@ -2669,8 +2619,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
     const isRunning = Boolean(row.id && activeTimers[row.id]);
-    const pausedMilliseconds = row.id ? pausedDurations[row.id] ?? 0 : 0;
-    const hasPausedTime = pausedMilliseconds > 0;
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
     const isDeletingRow = deletingRowIndex === index;
@@ -2781,23 +2729,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   <Button
                     variant="ghost"
                     size="icon"
-                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.pause)}
-                    disabled={isDraftRow || isSavingRow || !isRunning}
-                    onClick={() => handlePauseTimer(row)}
-                    aria-label="Pausar apontamento"
-                  >
-                    <Pause className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Pausar apontamento</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.stop)}
-                    disabled={isDraftRow || isSavingRow || (!isRunning && !hasPausedTime)}
+                    disabled={isDraftRow || isSavingRow || !isRunning}
                     onClick={() => handleStopTimer(row)}
                     aria-label="Encerrar apontamento"
                   >
