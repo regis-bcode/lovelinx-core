@@ -242,46 +242,54 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timeLogs.map((log) => {
-                const task = tasks.find(t => t.id === log.task_id);
-                return (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                    </TableCell>
-                    <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
-                    <TableCell>
-                      <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
-                        {log.tipo_inclusao}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatMinutes(log.tempo_minutos)}</TableCell>
-                    <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
-                    {isGestor() && (
+              {timeLogs.length > 0 ? (
+                timeLogs.map((log) => {
+                  const task = tasks.find(t => t.id === log.task_id);
+                  return (
+                    <TableRow key={log.id}>
                       <TableCell>
-                        {log.status_aprovacao === 'pendente' && (
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => approveTimeLog(log.id, 'aprovado')}
-                            >
-                              <Check className="h-4 w-4 text-green-600" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => approveTimeLog(log.id, 'reprovado')}
-                            >
-                              <X className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </div>
-                        )}
+                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                       </TableCell>
-                    )}
-                  </TableRow>
-                );
-              })}
+                      <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
+                      <TableCell>
+                        <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
+                          {log.tipo_inclusao}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{formatMinutes(log.tempo_minutos)}</TableCell>
+                      <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
+                      {isGestor() && (
+                        <TableCell>
+                          {log.status_aprovacao === 'pendente' && (
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => approveTimeLog(log.id, 'aprovado')}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => approveTimeLog(log.id, 'reprovado')}
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={isGestor() ? 6 : 5} className="text-center text-muted-foreground">
+                    Nenhum log de tempo registrado.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
