@@ -101,29 +101,7 @@ const sanitizeExtras = (extras?: Record<string, unknown> | null) => {
   }, {});
 };
 
-type CreatedTask = Pick<
-  Task,
-  |
-    'id'
-    | 'task_id'
-    | 'project_id'
-    | 'user_id'
-    | 'nome'
-    | 'prioridade'
-    | 'status'
-    | 'data_vencimento'
-    | 'cliente'
-    | 'percentual_conclusao'
-    | 'nivel'
-    | 'ordem'
-    | 'custom_fields'
-    | 'cronograma'
-> & {
-  created_at: string;
-  updated_at: string;
-};
-
-export async function createTask(params: CreateTaskParams): Promise<CreatedTask> {
+export async function createTask(params: CreateTaskParams): Promise<Task> {
   const payload: Record<string, unknown> = {
     project_id: params.projectId,
     user_id: params.userId,
@@ -185,9 +163,7 @@ export async function createTask(params: CreateTaskParams): Promise<CreatedTask>
     const { data, error } = await supabase
       .from('tasks')
       .insert(payload)
-      .select(
-        `id, task_id, project_id, user_id, nome, prioridade, status, data_vencimento, cliente, percentual_conclusao, nivel, ordem, custom_fields, cronograma, created_at, updated_at`,
-      )
+      .select('*')
       .single();
 
     if (!error) {
@@ -195,16 +171,18 @@ export async function createTask(params: CreateTaskParams): Promise<CreatedTask>
         throw new Error('Resposta inválida ao criar tarefa.');
       }
 
-      const normalizedTaskId = ensureTaskIdentifier(data.task_id, data.id);
+      const rawTask = data as Task;
+      const normalizedTaskId = ensureTaskIdentifier(rawTask.task_id, rawTask.id);
 
-      const normalized: CreatedTask = {
-        ...data,
+      const normalized: Task = {
+        ...rawTask,
         task_id: normalizedTaskId,
-        custom_fields: (data.custom_fields ?? {}) as Record<string, unknown>,
-        cronograma: Boolean(data.cronograma),
-        percentual_conclusao: typeof data.percentual_conclusao === 'number' ? data.percentual_conclusao : 0,
-        nivel: typeof data.nivel === 'number' ? data.nivel : 0,
-        ordem: typeof data.ordem === 'number' ? data.ordem : 0,
+        custom_fields: (rawTask.custom_fields ?? {}) as Record<string, unknown>,
+        cronograma: Boolean(rawTask.cronograma),
+        percentual_conclusao:
+          typeof rawTask.percentual_conclusao === 'number' ? rawTask.percentual_conclusao : 0,
+        nivel: typeof rawTask.nivel === 'number' ? rawTask.nivel : 0,
+        ordem: typeof rawTask.ordem === 'number' ? rawTask.ordem : 0,
       };
 
       return normalized;
