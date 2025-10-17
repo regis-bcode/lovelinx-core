@@ -267,6 +267,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [grouping, setGrouping] = useState<GroupingKey>('none');
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
+  const activeTimersStorageKey = useMemo(
+    () => `task-active-timers-${projectId}`,
+    [projectId]
+  );
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -333,6 +337,61 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, []);
 
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem(activeTimersStorageKey);
+      if (!stored) {
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as Record<string, unknown> | null;
+      if (!parsed || typeof parsed !== 'object') {
+        window.localStorage.removeItem(activeTimersStorageKey);
+        return;
+      }
+
+      const sanitizedEntries = Object.entries(parsed).filter(([, value]) => {
+        return typeof value === 'number' && Number.isFinite(value) && value > 0;
+      });
+
+      if (sanitizedEntries.length === 0) {
+        window.localStorage.removeItem(activeTimersStorageKey);
+        return;
+      }
+
+      const sanitizedTimers = sanitizedEntries.reduce<Record<string, number>>((acc, [taskId, value]) => {
+        acc[taskId] = value as number;
+        return acc;
+      }, {});
+
+      setActiveTimers(sanitizedTimers);
+    } catch (error) {
+      console.error('Erro ao restaurar temporizadores ativos:', error);
+      window.localStorage.removeItem(activeTimersStorageKey);
+    }
+  }, [activeTimersStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    if (Object.keys(activeTimers).length === 0) {
+      window.localStorage.removeItem(activeTimersStorageKey);
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(activeTimersStorageKey, JSON.stringify(activeTimers));
+    } catch (error) {
+      console.error('Erro ao persistir temporizadores ativos:', error);
+    }
+  }, [activeTimers, activeTimersStorageKey]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -1338,6 +1397,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
+    const rowId = row.id;
+
     if (deletingRowIndex !== null) {
       return;
     }
@@ -1354,7 +1415,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       setEditableRows(prev => prev.filter((_, i) => i !== index));
 
-      if (!row.id) {
+      if (rowId) {
+        setActiveTimers(prev => {
+          if (!prev[rowId]) {
+            return prev;
+          }
+
+          const next = { ...prev };
+          delete next[rowId];
+          return next;
+        });
+      }
+
+      if (!rowId) {
         toast({
           title: 'Rascunho removido',
           description: 'A tarefa em rascunho foi removida.',
