@@ -12,7 +12,15 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CreatableSelect } from '@/components/ui/creatable-select';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -159,6 +167,20 @@ const TASK_ACTION_ICON_VARIANTS = {
     'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
 } as const;
 
+const hasAssignedResponsible = (responsavel: TaskRow['responsavel']): boolean => {
+  if (typeof responsavel !== 'string') {
+    return false;
+  }
+
+  const trimmed = responsavel.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return normalized !== 'sem responsavel';
+};
+
 const extractTaskNumber = (identifier?: string | null): number => {
   if (!identifier) {
     return 0;
@@ -288,6 +310,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [fieldSearch, setFieldSearch] = useState('');
   const [isCreatingField, setIsCreatingField] = useState(false);
   const [activeTaskDialog, setActiveTaskDialog] = useState<{ mode: 'view' | 'edit'; index: number } | null>(null);
+  const [pendingResponsavelAssignment, setPendingResponsavelAssignment] = useState<{
+    row: TaskRow;
+    rowIndex: number;
+  } | null>(null);
+  const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
@@ -1545,22 +1572,56 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setHasChanges(true);
   };
 
-  const handleStartTimer = (row: TaskRow) => {
-    if (!row.id) {
-      toast({
-        title: 'Atenção',
-        description: 'Salve a tarefa antes de iniciar o apontamento de tempo.',
-        variant: 'destructive',
+  const closeResponsavelDialog = useCallback(() => {
+    setPendingResponsavelAssignment(null);
+    setSelectedResponsavelForTimer(null);
+  }, []);
+
+  const startTimer = useCallback(
+    (row: TaskRow) => {
+      if (!row.id) {
+        toast({
+          title: 'Atenção',
+          description: 'Salve a tarefa antes de iniciar o apontamento de tempo.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setActiveTimers(prev => {
+        if (prev[row.id!]) {
+          return prev;
+        }
+        return { ...prev, [row.id!]: Date.now() };
       });
+    },
+    [toast],
+  );
+
+  const handleStartTimer = (row: TaskRow, rowIndex: number) => {
+    if (!row.id) {
+      startTimer(row);
       return;
     }
 
-    setActiveTimers(prev => {
-      if (prev[row.id!]) {
-        return prev;
-      }
-      return { ...prev, [row.id!]: Date.now() };
-    });
+    if (!hasAssignedResponsible(row.responsavel)) {
+      setPendingResponsavelAssignment({ row, rowIndex });
+      setSelectedResponsavelForTimer(null);
+      return;
+    }
+
+    startTimer(row);
+  };
+
+  const handleConfirmResponsavelAssignment = () => {
+    if (!pendingResponsavelAssignment || !selectedResponsavelForTimer) {
+      return;
+    }
+
+    const { row, rowIndex } = pendingResponsavelAssignment;
+    updateCell(rowIndex, 'responsavel', selectedResponsavelForTimer);
+    startTimer({ ...row, responsavel: selectedResponsavelForTimer });
+    closeResponsavelDialog();
   };
 
   const handleStopTimer = async (row: TaskRow) => {
@@ -2721,7 +2782,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.start)}
                     disabled={isDraftRow || isSavingRow || isRunning}
-                    onClick={() => handleStartTimer(row)}
+                    onClick={() => handleStartTimer(row, index)}
                     aria-label="Iniciar apontamento"
                   >
                     <Play className="h-3.5 w-3.5" />
@@ -2790,6 +2851,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const successDialogCreatedAt = successTask?.created_at
     ? format(new Date(successTask.created_at), 'dd/MM/yyyy HH:mm')
     : null;
+  const isResponsavelDialogOpen = Boolean(pendingResponsavelAssignment);
+  const pendingResponsavelRow = pendingResponsavelAssignment?.row ?? null;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
@@ -3289,6 +3352,75 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             </div>
         </CardContent>
       </Card>
+      <Dialog
+        open={isResponsavelDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            closeResponsavelDialog();
+          }
+        }}
+      >
+        {pendingResponsavelAssignment ? (
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Atribuir responsável</DialogTitle>
+              <DialogDescription>
+                Esta tarefa está sem responsável. Selecione um responsável para iniciar o apontamento de tempo.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {pendingResponsavelRow ? (
+                <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  <p className="font-medium text-foreground">
+                    {pendingResponsavelRow.nome && pendingResponsavelRow.nome.trim().length > 0
+                      ? pendingResponsavelRow.nome
+                      : 'Tarefa sem título'}
+                  </p>
+                  {pendingResponsavelRow.task_id ? (
+                    <p className="mt-1 text-[11px] text-muted-foreground/80">
+                      ID: {pendingResponsavelRow.task_id}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="space-y-2">
+                <Label htmlFor="responsavel-select">Responsável</Label>
+                <Select
+                  value={selectedResponsavelForTimer ?? undefined}
+                  onValueChange={value => setSelectedResponsavelForTimer(value)}
+                  disabled={activeTeamMembers.length === 0}
+                >
+                  <SelectTrigger id="responsavel-select" className="h-9 text-sm">
+                    <SelectValue placeholder={
+                      activeTeamMembers.length ? 'Selecione um responsável' : 'Nenhum membro disponível'
+                    }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeTeamMembers.map(member => (
+                      <SelectItem key={member.id} value={member.name}>
+                        {member.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={closeResponsavelDialog}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleConfirmResponsavelAssignment}
+                disabled={!selectedResponsavelForTimer}
+                className="flex items-center gap-2"
+              >
+                <Play className="h-4 w-4" /> Iniciar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        ) : null}
+      </Dialog>
       <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
