@@ -226,12 +226,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!time || (time.hours === 0 && time.minutes === 0)) return;
 
     const totalMinutes = time.hours * 60 + time.minutes;
-    const nowIso = new Date().toISOString();
+    const endDate = new Date();
+    const startDate = new Date(endDate.getTime() - totalMinutes * 60 * 1000);
+    const nowIso = endDate.toISOString();
+    const startIso = startDate.toISOString();
     const result = await createTimeLog({
       task_id: taskId,
       tipo_inclusao: 'manual',
-      tempo_minutos: totalMinutes,
-      data_inicio: nowIso,
+      data_inicio: startIso,
       data_fim: nowIso,
     });
 
@@ -273,11 +275,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     const overrides: Record<string, number> = {};
     timeLogs.forEach((log) => {
       if (log.tipo_inclusao === 'manual' && overrides[log.task_id] === undefined) {
-        if (typeof log.tempo_segundos === 'number' && Number.isFinite(log.tempo_segundos)) {
-          overrides[log.task_id] = log.tempo_segundos / 60;
-        } else {
-          overrides[log.task_id] = log.tempo_minutos;
-        }
+        overrides[log.task_id] = log.tempo_trabalhado;
       }
     });
     return overrides;
@@ -701,7 +699,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>
                         {typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
                           ? log.tempo_formatado
-                          : formatMinutes(log.tempo_minutos)}
+                          : formatMinutes(log.tempo_trabalhado)}
                       </TableCell>
                       <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
                       <TableCell>{log.aprovador_id || '-'}</TableCell>
