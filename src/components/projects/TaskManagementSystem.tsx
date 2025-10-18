@@ -576,7 +576,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    window.localStorage.setItem(GROUP_BY_STORAGE_KEY, groupBy);
+    try {
+      window.localStorage.setItem(GROUP_BY_STORAGE_KEY, groupBy);
+    } catch (error) {
+      console.warn('Não foi possível salvar preferências de agrupamento:', error);
+    }
   }, [groupBy]);
 
   useEffect(() => {
@@ -614,7 +618,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    window.sessionStorage.setItem(expandedGroupsStorageKey, JSON.stringify(expandedGroups));
+    try {
+      window.sessionStorage.setItem(expandedGroupsStorageKey, JSON.stringify(expandedGroups));
+    } catch (error) {
+      console.warn('Não foi possível salvar estado de grupos de tarefas:', error);
+    }
   }, [expandedGroups, expandedGroupsStorageKey, groupBy]);
 
   type ActiveTimersUpdater = ActiveTimerRecord | ((prev: ActiveTimerRecord) => ActiveTimerRecord);
@@ -871,7 +879,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         applyActiveTimersUpdate(restoredActive);
       } catch (error) {
         console.error('Erro ao restaurar temporizadores ativos:', error);
-        window.localStorage.removeItem(activeTimersStorageKey);
+        try {
+          window.localStorage.removeItem(activeTimersStorageKey);
+        } catch (error) {
+          console.warn('Não foi possível limpar registros de temporizadores de tarefas:', error);
+        }
         applyActiveTimersUpdate({});
       }
     };
@@ -989,7 +1001,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       density: isCondensedView ? 'condensed' : 'comfortable',
     });
 
-    window.localStorage.setItem(preferencesStorageKey, payload);
+    try {
+      window.localStorage.setItem(preferencesStorageKey, payload);
+    } catch (error) {
+      console.warn('Não foi possível salvar preferências da tabela de tarefas:', error);
+    }
   }, [hiddenColumns, columnOrder, columnWidths, isCondensedView, preferencesStorageKey, isLoadedPreferences]);
 
   // Filtrar status baseado no tipo da TAP
