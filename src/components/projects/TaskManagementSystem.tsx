@@ -950,6 +950,50 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [projectAllocations, projectId, defaultClient]);
 
+  const baseColumns = useMemo<ColumnDefinition[]>(() => ([
+    { key: 'task_id', label: 'ID', width: '80px' },
+    { key: 'nome', label: 'Nome', width: '200px' },
+    { key: 'prioridade', label: 'Prioridade', width: '120px' },
+    { key: 'status', label: 'Status', width: '150px' },
+    { key: 'cliente', label: 'Cliente', width: '150px' },
+    { key: 'responsavel', label: 'Responsável', width: '150px' },
+    { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
+    { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
+    { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
+    { key: 'modulo', label: 'Módulo', width: '150px' },
+    { key: 'area', label: 'Área', width: '150px' },
+    { key: 'categoria', label: 'Categoria', width: '150px' },
+    { key: 'etapa_projeto', label: 'Etapa do Projeto', width: '170px' },
+    { key: 'sub_etapa_projeto', label: 'Sub-Etapa', width: '170px' },
+    { key: 'criticidade', label: 'Criticidade', width: '120px' },
+    { key: 'escopo', label: 'Escopo', width: '150px' },
+    { key: 'cronograma', label: 'Cronograma?', width: '140px' },
+  ]), []);
+
+  const customFieldColumns = useMemo<ColumnDefinition[]>(() => (
+    customFields.map(field => {
+      let width = '180px';
+      if (field.field_type === 'text_long') {
+        width = '240px';
+      } else if (field.field_type === 'checkbox') {
+        width = '140px';
+      }
+
+      return {
+        key: `custom_${field.id}`,
+        label: field.field_name,
+        width,
+        isCustom: true,
+        field,
+      } as ColumnDefinition;
+    })
+  ), [customFields]);
+
+  const allColumns = useMemo<ColumnDefinition[]>(() => ([
+    ...baseColumns,
+    ...customFieldColumns,
+  ]), [baseColumns, customFieldColumns]);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -1386,50 +1430,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       setHasChanges(true);
     }
   }, [defaultClient, defaultStatusName]);
-
-  const baseColumns = useMemo<ColumnDefinition[]>(() => ([
-    { key: 'task_id', label: 'ID', width: '80px' },
-    { key: 'nome', label: 'Nome', width: '200px' },
-    { key: 'prioridade', label: 'Prioridade', width: '120px' },
-    { key: 'status', label: 'Status', width: '150px' },
-    { key: 'cliente', label: 'Cliente', width: '150px' },
-    { key: 'responsavel', label: 'Responsável', width: '150px' },
-    { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
-    { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
-    { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
-    { key: 'modulo', label: 'Módulo', width: '150px' },
-    { key: 'area', label: 'Área', width: '150px' },
-    { key: 'categoria', label: 'Categoria', width: '150px' },
-    { key: 'etapa_projeto', label: 'Etapa do Projeto', width: '170px' },
-    { key: 'sub_etapa_projeto', label: 'Sub-Etapa', width: '170px' },
-    { key: 'criticidade', label: 'Criticidade', width: '120px' },
-    { key: 'escopo', label: 'Escopo', width: '150px' },
-    { key: 'cronograma', label: 'Cronograma?', width: '140px' },
-  ]), []);
-
-  const customFieldColumns = useMemo<ColumnDefinition[]>(() => (
-    customFields.map(field => {
-      let width = '180px';
-      if (field.field_type === 'text_long') {
-        width = '240px';
-      } else if (field.field_type === 'checkbox') {
-        width = '140px';
-      }
-
-      return {
-        key: `custom_${field.id}`,
-        label: field.field_name,
-        width,
-        isCustom: true,
-        field,
-      } as ColumnDefinition;
-    })
-  ), [customFields]);
-
-  const allColumns = useMemo<ColumnDefinition[]>(() => ([
-    ...baseColumns,
-    ...customFieldColumns,
-  ]), [baseColumns, customFieldColumns]);
 
   useEffect(() => {
     const columnKeys = allColumns.map(column => column.key);
