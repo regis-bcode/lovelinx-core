@@ -32,7 +32,16 @@ interface TimeManagementProps {
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
   const { tasks, loading: tasksLoading, updateTask } = useTasks(projectId);
-  const { timeLogs, createTimeLog, approveTimeLog, getTaskTotalTime, getProjectTotalTime, loading: logsLoading } = useTimeLogs(projectId);
+  const {
+    timeLogs,
+    createTimeLog,
+    approveTimeLog,
+    getTaskTotalTime,
+    getProjectTotalTime,
+    startTimerLog,
+    stopTimerLog,
+    loading: logsLoading,
+  } = useTimeLogs(projectId);
   const { isGestor, isAdmin } = useUserRoles();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
@@ -141,14 +150,39 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return () => clearInterval(interval);
   }, [activeTimers]);
 
-  const startTimer = (taskId: string) => {
+  const startTimer = async (taskId: string) => {
+    if (activeTimers[taskId]) {
+      return;
+    }
+
+    const tentativeStart = Date.now();
+    const startedLog = await startTimerLog(taskId, {
+      tipoInclusao: 'automatico',
+      startedAt: new Date(tentativeStart),
+      observacoes: 'Registro automático pela Gestão de Tempo',
+    });
+
+    if (!startedLog) {
+      return;
+    }
+
+    const normalizedStart =
+      typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
+        ? new Date(startedLog.data_inicio).getTime()
+        : tentativeStart;
+
     applyActiveTimersUpdate(prev => {
       if (prev[taskId]) {
         return prev;
       }
-      return { ...prev, [taskId]: Date.now() };
+      return { ...prev, [taskId]: normalizedStart };
     });
-    setElapsedSeconds(prev => ({ ...prev, [taskId]: 0 }));
+
+    setElapsedSeconds(prev => ({
+      ...prev,
+      [taskId]: Math.max(0, Math.floor((Date.now() - normalizedStart) / 1000)),
+    }));
+
     setManualOverrides(prev => {
       if (!(taskId in prev)) return prev;
       const updated = { ...prev };
@@ -158,22 +192,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const stopTimer = async (taskId: string) => {
-    const startTimestamp = activeTimers[taskId];
-    if (!startTimestamp) return;
+    if (!activeTimers[taskId]) {
+      return;
+    }
 
-    const totalMilliseconds = Math.max(0, Date.now() - startTimestamp);
-    const elapsedSeconds = Math.max(1, Math.round(totalMilliseconds / 1000));
-    const elapsedMinutes = Number((elapsedSeconds / 60).toFixed(4));
-    if (elapsedSeconds > 0) {
-      await createTimeLog({
-        task_id: taskId,
-        tipo_inclusao: 'automatico',
-        tempo_minutos: elapsedMinutes,
-        tempo_segundos: elapsedSeconds,
-        tempo_formatado: formatTime(elapsedSeconds),
-        data_inicio: new Date(startTimestamp).toISOString(),
-        data_fim: new Date().toISOString(),
-      });
+    const result = await stopTimerLog(taskId);
+
+    if (!result) {
+      return;
     }
 
     applyActiveTimersUpdate(prev => {
@@ -184,7 +210,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       delete updated[taskId];
       return updated;
     });
+
     setElapsedSeconds(prev => {
+      if (!(taskId in prev)) {
+        return prev;
+      }
       const updated = { ...prev };
       delete updated[taskId];
       return updated;
