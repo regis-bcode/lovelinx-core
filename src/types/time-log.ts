@@ -1,4 +1,4 @@
-export type TimeEntryType = 'automatico' | 'manual';
+export type TimeEntryType = 'automatico' | 'manual' | 'timer';
 export type ApprovalStatus = 'pendente' | 'aprovado' | 'reprovado';
 export type AppRole = 'admin' | 'gestor' | 'usuario';
 
@@ -9,18 +9,14 @@ export interface TimeLog {
   user_id: string;
   tipo_inclusao: TimeEntryType;
   tempo_minutos: number;
-  tempo_segundos?: number;
+  tempo_segundos: number;
   tempo_formatado?: string | null;
   data_inicio?: string;
   data_fim?: string;
   status_aprovacao: ApprovalStatus;
   aprovador_id?: string;
-  aprovador_nome?: string | null;
-  aprovacao_data?: string | null;
-  aprovacao_hora?: string | null;
-  data_aprovacao?: string;
+  data_aprovacao?: string | null;
   observacoes?: string;
-  justificativa_reprovacao?: string | null;
   created_at: string;
   updated_at: string;
 }

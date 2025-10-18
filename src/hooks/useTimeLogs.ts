@@ -1,11 +1,28 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
+type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
+type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
+
+const TIME_LOG_COLUMNS = new Set([
+  'task_id',
+  'project_id',
+  'user_id',
+  'tipo_inclusao',
+  'tempo_segundos',
+  'data_inicio',
+  'data_fim',
+  'status_aprovacao',
+  'aprovador_id',
+  'data_aprovacao',
+  'observacoes',
+  'created_at',
+  'updated_at',
+]);
 
 const parseNumericValue = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -24,7 +41,7 @@ const parseNumericValue = (value: unknown, fallback = 0): number => {
   return fallback;
 };
 
-const formatDurationFromSeconds = (totalSeconds: number): string => {
+export function formatHMS(totalSeconds: number): string {
   const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.round(totalSeconds)) : 0;
   const hours = Math.floor(safeSeconds / 3600);
   const minutes = Math.floor((safeSeconds % 3600) / 60);
@@ -33,88 +50,47 @@ const formatDurationFromSeconds = (totalSeconds: number): string => {
   const pad = (value: number) => value.toString().padStart(2, '0');
 
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-};
+}
 
-const removeApproverNameField = (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
-  const cloned = { ...payload } as Record<string, unknown>;
-  delete cloned.aprovador_nome;
-  return cloned as Partial<TimeLogFormData>;
-};
-
-const omitApprovalFragments = (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
-  const cloned = { ...payload } as Record<string, unknown>;
-  delete cloned.aprovacao_data;
-  delete cloned.aprovacao_hora;
-  return cloned as Partial<TimeLogFormData>;
-};
-
-const isMissingApproverNameColumnError = (error: unknown): error is PostgrestError => {
-  if (!error || typeof error !== 'object') {
-    return false;
+function sanitizeTimeLogPayload(obj: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && TIME_LOG_COLUMNS.has(key)) {
+      out[key] = value;
+    }
   }
-
-  const typedError = error as PostgrestError;
-  return (
-    typedError.code === 'PGRST204' &&
-    typeof typedError.message === 'string' &&
-    typedError.message.includes("aprovador_nome")
-  );
-};
+  return out;
+}
 
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
-  const rawMinutes = parseNumericValue(log.tempo_minutos, 0);
   const rawSeconds = parseNumericValue(log.tempo_segundos, 0);
-
-  const derivedSecondsFromMinutes = Math.max(0, Math.round(rawMinutes * 60));
-  const safeSecondsCandidate = rawSeconds > 0 ? rawSeconds : derivedSecondsFromMinutes;
-  const safeSeconds = Math.max(0, Math.round(safeSecondsCandidate));
-  const safeMinutes = safeSeconds / 60;
-
-  const formattedDuration =
-    typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
-      ? log.tempo_formatado
-      : formatDurationFromSeconds(safeSeconds);
+  const safeSeconds = Math.max(0, Math.round(rawSeconds));
+  const safeMinutes = Math.max(0, parseNumericValue(log.tempo_minutos, Math.floor(safeSeconds / 60)));
 
   const approvalIso =
     typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
       ? log.data_aprovacao
       : null;
 
-  let approvalDatePart: string | null = null;
-  let approvalTimePart: string | null = null;
-
-  if (approvalIso) {
-    const [datePart, timePartWithMs] = approvalIso.split('T');
-    approvalDatePart = datePart ?? null;
-    approvalTimePart = timePartWithMs ? timePartWithMs.split('.')[0] ?? null : null;
-  }
-
   return {
     ...log,
     tempo_minutos: safeMinutes,
     tempo_segundos: safeSeconds,
-    tempo_formatado: formattedDuration,
+    tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
-    aprovacao_data: approvalDatePart,
-    aprovacao_hora: approvalTimePart,
   } satisfies TimeLog;
 };
 
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [supportsApproverNameColumn, setSupportsApproverNameColumn] = useState(true);
   const { toast } = useToast();
 
   const buildSupabasePayload = useCallback(
-    (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
-      if (supportsApproverNameColumn) {
-        return omitApprovalFragments(payload);
-      }
-
-      return omitApprovalFragments(removeApproverNameField(payload));
+    (payload: Partial<TimeLogFormData>): Record<string, unknown> => {
+      return sanitizeTimeLogPayload(payload as Record<string, unknown>);
     },
-    [supportsApproverNameColumn],
+    [],
   );
 
   useEffect(() => {
@@ -214,34 +190,23 @@ export function useTimeLogs(projectId?: string) {
         project_id: projectId,
         status_aprovacao: logData.status_aprovacao ?? 'pendente',
         aprovador_id: null,
-        aprovador_nome: null,
-        justificativa_reprovacao: null,
         data_aprovacao: null,
       };
 
-      let response = await supabase
+      const { data, error } = await supabase
         .from('time_logs')
-        .insert(buildSupabasePayload(payload) as any)
+        .insert(buildSupabasePayload(payload) as TimeLogInsert)
         .select()
         .single();
 
-      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
-        setSupportsApproverNameColumn(false);
-        response = await supabase
-          .from('time_logs')
-          .insert(omitApprovalFragments(removeApproverNameField(payload)) as any)
-          .select()
-          .single();
-      }
-
-      if (response.error) throw response.error;
+      if (error) throw error;
 
       toast({
         title: 'Sucesso',
         description: 'Tempo registrado com sucesso',
       });
 
-      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
 
       setTimeLogs(prev => {
         const next = prev.filter(log => log.id !== normalized.id);
@@ -264,31 +229,21 @@ export function useTimeLogs(projectId?: string) {
     try {
       const supabaseUpdates = buildSupabasePayload(updates);
 
-      let response = await supabase
+      const { data, error } = await supabase
         .from('time_logs')
-        .update(supabaseUpdates as any)
+        .update(supabaseUpdates as TimeLogUpdate)
         .eq('id', id)
         .select()
         .single();
 
-      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
-        setSupportsApproverNameColumn(false);
-        response = await supabase
-          .from('time_logs')
-          .update(omitApprovalFragments(removeApproverNameField(updates)) as any)
-          .eq('id', id)
-          .select()
-          .single();
-      }
-
-      if (response.error) throw response.error;
+      if (error) throw error;
 
       toast({
         title: 'Sucesso',
         description: 'Log de tempo atualizado',
       });
 
-      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
 
       setTimeLogs(prev => prev.map(log => (log.id === normalized.id ? normalized : log)));
 
@@ -307,7 +262,7 @@ export function useTimeLogs(projectId?: string) {
   const approveTimeLog = async (
     id: string,
     status: ApprovalStatus,
-    options?: { justificativa?: string | null },
+    _options?: { justificativa?: string | null },
   ): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -321,13 +276,11 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
-      const now = new Date();
-      const isoString = now.toISOString();
-      const [datePart, timePartWithMs] = isoString.split('T');
-      const approvalTime = timePartWithMs ? timePartWithMs.split('.')[0] : null;
-      const trimmedJustificativa = options?.justificativa?.trim() ?? null;
+      const isoString = new Date().toISOString();
 
-      if (status === 'reprovado' && (!trimmedJustificativa || trimmedJustificativa.length === 0)) {
+      const rejectionReason = _options?.justificativa?.trim() ?? null;
+
+      if (status === 'reprovado' && (!rejectionReason || rejectionReason.length === 0)) {
         toast({
           title: 'Justificativa obrigatória',
           description: 'Informe uma justificativa para reprovar o tempo registrado.',
@@ -339,55 +292,31 @@ export function useTimeLogs(projectId?: string) {
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
         aprovador_id: user.id,
-        aprovador_nome: (user.user_metadata as any)?.full_name ?? user.email ?? user.id,
-        justificativa_reprovacao: status === 'reprovado' ? trimmedJustificativa : null,
+        data_aprovacao: status === 'aprovado' ? isoString : null,
+        observacoes: status === 'reprovado' ? rejectionReason : undefined,
       };
-
-      if (status === 'aprovado') {
-        approvalUpdates.data_aprovacao = isoString;
-        approvalUpdates.aprovacao_data = datePart ?? null;
-        approvalUpdates.aprovacao_hora = approvalTime;
-      } else {
-        approvalUpdates.data_aprovacao = null;
-        approvalUpdates.aprovacao_data = null;
-        approvalUpdates.aprovacao_hora = null;
-      }
 
       const supabaseUpdates = buildSupabasePayload(approvalUpdates);
 
-      let { error } = await supabase
+      const { error } = await supabase
         .from('time_logs')
-        .update(supabaseUpdates as any)
+        .update(supabaseUpdates as TimeLogUpdate)
         .eq('id', id);
-
-      if (error && isMissingApproverNameColumnError(error) && supportsApproverNameColumn) {
-        setSupportsApproverNameColumn(false);
-        const fallback = await supabase
-          .from('time_logs')
-          .update(omitApprovalFragments(removeApproverNameField(approvalUpdates)) as any)
-          .eq('id', id);
-        error = fallback.error;
-      }
 
       if (error) throw error;
 
       setTimeLogs(prev =>
-        prev.map(log => {
-          if (log.id !== id) {
-            return log;
-          }
-
-          return {
-            ...log,
-            status_aprovacao: status,
-            aprovador_id: user.id,
-            aprovador_nome: (user.user_metadata as any)?.full_name ?? user.email ?? user.id,
-            justificativa_reprovacao: status === 'reprovado' ? trimmedJustificativa : null,
-            data_aprovacao: status === 'aprovado' ? isoString : null,
-            aprovacao_data: status === 'aprovado' ? datePart ?? null : null,
-            aprovacao_hora: status === 'aprovado' ? approvalTime : null,
-          } satisfies TimeLog;
-        }),
+        prev.map(log =>
+          log.id === id
+            ? {
+                ...log,
+                status_aprovacao: status,
+                aprovador_id: user.id,
+                data_aprovacao: status === 'aprovado' ? isoString : null,
+                observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
+              }
+            : log,
+        ),
       );
 
       toast({
@@ -464,38 +393,25 @@ export function useTimeLogs(projectId?: string) {
         task_id: taskId,
         project_id: projectId,
         user_id: user.id,
-        tipo_inclusao: options?.tipoInclusao ?? 'automatico',
-        tempo_minutos: 0,
+        tipo_inclusao: options?.tipoInclusao ?? 'timer',
         tempo_segundos: 0,
-        tempo_formatado: '00:00:00',
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',
         observacoes: options?.observacoes ?? null,
         aprovador_id: null,
-        aprovador_nome: null,
         data_aprovacao: null,
-        justificativa_reprovacao: null,
       };
 
-      let response = await supabase
+      const { data, error } = await supabase
         .from('time_logs')
-        .insert(buildSupabasePayload(payload) as any)
+        .insert(buildSupabasePayload(payload) as TimeLogInsert)
         .select()
         .single();
 
-      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
-        setSupportsApproverNameColumn(false);
-        response = await supabase
-          .from('time_logs')
-          .insert(omitApprovalFragments(removeApproverNameField(payload)) as any)
-          .select()
-          .single();
-      }
+      if (error) throw error;
 
-      if (response.error) throw response.error;
-
-      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
 
       setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
@@ -554,26 +470,21 @@ export function useTimeLogs(projectId?: string) {
       const previousSecondsRaw = parseNumericValue(openLog.tempo_segundos, 0);
       const previousMinutesRaw = parseNumericValue(openLog.tempo_minutos, 0);
       const previousSeconds = Math.max(0, Math.round(previousSecondsRaw));
-      const previousMinutes = Math.max(0, previousMinutesRaw);
-      const previousTotalSeconds =
-        previousSeconds > 0 ? previousSeconds : Math.round(previousMinutes * 60);
+      const previousMinutes = Math.max(0, Math.round(previousMinutesRaw));
+      const previousTotalSeconds = previousSeconds > 0 ? previousSeconds : previousMinutes * 60;
 
       const totalSeconds = previousTotalSeconds + deltaSeconds;
-      const totalMinutes = Number(((totalSeconds) / 60).toFixed(4));
-      const formattedDuration = formatDurationFromSeconds(totalSeconds);
       const isoNow = new Date(nowMs).toISOString();
 
       const updatePayload = {
         data_fim: isoNow,
-        tempo_minutos: Number.isFinite(totalMinutes) ? totalMinutes : 0,
         tempo_segundos: Math.max(0, Math.round(totalSeconds)),
-        tempo_formatado: formattedDuration,
         updated_at: isoNow,
       };
 
       const { data, error: updateError } = await supabase
         .from('time_logs')
-        .update(updatePayload as any)
+        .update(buildSupabasePayload(updatePayload) as TimeLogUpdate)
         .eq('id', openLog.id)
         .select()
         .single();
@@ -719,4 +630,32 @@ export function useTimeLogs(projectId?: string) {
     getResponsibleTotalTime,
     refreshTimeLogs: loadTimeLogs,
   };
+}
+
+export async function getTaskTotalSeconds({
+  taskId,
+  userId,
+}: {
+  taskId: string;
+  userId: string;
+}): Promise<number> {
+  const { data, error } = await supabase
+    .rpc('sum_time_logs_seconds', { p_task_id: taskId, p_user_id: userId });
+
+  if (error) throw error;
+  return (data ?? 0) as number;
+}
+
+export async function getTaskTotalHMS({
+  taskId,
+  userId,
+}: {
+  taskId: string;
+  userId: string;
+}): Promise<string> {
+  const { data, error } = await supabase
+    .rpc('sum_time_logs_hms', { p_task_id: taskId, p_user_id: userId });
+
+  if (error) throw error;
+  return (data ?? '00:00:00') as string;
 }
