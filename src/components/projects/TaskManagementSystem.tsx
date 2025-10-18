@@ -290,7 +290,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
-  const { timeLogs, getTaskTotalTime, getResponsibleTotalTime, createTimeLog, refreshTimeLogs } = useTimeLogs(projectId);
+  const { timeLogs, getTaskTotalTime, getResponsibleTotalTime, startTimerLog, stopTimerLog } = useTimeLogs(projectId);
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
@@ -1539,7 +1539,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, []);
 
   const startTimer = useCallback(
-    (row: TaskRow) => {
+    async (row: TaskRow) => {
       if (!row.id) {
         toast({
           title: 'Atenção',
@@ -1549,19 +1549,35 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
+      const tentativeStart = Date.now();
+      const startedLog = await startTimerLog(row.id, {
+        tipoInclusao: 'automatico',
+        startedAt: new Date(tentativeStart),
+        observacoes: 'Registro automático pela Gestão de Tarefas',
+      });
+
+      if (!startedLog) {
+        return;
+      }
+
+      const normalizedStart =
+        typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
+          ? new Date(startedLog.data_inicio).getTime()
+          : tentativeStart;
+
       applyActiveTimersUpdate(prev => {
         if (prev[row.id!]) {
           return prev;
         }
-        return { ...prev, [row.id!]: Date.now() };
+        return { ...prev, [row.id!]: normalizedStart };
       });
     },
-    [toast, applyActiveTimersUpdate],
+    [toast, applyActiveTimersUpdate, startTimerLog],
   );
 
   const handleStartTimer = (row: TaskRow, rowIndex: number) => {
     if (!row.id) {
-      startTimer(row);
+      void startTimer(row);
       return;
     }
 
@@ -1571,7 +1587,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    startTimer(row);
+    void startTimer(row);
   };
 
   const handleConfirmResponsavelAssignment = async () => {
@@ -1612,7 +1628,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
       }
 
-      startTimer({ ...row, responsavel: trimmedResponsavel });
+      await startTimer({ ...row, responsavel: trimmedResponsavel });
       closeResponsavelDialog();
     } catch (error) {
       console.error('Erro ao associar responsável antes de iniciar o cronômetro:', error);
@@ -1642,38 +1658,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    const start = activeTimers[row.id];
-    if (!start) {
+    if (!activeTimers[row.id]) {
       return;
     }
-
-    const now = Date.now();
-    const totalMilliseconds = Math.max(0, now - start);
-
-    if (totalMilliseconds <= 0) {
-      toast({
-        title: 'Sem tempo registrado',
-        description: 'Inicie o cronômetro para registrar um novo apontamento.',
-      });
-      return;
-    }
-
-    const elapsedSeconds = Math.max(1, Math.round(totalMilliseconds / 1000));
-    const elapsedMinutes = Number((elapsedSeconds / 60).toFixed(4));
-    const formattedDuration = formatDuration(elapsedSeconds);
-    const startedAt = start;
-
-    const payload = {
-      task_id: row.id,
-      tempo_minutos: elapsedMinutes,
-      tempo_segundos: elapsedSeconds,
-      tempo_formatado: formattedDuration,
-      tipo_inclusao: 'automatico' as const,
-      status_aprovacao: 'pendente' as const,
-      data_inicio: new Date(startedAt).toISOString(),
-      data_fim: new Date(now).toISOString(),
-      observacoes: 'Registro automático pela Gestão de Tarefas',
-    };
 
     const removeActiveTimer = () => {
       applyActiveTimersUpdate(prev => {
@@ -1686,11 +1673,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       });
     };
 
-    const result = await createTimeLog(payload);
+    const result = await stopTimerLog(row.id);
     removeActiveTimer();
 
     if (result) {
-      await refreshTimeLogs();
       if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
         updateCell(options.rowIndex, 'status', options.statusAfterStop);
       }
@@ -1700,10 +1686,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
       updateCell(options.rowIndex, 'status', options.statusAfterStop);
     }
-    toast({
-      title: 'Tempo não registrado',
-      description: 'O cronômetro foi encerrado, mas o registro não pôde ser salvo.',
-    });
     return false;
   };
 

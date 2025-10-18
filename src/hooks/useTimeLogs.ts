@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { TimeLog, TimeLogFormData, ApprovalStatus } from '@/types/time-log';
+import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -34,6 +34,13 @@ const formatDurationFromSeconds = (totalSeconds: number): string => {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 };
 
+const omitApprovalFragments = <T extends Record<string, unknown>>(payload: T): T => {
+  const cloned = { ...payload } as Record<string, unknown>;
+  delete cloned.aprovacao_data;
+  delete cloned.aprovacao_hora;
+  return cloned as T;
+};
+
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   const rawMinutes = parseNumericValue(log.tempo_minutos, 0);
   const rawSeconds = parseNumericValue(log.tempo_segundos, 0);
@@ -48,11 +55,28 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
       ? log.tempo_formatado
       : formatDurationFromSeconds(safeSeconds);
 
+  const approvalIso =
+    typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
+      ? log.data_aprovacao
+      : null;
+
+  let approvalDatePart: string | null = null;
+  let approvalTimePart: string | null = null;
+
+  if (approvalIso) {
+    const [datePart, timePartWithMs] = approvalIso.split('T');
+    approvalDatePart = datePart ?? null;
+    approvalTimePart = timePartWithMs ? timePartWithMs.split('.')[0] ?? null : null;
+  }
+
   return {
     ...log,
     tempo_minutos: safeMinutes,
     tempo_segundos: safeSeconds,
     tempo_formatado: formattedDuration,
+    data_aprovacao: approvalIso,
+    aprovacao_data: approvalDatePart,
+    aprovacao_hora: approvalTimePart,
   } satisfies TimeLog;
 };
 
@@ -159,14 +183,15 @@ export function useTimeLogs(projectId?: string) {
         status_aprovacao: logData.status_aprovacao ?? 'pendente',
         aprovador_id: null,
         aprovador_nome: null,
-        aprovacao_data: null,
-        aprovacao_hora: null,
         justificativa_reprovacao: null,
+        data_aprovacao: null,
       };
+
+      const supabasePayload = omitApprovalFragments(payload);
 
       const { data, error } = await supabase
         .from('time_logs')
-        .insert(payload as any)
+        .insert(supabasePayload as any)
         .select()
         .single();
 
@@ -198,9 +223,11 @@ export function useTimeLogs(projectId?: string) {
 
   const updateTimeLog = async (id: string, updates: Partial<TimeLogFormData>): Promise<TimeLog | null> => {
     try {
+      const supabaseUpdates = omitApprovalFragments(updates);
+
       const { data, error } = await supabase
         .from('time_logs')
-        .update(updates)
+        .update(supabaseUpdates as any)
         .eq('id', id)
         .select()
         .single();
@@ -277,9 +304,11 @@ export function useTimeLogs(projectId?: string) {
         approvalUpdates.aprovacao_hora = null;
       }
 
+      const supabaseUpdates = omitApprovalFragments(approvalUpdates);
+
       const { error } = await supabase
         .from('time_logs')
-        .update(approvalUpdates as any)
+        .update(supabaseUpdates as any)
         .eq('id', id);
 
       if (error) throw error;
@@ -317,6 +346,199 @@ export function useTimeLogs(projectId?: string) {
         variant: 'destructive',
       });
       return false;
+    }
+  };
+
+  const startTimerLog = async (
+    taskId: string,
+    options?: {
+      tipoInclusao?: TimeEntryType;
+      startedAt?: Date;
+      observacoes?: string | null;
+    },
+  ): Promise<TimeLog | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: 'Erro',
+          description: 'Você precisa estar autenticado',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      if (!projectId) {
+        toast({
+          title: 'Projeto não selecionado',
+          description: 'Não foi possível identificar o projeto para iniciar o registro de tempo.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      const { data: existingLog, error: selectError } = await supabase
+        .from('time_logs')
+        .select('*')
+        .eq('task_id', taskId)
+        .eq('user_id', user.id)
+        .is('data_fim', null)
+        .order('data_inicio', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (selectError) throw selectError;
+
+      if (existingLog) {
+        const normalizedExisting = normalizeTimeLogRecord(existingLog as TimeLogRow);
+        setTimeLogs(prev => {
+          const next = prev.filter(log => log.id !== normalizedExisting.id);
+          return [normalizedExisting, ...next];
+        });
+        return normalizedExisting;
+      }
+
+      const startedAt = options?.startedAt ?? new Date();
+      const isoStart = startedAt.toISOString();
+
+      const payload: Partial<TimeLogFormData> = {
+        task_id: taskId,
+        project_id: projectId,
+        user_id: user.id,
+        tipo_inclusao: options?.tipoInclusao ?? 'automatico',
+        tempo_minutos: 0,
+        tempo_segundos: 0,
+        tempo_formatado: '00:00:00',
+        data_inicio: isoStart,
+        data_fim: null,
+        status_aprovacao: 'pendente',
+        observacoes: options?.observacoes ?? null,
+        aprovador_id: null,
+        aprovador_nome: null,
+        data_aprovacao: null,
+        justificativa_reprovacao: null,
+      };
+
+      const supabasePayload = omitApprovalFragments(payload);
+
+      const { data, error } = await supabase
+        .from('time_logs')
+        .insert(supabasePayload as any)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+
+      setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
+
+      return normalized;
+    } catch (error) {
+      console.error('Erro ao iniciar log de tempo:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível iniciar o registro de tempo.',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+
+  const stopTimerLog = async (taskId: string): Promise<TimeLog | null> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        toast({
+          title: 'Erro',
+          description: 'Você precisa estar autenticado',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      const { data: openLog, error: selectError } = await supabase
+        .from('time_logs')
+        .select('*')
+        .eq('task_id', taskId)
+        .eq('user_id', user.id)
+        .is('data_fim', null)
+        .order('data_inicio', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (selectError) throw selectError;
+
+      if (!openLog) {
+        toast({
+          title: 'Cronômetro não encontrado',
+          description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
+        });
+        return null;
+      }
+
+      const startTimestamp =
+        typeof openLog.data_inicio === 'string' && openLog.data_inicio
+          ? new Date(openLog.data_inicio).getTime()
+          : Date.now();
+      const nowMs = Date.now();
+      const deltaSeconds = Math.max(0, Math.ceil((nowMs - startTimestamp) / 1000));
+
+      const previousSecondsRaw = parseNumericValue(openLog.tempo_segundos, 0);
+      const previousMinutesRaw = parseNumericValue(openLog.tempo_minutos, 0);
+      const previousSeconds = Math.max(0, Math.round(previousSecondsRaw));
+      const previousMinutes = Math.max(0, previousMinutesRaw);
+      const previousTotalSeconds =
+        previousSeconds > 0 ? previousSeconds : Math.round(previousMinutes * 60);
+
+      const totalSeconds = previousTotalSeconds + deltaSeconds;
+      const totalMinutes = Number(((totalSeconds) / 60).toFixed(4));
+      const formattedDuration = formatDurationFromSeconds(totalSeconds);
+      const isoNow = new Date(nowMs).toISOString();
+
+      const updatePayload = {
+        data_fim: isoNow,
+        tempo_minutos: Number.isFinite(totalMinutes) ? totalMinutes : 0,
+        tempo_segundos: Math.max(0, Math.round(totalSeconds)),
+        tempo_formatado: formattedDuration,
+        updated_at: isoNow,
+      };
+
+      const { data, error: updateError } = await supabase
+        .from('time_logs')
+        .update(updatePayload as any)
+        .eq('id', openLog.id)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+
+      setTimeLogs(prev => {
+        const hasLog = prev.some(log => log.id === normalized.id);
+        if (hasLog) {
+          return prev.map(log => (log.id === normalized.id ? normalized : log));
+        }
+        return [normalized, ...prev];
+      });
+
+      toast({
+        title: 'Sucesso',
+        description: 'Tempo registrado com sucesso',
+      });
+
+      return normalized;
+    } catch (error) {
+      console.error('Erro ao finalizar log de tempo:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível finalizar o registro de tempo.',
+        variant: 'destructive',
+      });
+      return null;
     }
   };
 
@@ -424,6 +646,8 @@ export function useTimeLogs(projectId?: string) {
     createTimeLog,
     updateTimeLog,
     approveTimeLog,
+    startTimerLog,
+    stopTimerLog,
     deleteTimeLog,
     getTaskTotalTime,
     getProjectTotalTime,
