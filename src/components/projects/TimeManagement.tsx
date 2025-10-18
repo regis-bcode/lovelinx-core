@@ -228,9 +228,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const formatMinutes = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
+    if (!Number.isFinite(minutes)) {
+      return '0h 0m 0s';
+    }
+
+    const totalSeconds = Math.max(0, Math.round(minutes * 60));
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hours}h ${mins}m ${secs}s`;
   };
 
   const manualOverridesFromLogs = useMemo(() => {
