@@ -16,6 +16,8 @@ export interface Gap {
   plano_acao?: string | null;
   responsavel?: string | null;
   data_prometida?: string | null;
+  data_prevista_solucao?: string | null;
+  data_realizada_solucao?: string | null;
   status?: string | null;
   necessita_aprovacao?: boolean | null;
   decisao?: string | null;
@@ -23,6 +25,8 @@ export interface Gap {
   data_aprovacao?: string | null;
   anexos?: string[] | null;
   observacoes?: string | null;
+  percentual_previsto?: number | null;
+  percentual_planejado?: number | null;
   created_at: string;
   updated_at: string;
   impacto_financeiro_descricao?: string | null;
