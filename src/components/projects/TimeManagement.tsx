@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { Clock, Plus, Check, X, Loader2 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
-import { useTimeLogs } from '@/hooks/useTimeLogs';
+import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { Task } from '@/types/task';
@@ -157,7 +157,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     const tentativeStart = Date.now();
     const startedLog = await startTimerLog(taskId, {
-      tipoInclusao: 'automatico',
+      tipoInclusao: 'timer',
       startedAt: new Date(tentativeStart),
       observacoes: 'Registro automático pela Gestão de Tempo',
     });
@@ -227,12 +227,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     const totalMinutes = time.hours * 60 + time.minutes;
     const totalSeconds = totalMinutes * 60;
+    const nowIso = new Date().toISOString();
     const result = await createTimeLog({
       task_id: taskId,
       tipo_inclusao: 'manual',
-      tempo_minutos: totalMinutes,
       tempo_segundos: totalSeconds,
-      tempo_formatado: formatTime(totalSeconds),
+      data_inicio: nowIso,
+      data_fim: nowIso,
     });
 
     if (result) {
@@ -257,10 +258,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const formatTime = (seconds: number): string => {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return formatHMS(Math.max(0, Math.round(seconds)));
   };
 
   const formatMinutes = (minutes: number): string => {
@@ -269,7 +267,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     const totalSeconds = Math.max(0, Math.round(minutes * 60));
-    return formatTime(totalSeconds);
+    return formatHMS(totalSeconds);
   };
 
   const manualOverridesFromLogs = useMemo(() => {
@@ -365,7 +363,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return '-';
     }
 
-    const parsed = new Date(`${value}T00:00:00`);
+    const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
       return '-';
     }
@@ -378,12 +376,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return '-';
     }
 
-    const [hours, minutes] = value.split(':');
-    if (!hours || !minutes) {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
       return '-';
     }
 
-    return `${hours}:${minutes}`;
+    return format(parsed, 'HH:mm');
   };
 
   const totalProjectTime = getProjectTotalTime();
@@ -682,7 +680,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Aprovador</TableHead>
                 <TableHead>Data da Aprovação</TableHead>
                 <TableHead>Hora da Aprovação</TableHead>
-                <TableHead>Justificativa</TableHead>
+                <TableHead>Observações</TableHead>
                 {isGestorUser && <TableHead>Ações</TableHead>}
               </TableRow>
             </TableHeader>
@@ -707,20 +705,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           : formatMinutes(log.tempo_minutos)}
                       </TableCell>
                       <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
-                      <TableCell>{log.aprovador_nome || '-'}</TableCell>
+                      <TableCell>{log.aprovador_id || '-'}</TableCell>
                       <TableCell>
                         {log.status_aprovacao === 'aprovado'
-                          ? formatApprovalDate(log.aprovacao_data)
+                          ? formatApprovalDate(log.data_aprovacao)
                           : '-'}
                       </TableCell>
                       <TableCell>
                         {log.status_aprovacao === 'aprovado'
-                          ? formatApprovalTime(log.aprovacao_hora)
+                          ? formatApprovalTime(log.data_aprovacao)
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        {log.status_aprovacao === 'reprovado' && log.justificativa_reprovacao ? (
-                          <span className="block max-w-[220px] break-words text-xs">{log.justificativa_reprovacao}</span>
+                        {log.observacoes ? (
+                          <span className="block max-w-[220px] break-words text-xs">{log.observacoes}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}

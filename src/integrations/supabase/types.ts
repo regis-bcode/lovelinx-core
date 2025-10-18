@@ -1376,21 +1376,16 @@ export type Database = {
       }
       time_logs: {
         Row: {
-          aprovacao_data: string | null
-          aprovacao_hora: string | null
-          aprovador_nome: string | null
           aprovador_id: string | null
           created_at: string
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
           id: string
-          justificativa_reprovacao: string | null
           observacoes: string | null
           project_id: string
           status_aprovacao: Database["public"]["Enums"]["approval_status"]
           task_id: string
-          tempo_formatado: string | null
           tempo_minutos: number
           tempo_segundos: number
           tipo_inclusao: Database["public"]["Enums"]["time_entry_type"]
@@ -1398,44 +1393,32 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          aprovacao_data?: string | null
-          aprovacao_hora?: string | null
-          aprovador_nome?: string | null
           aprovador_id?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           id?: string
-          justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id: string
-          tempo_formatado?: string | null
-          tempo_minutos?: number
           tempo_segundos?: number
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
           user_id: string
         }
         Update: {
-          aprovacao_data?: string | null
-          aprovacao_hora?: string | null
-          aprovador_nome?: string | null
           aprovador_id?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
           id?: string
-          justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id?: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id?: string
-          tempo_formatado?: string | null
-          tempo_minutos?: number
           tempo_segundos?: number
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
