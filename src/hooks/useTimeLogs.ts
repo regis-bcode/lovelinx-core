@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
@@ -34,11 +35,30 @@ const formatDurationFromSeconds = (totalSeconds: number): string => {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 };
 
-const omitApprovalFragments = <T extends Record<string, unknown>>(payload: T): T => {
+const removeApproverNameField = (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
+  const cloned = { ...payload } as Record<string, unknown>;
+  delete cloned.aprovador_nome;
+  return cloned as Partial<TimeLogFormData>;
+};
+
+const omitApprovalFragments = (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
   const cloned = { ...payload } as Record<string, unknown>;
   delete cloned.aprovacao_data;
   delete cloned.aprovacao_hora;
-  return cloned as T;
+  return cloned as Partial<TimeLogFormData>;
+};
+
+const isMissingApproverNameColumnError = (error: unknown): error is PostgrestError => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const typedError = error as PostgrestError;
+  return (
+    typedError.code === 'PGRST204' &&
+    typeof typedError.message === 'string' &&
+    typedError.message.includes("aprovador_nome")
+  );
 };
 
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
@@ -83,7 +103,19 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [supportsApproverNameColumn, setSupportsApproverNameColumn] = useState(true);
   const { toast } = useToast();
+
+  const buildSupabasePayload = useCallback(
+    (payload: Partial<TimeLogFormData>): Partial<TimeLogFormData> => {
+      if (supportsApproverNameColumn) {
+        return omitApprovalFragments(payload);
+      }
+
+      return omitApprovalFragments(removeApproverNameField(payload));
+    },
+    [supportsApproverNameColumn],
+  );
 
   useEffect(() => {
     if (!projectId) {
@@ -187,22 +219,29 @@ export function useTimeLogs(projectId?: string) {
         data_aprovacao: null,
       };
 
-      const supabasePayload = omitApprovalFragments(payload);
-
-      const { data, error } = await supabase
+      let response = await supabase
         .from('time_logs')
-        .insert(supabasePayload as any)
+        .insert(buildSupabasePayload(payload) as any)
         .select()
         .single();
 
-      if (error) throw error;
+      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
+        setSupportsApproverNameColumn(false);
+        response = await supabase
+          .from('time_logs')
+          .insert(omitApprovalFragments(removeApproverNameField(payload)) as any)
+          .select()
+          .single();
+      }
+
+      if (response.error) throw response.error;
 
       toast({
         title: 'Sucesso',
         description: 'Tempo registrado com sucesso',
       });
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
 
       setTimeLogs(prev => {
         const next = prev.filter(log => log.id !== normalized.id);
@@ -223,23 +262,33 @@ export function useTimeLogs(projectId?: string) {
 
   const updateTimeLog = async (id: string, updates: Partial<TimeLogFormData>): Promise<TimeLog | null> => {
     try {
-      const supabaseUpdates = omitApprovalFragments(updates);
+      const supabaseUpdates = buildSupabasePayload(updates);
 
-      const { data, error } = await supabase
+      let response = await supabase
         .from('time_logs')
         .update(supabaseUpdates as any)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
+        setSupportsApproverNameColumn(false);
+        response = await supabase
+          .from('time_logs')
+          .update(omitApprovalFragments(removeApproverNameField(updates)) as any)
+          .eq('id', id)
+          .select()
+          .single();
+      }
+
+      if (response.error) throw response.error;
 
       toast({
         title: 'Sucesso',
         description: 'Log de tempo atualizado',
       });
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
 
       setTimeLogs(prev => prev.map(log => (log.id === normalized.id ? normalized : log)));
 
@@ -304,12 +353,21 @@ export function useTimeLogs(projectId?: string) {
         approvalUpdates.aprovacao_hora = null;
       }
 
-      const supabaseUpdates = omitApprovalFragments(approvalUpdates);
+      const supabaseUpdates = buildSupabasePayload(approvalUpdates);
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('time_logs')
         .update(supabaseUpdates as any)
         .eq('id', id);
+
+      if (error && isMissingApproverNameColumnError(error) && supportsApproverNameColumn) {
+        setSupportsApproverNameColumn(false);
+        const fallback = await supabase
+          .from('time_logs')
+          .update(omitApprovalFragments(removeApproverNameField(approvalUpdates)) as any)
+          .eq('id', id);
+        error = fallback.error;
+      }
 
       if (error) throw error;
 
@@ -420,17 +478,24 @@ export function useTimeLogs(projectId?: string) {
         justificativa_reprovacao: null,
       };
 
-      const supabasePayload = omitApprovalFragments(payload);
-
-      const { data, error } = await supabase
+      let response = await supabase
         .from('time_logs')
-        .insert(supabasePayload as any)
+        .insert(buildSupabasePayload(payload) as any)
         .select()
         .single();
 
-      if (error) throw error;
+      if (response.error && isMissingApproverNameColumnError(response.error) && supportsApproverNameColumn) {
+        setSupportsApproverNameColumn(false);
+        response = await supabase
+          .from('time_logs')
+          .insert(omitApprovalFragments(removeApproverNameField(payload)) as any)
+          .select()
+          .single();
+      }
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      if (response.error) throw response.error;
+
+      const normalized = normalizeTimeLogRecord(response.data as TimeLogRow);
 
       setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
