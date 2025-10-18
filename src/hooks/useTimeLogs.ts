@@ -13,7 +13,7 @@ const TIME_LOG_COLUMNS = new Set([
   'project_id',
   'user_id',
   'tipo_inclusao',
-  'tempo_segundos',
+  'tempo_minutos',
   'data_inicio',
   'data_fim',
   'status_aprovacao',
@@ -63,9 +63,10 @@ function sanitizeTimeLogPayload(obj: Record<string, unknown>) {
 }
 
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
-  const rawSeconds = parseNumericValue(log.tempo_segundos, 0);
+  const minutesFromColumn = parseNumericValue(log.tempo_minutos, 0);
+  const rawSeconds = parseNumericValue(log.tempo_segundos, minutesFromColumn * 60);
   const safeSeconds = Math.max(0, Math.round(rawSeconds));
-  const safeMinutes = Math.max(0, parseNumericValue(log.tempo_minutos, Math.floor(safeSeconds / 60)));
+  const safeMinutes = Math.max(0, parseNumericValue(log.tempo_minutos, safeSeconds / 60));
 
   const approvalIso =
     typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
@@ -394,7 +395,7 @@ export function useTimeLogs(projectId?: string) {
         project_id: projectId,
         user_id: user.id,
         tipo_inclusao: options?.tipoInclusao ?? 'timer',
-        tempo_segundos: 0,
+        tempo_minutos: 0,
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',
@@ -476,9 +477,11 @@ export function useTimeLogs(projectId?: string) {
       const totalSeconds = previousTotalSeconds + deltaSeconds;
       const isoNow = new Date(nowMs).toISOString();
 
+      const totalMinutes = totalSeconds / 60;
+
       const updatePayload = {
         data_fim: isoNow,
-        tempo_segundos: Math.max(0, Math.round(totalSeconds)),
+        tempo_minutos: Math.max(0, totalMinutes),
         updated_at: isoNow,
       };
 
