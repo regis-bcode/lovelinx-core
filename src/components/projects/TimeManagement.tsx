@@ -226,12 +226,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!time || (time.hours === 0 && time.minutes === 0)) return;
 
     const totalMinutes = time.hours * 60 + time.minutes;
-    const totalSeconds = totalMinutes * 60;
     const nowIso = new Date().toISOString();
     const result = await createTimeLog({
       task_id: taskId,
       tipo_inclusao: 'manual',
-      tempo_segundos: totalSeconds,
+      tempo_minutos: totalMinutes,
       data_inicio: nowIso,
       data_fim: nowIso,
     });
