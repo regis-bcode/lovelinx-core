@@ -274,16 +274,30 @@ export function useTimeLogs(projectId?: string) {
     return Math.max(0, minutes);
   };
 
+  const getLogDurationSeconds = (log: TimeLog): number => {
+    if (typeof log.tempo_segundos === 'number' && Number.isFinite(log.tempo_segundos)) {
+      return Math.max(0, Math.round(log.tempo_segundos));
+    }
+
+    const normalizedMinutes = normalizeMinutes(log.tempo_minutos ?? 0);
+    return Math.max(0, Math.round(normalizedMinutes * 60));
+  };
+
+  const getLogDurationMinutes = (log: TimeLog): number => {
+    const seconds = getLogDurationSeconds(log);
+    return seconds / 60;
+  };
+
   const getTaskTotalTime = (taskId: string): number => {
     return timeLogs
       .filter(log => log.task_id === taskId && shouldCountLogTime(log))
-      .reduce((total, log) => total + normalizeMinutes(log.tempo_minutos), 0);
+      .reduce((total, log) => total + getLogDurationMinutes(log), 0);
   };
 
   const getProjectTotalTime = (): number => {
     return timeLogs
       .filter(shouldCountLogTime)
-      .reduce((total, log) => total + normalizeMinutes(log.tempo_minutos), 0);
+      .reduce((total, log) => total + getLogDurationMinutes(log), 0);
   };
 
   const getResponsibleTotalTime = useCallback(

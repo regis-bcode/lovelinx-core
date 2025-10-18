@@ -162,12 +162,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!startTimestamp) return;
 
     const totalMilliseconds = Math.max(0, Date.now() - startTimestamp);
-    const minutes = Math.max(1, Math.round(totalMilliseconds / 60000));
-    if (minutes > 0) {
+    const elapsedSeconds = Math.max(1, Math.round(totalMilliseconds / 1000));
+    const elapsedMinutes = Number((elapsedSeconds / 60).toFixed(4));
+    if (elapsedSeconds > 0) {
       await createTimeLog({
         task_id: taskId,
         tipo_inclusao: 'automatico',
-        tempo_minutos: minutes,
+        tempo_minutos: elapsedMinutes,
+        tempo_segundos: elapsedSeconds,
+        tempo_formatado: formatTime(elapsedSeconds),
         data_inicio: new Date(startTimestamp).toISOString(),
         data_fim: new Date().toISOString(),
       });
@@ -193,10 +196,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!time || (time.hours === 0 && time.minutes === 0)) return;
 
     const totalMinutes = time.hours * 60 + time.minutes;
+    const totalSeconds = totalMinutes * 60;
     const result = await createTimeLog({
       task_id: taskId,
       tipo_inclusao: 'manual',
       tempo_minutos: totalMinutes,
+      tempo_segundos: totalSeconds,
+      tempo_formatado: formatTime(totalSeconds),
     });
 
     if (result) {
@@ -229,21 +235,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const formatMinutes = (minutes: number): string => {
     if (!Number.isFinite(minutes)) {
-      return '0h 0m 0s';
+      return '00:00:00';
     }
 
     const totalSeconds = Math.max(0, Math.round(minutes * 60));
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    return `${hours}h ${mins}m ${secs}s`;
+    return formatTime(totalSeconds);
   };
 
   const manualOverridesFromLogs = useMemo(() => {
     const overrides: Record<string, number> = {};
     timeLogs.forEach((log) => {
       if (log.tipo_inclusao === 'manual' && overrides[log.task_id] === undefined) {
-        overrides[log.task_id] = log.tempo_minutos;
+        if (typeof log.tempo_segundos === 'number' && Number.isFinite(log.tempo_segundos)) {
+          overrides[log.task_id] = log.tempo_segundos / 60;
+        } else {
+          overrides[log.task_id] = log.tempo_minutos;
+        }
       }
     });
     return overrides;
@@ -664,7 +671,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatMinutes(log.tempo_minutos)}</TableCell>
+                      <TableCell>
+                        {typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
+                          ? log.tempo_formatado
+                          : formatMinutes(log.tempo_minutos)}
+                      </TableCell>
                       <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
                       <TableCell>{log.aprovador_nome || '-'}</TableCell>
                       <TableCell>

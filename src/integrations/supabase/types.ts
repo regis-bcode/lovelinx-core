@@ -1390,7 +1390,9 @@ export type Database = {
           project_id: string
           status_aprovacao: Database["public"]["Enums"]["approval_status"]
           task_id: string
+          tempo_formatado: string | null
           tempo_minutos: number
+          tempo_segundos: number
           tipo_inclusao: Database["public"]["Enums"]["time_entry_type"]
           updated_at: string
           user_id: string
@@ -1410,7 +1412,9 @@ export type Database = {
           project_id: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id: string
+          tempo_formatado?: string | null
           tempo_minutos?: number
+          tempo_segundos?: number
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
           user_id: string
@@ -1430,7 +1434,9 @@ export type Database = {
           project_id?: string
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id?: string
+          tempo_formatado?: string | null
           tempo_minutos?: number
+          tempo_segundos?: number
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
           user_id?: string

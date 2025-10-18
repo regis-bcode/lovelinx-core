@@ -1660,11 +1660,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const elapsedSeconds = Math.max(1, Math.round(totalMilliseconds / 1000));
     const elapsedMinutes = Number((elapsedSeconds / 60).toFixed(4));
+    const formattedDuration = formatDuration(elapsedSeconds);
     const startedAt = start;
 
     const payload = {
       task_id: row.id,
       tempo_minutos: elapsedMinutes,
+      tempo_segundos: elapsedSeconds,
+      tempo_formatado: formattedDuration,
       tipo_inclusao: 'automatico' as const,
       status_aprovacao: 'pendente' as const,
       data_inicio: new Date(startedAt).toISOString(),
