@@ -439,7 +439,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [activeTimers]);
 
   const formatDuration = useCallback((totalSeconds: number) => {
-    const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0;
+    const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.round(totalSeconds)) : 0;
     const hours = Math.floor(safeSeconds / 3600);
     const minutes = Math.floor((safeSeconds % 3600) / 60);
     const seconds = safeSeconds % 60;
@@ -459,8 +459,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
 
-      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.floor(minutes * 60)) : 0;
-      const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
+      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes * 60)) : 0;
+      const runningSeconds = runningStart ? Math.max(0, Math.round((referenceNow - runningStart) / 1000)) : 0;
       return baseSeconds + runningSeconds;
     },
     [activeTimers, getTaskTotalTime, timerTick],
@@ -483,7 +483,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       const safeMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
-      aggregated.set(normalized, { label, seconds: Math.floor(safeMinutes * 60) });
+      aggregated.set(normalized, { label, seconds: Math.round(safeMinutes * 60) });
     });
 
     editableRows.forEach(row => {
@@ -499,7 +499,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const normalized = responsavelName.toLowerCase();
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
-      const runningSeconds = runningStart ? Math.max(0, Math.floor((referenceNow - runningStart) / 1000)) : 0;
+      const runningSeconds = runningStart ? Math.max(0, Math.round((referenceNow - runningStart) / 1000)) : 0;
       const extras = runningSeconds;
 
       if (!aggregated.has(normalized)) {
@@ -1658,7 +1658,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    const elapsedMinutes = Math.max(1, Math.round(totalMilliseconds / 60000));
+    const elapsedSeconds = Math.max(1, Math.round(totalMilliseconds / 1000));
+    const elapsedMinutes = Number((elapsedSeconds / 60).toFixed(4));
     const startedAt = start;
 
     const payload = {
