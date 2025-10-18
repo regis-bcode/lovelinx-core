@@ -13,7 +13,6 @@ const TIME_LOG_COLUMNS = new Set([
   'project_id',
   'user_id',
   'tipo_inclusao',
-  'tempo_minutos',
   'data_inicio',
   'data_fim',
   'status_aprovacao',
@@ -63,10 +62,15 @@ function sanitizeTimeLogPayload(obj: Record<string, unknown>) {
 }
 
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
-  const minutesFromColumn = parseNumericValue(log.tempo_minutos, 0);
-  const rawSeconds = parseNumericValue(log.tempo_segundos, minutesFromColumn * 60);
-  const safeSeconds = Math.max(0, Math.round(rawSeconds));
-  const safeMinutes = Math.max(0, parseNumericValue(log.tempo_minutos, safeSeconds / 60));
+  const startTimestamp = typeof log.data_inicio === 'string' ? Date.parse(log.data_inicio) : NaN;
+  const endTimestamp = typeof log.data_fim === 'string' ? Date.parse(log.data_fim) : NaN;
+  const hasValidRange =
+    Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp;
+  const minutesFromColumn = parseNumericValue(log.tempo_trabalhado, 0);
+  const secondsFromColumn = Math.max(0, Math.round(minutesFromColumn * 60));
+  const secondsFromRange = hasValidRange ? Math.max(0, Math.round((endTimestamp - startTimestamp) / 1000)) : null;
+  const safeSeconds = secondsFromRange ?? secondsFromColumn;
+  const safeMinutes = safeSeconds / 60;
 
   const approvalIso =
     typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
@@ -75,8 +79,7 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   return {
     ...log,
-    tempo_minutos: safeMinutes,
-    tempo_segundos: safeSeconds,
+    tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
   } satisfies TimeLog;
@@ -395,7 +398,6 @@ export function useTimeLogs(projectId?: string) {
         project_id: projectId,
         user_id: user.id,
         tipo_inclusao: options?.tipoInclusao ?? 'timer',
-        tempo_minutos: 0,
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',
@@ -461,28 +463,11 @@ export function useTimeLogs(projectId?: string) {
         return null;
       }
 
-      const startTimestamp =
-        typeof openLog.data_inicio === 'string' && openLog.data_inicio
-          ? new Date(openLog.data_inicio).getTime()
-          : Date.now();
       const nowMs = Date.now();
-      const deltaSeconds = Math.max(0, Math.ceil((nowMs - startTimestamp) / 1000));
-
-      const previousSecondsRaw = parseNumericValue(openLog.tempo_segundos, 0);
-      const previousMinutesRaw = parseNumericValue(openLog.tempo_minutos, 0);
-      const previousSeconds = Math.max(0, Math.round(previousSecondsRaw));
-      const previousMinutes = Math.max(0, Math.round(previousMinutesRaw));
-      const previousTotalSeconds = previousSeconds > 0 ? previousSeconds : previousMinutes * 60;
-
-      const totalSeconds = previousTotalSeconds + deltaSeconds;
       const isoNow = new Date(nowMs).toISOString();
-
-      const totalMinutes = totalSeconds / 60;
 
       const updatePayload = {
         data_fim: isoNow,
-        tempo_minutos: Math.max(0, totalMinutes),
-        updated_at: isoNow,
       };
 
       const { data, error: updateError } = await supabase
@@ -561,11 +546,15 @@ export function useTimeLogs(projectId?: string) {
   };
 
   const getLogDurationSeconds = (log: TimeLog): number => {
-    if (typeof log.tempo_segundos === 'number' && Number.isFinite(log.tempo_segundos)) {
-      return Math.max(0, Math.round(log.tempo_segundos));
+    if (typeof log.data_inicio === 'string' && typeof log.data_fim === 'string') {
+      const startMs = Date.parse(log.data_inicio);
+      const endMs = Date.parse(log.data_fim);
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+        return Math.max(0, Math.round((endMs - startMs) / 1000));
+      }
     }
 
-    const normalizedMinutes = normalizeMinutes(log.tempo_minutos ?? 0);
+    const normalizedMinutes = normalizeMinutes(log.tempo_trabalhado ?? 0);
     return Math.max(0, Math.round(normalizedMinutes * 60));
   };
 

@@ -8,8 +8,7 @@ export interface TimeLog {
   project_id: string;
   user_id: string;
   tipo_inclusao: TimeEntryType;
-  tempo_minutos: number;
-  tempo_segundos: number;
+  tempo_trabalhado: number;
   tempo_formatado?: string | null;
   data_inicio?: string;
   data_fim?: string;
@@ -29,4 +28,9 @@ export interface UserRole {
   updated_at: string;
 }
 
-export type TimeLogFormData = Omit<TimeLog, 'id' | 'created_at' | 'updated_at'>;
+export type TimeLogFormData = Omit<
+  TimeLog,
+  'id' | 'created_at' | 'updated_at' | 'tempo_trabalhado' | 'tempo_formatado'
+> & {
+  tempo_trabalhado?: number;
+};
