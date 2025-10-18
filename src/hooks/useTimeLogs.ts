@@ -2,6 +2,59 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+
+type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
+
+const parseNumericValue = (value: unknown, fallback = 0): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(',', '.');
+    const parsed = Number.parseFloat(normalized);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+};
+
+const formatDurationFromSeconds = (totalSeconds: number): string => {
+  const safeSeconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.round(totalSeconds)) : 0;
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+
+  const pad = (value: number) => value.toString().padStart(2, '0');
+
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+};
+
+const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
+  const rawMinutes = parseNumericValue(log.tempo_minutos, 0);
+  const rawSeconds = parseNumericValue(log.tempo_segundos, 0);
+
+  const derivedSecondsFromMinutes = Math.max(0, Math.round(rawMinutes * 60));
+  const safeSecondsCandidate = rawSeconds > 0 ? rawSeconds : derivedSecondsFromMinutes;
+  const safeSeconds = Math.max(0, Math.round(safeSecondsCandidate));
+  const safeMinutes = safeSeconds / 60;
+
+  const formattedDuration =
+    typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
+      ? log.tempo_formatado
+      : formatDurationFromSeconds(safeSeconds);
+
+  return {
+    ...log,
+    tempo_minutos: safeMinutes,
+    tempo_segundos: safeSeconds,
+    tempo_formatado: formattedDuration,
+  } satisfies TimeLog;
+};
 
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
@@ -46,7 +99,6 @@ export function useTimeLogs(projectId?: string) {
 
     try {
       setLoading(true);
-      setTimeLogs([]);
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
@@ -62,8 +114,9 @@ export function useTimeLogs(projectId?: string) {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      const normalized = (data as TimeLogRow[] | null)?.map(normalizeTimeLogRecord) ?? [];
 
-      setTimeLogs(data || []);
+      setTimeLogs(normalized);
     } catch (error) {
       console.error('Erro ao carregar logs de tempo:', error);
       setTimeLogs([]);
@@ -124,7 +177,14 @@ export function useTimeLogs(projectId?: string) {
         description: 'Tempo registrado com sucesso',
       });
 
-      return data;
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+
+      setTimeLogs(prev => {
+        const next = prev.filter(log => log.id !== normalized.id);
+        return [normalized, ...next];
+      });
+
+      return normalized;
     } catch (error) {
       console.error('Erro ao criar log de tempo:', error);
       toast({
@@ -152,7 +212,11 @@ export function useTimeLogs(projectId?: string) {
         description: 'Log de tempo atualizado',
       });
 
-      return data;
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+
+      setTimeLogs(prev => prev.map(log => (log.id === normalized.id ? normalized : log)));
+
+      return normalized;
     } catch (error) {
       console.error('Erro ao atualizar log de tempo:', error);
       toast({
@@ -220,6 +284,25 @@ export function useTimeLogs(projectId?: string) {
 
       if (error) throw error;
 
+      setTimeLogs(prev =>
+        prev.map(log => {
+          if (log.id !== id) {
+            return log;
+          }
+
+          return {
+            ...log,
+            status_aprovacao: status,
+            aprovador_id: user.id,
+            aprovador_nome: (user.user_metadata as any)?.full_name ?? user.email ?? user.id,
+            justificativa_reprovacao: status === 'reprovado' ? trimmedJustificativa : null,
+            data_aprovacao: status === 'aprovado' ? isoString : null,
+            aprovacao_data: status === 'aprovado' ? datePart ?? null : null,
+            aprovacao_hora: status === 'aprovado' ? approvalTime : null,
+          } satisfies TimeLog;
+        }),
+      );
+
       toast({
         title: 'Sucesso',
         description: `Tempo ${status === 'aprovado' ? 'aprovado' : 'reprovado'} com sucesso`,
@@ -245,6 +328,8 @@ export function useTimeLogs(projectId?: string) {
         .eq('id', id);
 
       if (error) throw error;
+
+      setTimeLogs(prev => prev.filter(log => log.id !== id));
 
       toast({
         title: 'Sucesso',
