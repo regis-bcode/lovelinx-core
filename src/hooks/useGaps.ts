@@ -18,6 +18,24 @@ export function useGaps(projectId?: string) {
     return parsed?.code === 'PGRST205';
   };
 
+  const normalizePercentageValue = (value: unknown): number | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      if (!Number.isFinite(value)) return null;
+      return Math.min(Math.max(value, 0), 100);
+    }
+
+    const parsed = Number.parseFloat(String(value).replace(',', '.'));
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+
+    return Math.min(Math.max(parsed, 0), 100);
+  };
+
   const normalizeGap = (gap: any): Gap => {
     const impactoValue = Array.isArray(gap.impacto)
       ? (gap.impacto as string[])
@@ -35,6 +53,8 @@ export function useGaps(projectId?: string) {
       ...gap,
       impacto: impactoValue,
       anexos: anexosValue,
+      percentual_previsto: normalizePercentageValue(gap.percentual_previsto),
+      percentual_planejado: normalizePercentageValue(gap.percentual_planejado),
     } as Gap;
   };
 
@@ -58,6 +78,8 @@ export function useGaps(projectId?: string) {
       plano_acao: payload.plano_acao ?? null,
       responsavel: payload.responsavel ?? null,
       data_prometida: payload.data_prometida ?? null,
+      data_prevista_solucao: payload.data_prevista_solucao ?? null,
+      data_realizada_solucao: payload.data_realizada_solucao ?? null,
       status: payload.status ?? null,
       necessita_aprovacao: payload.necessita_aprovacao ?? null,
       decisao: payload.decisao ?? null,
@@ -67,6 +89,8 @@ export function useGaps(projectId?: string) {
       observacoes: payload.observacoes ?? null,
       impacto_financeiro_descricao: payload.impacto_financeiro_descricao ?? null,
       impacto_resumo: payload.impacto_resumo ?? null,
+      percentual_previsto: normalizePercentageValue(payload.percentual_previsto ?? null),
+      percentual_planejado: normalizePercentageValue(payload.percentual_planejado ?? null),
       created_at: timestamp,
       updated_at: timestamp,
     });
@@ -183,6 +207,8 @@ export function useGaps(projectId?: string) {
           plano_acao: payload.plano_acao ?? null,
           responsavel: payload.responsavel ?? null,
           data_prometida: payload.data_prometida ?? null,
+          data_prevista_solucao: payload.data_prevista_solucao ?? null,
+          data_realizada_solucao: payload.data_realizada_solucao ?? null,
           status: payload.status ?? null,
           necessita_aprovacao: payload.necessita_aprovacao ?? null,
           decisao: payload.decisao ?? null,
@@ -192,6 +218,8 @@ export function useGaps(projectId?: string) {
           observacoes: payload.observacoes ?? null,
           impacto_financeiro_descricao: payload.impacto_financeiro_descricao ?? null,
           impacto_resumo: payload.impacto_resumo ?? null,
+          percentual_previsto: normalizePercentageValue(payload.percentual_previsto ?? null),
+          percentual_planejado: normalizePercentageValue(payload.percentual_planejado ?? null),
         } as GapFormData)
         .select()
         .single();
@@ -250,9 +278,19 @@ export function useGaps(projectId?: string) {
     }
 
     try {
+      const preparedUpdates: Partial<GapFormData> = { ...updates };
+
+      if (Object.prototype.hasOwnProperty.call(updates, 'percentual_previsto')) {
+        preparedUpdates.percentual_previsto = normalizePercentageValue(updates.percentual_previsto ?? null);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(updates, 'percentual_planejado')) {
+        preparedUpdates.percentual_planejado = normalizePercentageValue(updates.percentual_planejado ?? null);
+      }
+
       const { data, error } = await supabase
         .from('gaps')
-        .update(updates)
+        .update(preparedUpdates)
         .eq('id', id)
         .select()
         .single();

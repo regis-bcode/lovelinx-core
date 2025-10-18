@@ -1047,6 +1047,8 @@ export type Database = {
           causa_raiz: string | null
           created_at: string
           data_aprovacao: string | null
+          data_prevista_solucao: string | null
+          data_realizada_solucao: string | null
           data_prometida: string | null
           decisao: string | null
           descricao: string | null
@@ -1057,6 +1059,8 @@ export type Database = {
           impacto_resumo: string | null
           necessita_aprovacao: boolean | null
           observacoes: string | null
+          percentual_planejado: number | null
+          percentual_previsto: number | null
           origem: string | null
           plano_acao: string | null
           prioridade: string | null
@@ -1077,6 +1081,8 @@ export type Database = {
           causa_raiz?: string | null
           created_at?: string
           data_aprovacao?: string | null
+          data_prevista_solucao?: string | null
+          data_realizada_solucao?: string | null
           data_prometida?: string | null
           decisao?: string | null
           descricao?: string | null
@@ -1087,6 +1093,8 @@ export type Database = {
           impacto_resumo?: string | null
           necessita_aprovacao?: boolean | null
           observacoes?: string | null
+          percentual_planejado?: number | null
+          percentual_previsto?: number | null
           origem?: string | null
           plano_acao?: string | null
           prioridade?: string | null
@@ -1107,6 +1115,8 @@ export type Database = {
           causa_raiz?: string | null
           created_at?: string
           data_aprovacao?: string | null
+          data_prevista_solucao?: string | null
+          data_realizada_solucao?: string | null
           data_prometida?: string | null
           decisao?: string | null
           descricao?: string | null
@@ -1117,6 +1127,8 @@ export type Database = {
           impacto_resumo?: string | null
           necessita_aprovacao?: boolean | null
           observacoes?: string | null
+          percentual_planejado?: number | null
+          percentual_previsto?: number | null
           origem?: string | null
           plano_acao?: string | null
           prioridade?: string | null

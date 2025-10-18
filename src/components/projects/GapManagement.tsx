@@ -1,4 +1,5 @@
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DateInput } from '@/components/ui/date-input';
 import { Switch } from '@/components/ui/switch';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { PercentageInput } from '@/components/ui/percentage-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useGaps } from '@/hooks/useGaps';
@@ -16,7 +18,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { useToast } from '@/hooks/use-toast';
 import { Gap, GapFormData } from '@/types/gap';
 import { cn } from '@/lib/utils';
-import { CheckCircle2, ClipboardEdit, FilePlus2, Loader2, Trash2 } from 'lucide-react';
+import { CheckCircle2, ClipboardEdit, Download, FilePlus2, FileSpreadsheet, Loader2, Trash2, Upload } from 'lucide-react';
 
 const IMPACT_OPTIONS = ['Escopo', 'Prazo', 'Custo'] as const;
 
@@ -47,6 +49,19 @@ const formatBoolean = (value?: boolean | null) => {
   return value ? 'Sim' : 'Não';
 };
 
+const formatPercentageValue = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return null;
+  }
+
+  const formatter = new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  });
+
+  return `${formatter.format(value)}%`;
+};
+
 const formatResumo = (descricao?: string | null) => {
   if (!descricao) return null;
   const trimmed = descricao.trim();
@@ -57,6 +72,125 @@ const formatResumo = (descricao?: string | null) => {
   return `${trimmed.slice(0, 137)}...`;
 };
 
+const parseExcelDate = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) {
+      return null;
+    }
+    const date = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+    return date.toISOString().slice(0, 10);
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const datePattern = text.match(/^([0-9]{1,2})[/-]([0-9]{1,2})[/-]([0-9]{2,4})$/);
+  if (datePattern) {
+    const [, day, month, rawYear] = datePattern;
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    const iso = `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const parsedDate = new Date(iso);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString().slice(0, 10);
+    }
+  }
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return parsedDate.toISOString().slice(0, 10);
+  }
+
+  return null;
+};
+
+const parseBooleanCell = (value: unknown): boolean | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return null;
+
+  if (['sim', 's', 'yes', 'y', 'verdadeiro', 'true', '1'].includes(normalized)) {
+    return true;
+  }
+
+  if (['nao', 'não', 'n', 'no', 'false', '0'].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+};
+
+const parseCurrencyCell = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const normalized = String(value)
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/\.(?=\d{3}(?:\.|,))/g, '')
+    .replace(',', '.');
+
+  if (!normalized.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parsePercentageCell = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return Math.min(Math.max(value, 0), 100);
+  }
+
+  const normalized = String(value).replace('%', '').replace(',', '.').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.min(Math.max(parsed, 0), 100);
+};
+
+const sanitizeFileName = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9-_]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+
 interface GapColumn {
   key: string;
   label: string;
@@ -65,10 +199,12 @@ interface GapColumn {
   render: (gap: Gap) => ReactNode;
 }
 
-type GapFormState = Partial<GapFormData> & {
+type GapFormState = Omit<Partial<GapFormData>, 'impacto' | 'anexos' | 'valor_impacto_financeiro' | 'percentual_previsto' | 'percentual_planejado'> & {
   impacto: string[];
   anexosTexto?: string;
   valor_impacto_financeiro?: string | number | null;
+  percentual_previsto?: string | number | null;
+  percentual_planejado?: string | number | null;
 };
 
 interface GapManagementProps {
@@ -92,6 +228,8 @@ const emptyForm: GapFormState = {
   plano_acao: '',
   responsavel: '',
   data_prometida: '',
+  data_prevista_solucao: '',
+  data_realizada_solucao: '',
   status: '',
   necessita_aprovacao: false,
   decisao: '',
@@ -102,6 +240,8 @@ const emptyForm: GapFormState = {
   impacto_financeiro_descricao: '',
   impacto_resumo: '',
   anexosTexto: '',
+  percentual_previsto: '',
+  percentual_planejado: '',
 };
 
 export function GapManagement({ projectId, initialTaskId }: GapManagementProps) {
@@ -114,6 +254,10 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
   const [formState, setFormState] = useState<GapFormState>(emptyForm);
   const [editingGap, setEditingGap] = useState<Gap | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingTemplate, setIsExportingTemplate] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (initialTaskId) {
@@ -249,6 +393,15 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       return <span className="break-words whitespace-pre-wrap text-foreground">{resumo}</span>;
     };
 
+    const renderPercentageCell = (value?: number | null): ReactNode => {
+      const formatted = formatPercentageValue(value);
+      if (!formatted) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+
+      return <span>{formatted}</span>;
+    };
+
     return [
       {
         key: 'task',
@@ -357,6 +510,18 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
         render: gap => renderTextValue(formatDate(gap.data_prometida) ?? null),
       },
       {
+        key: 'data_prevista_solucao',
+        label: 'Data prevista solução',
+        minWidth: 180,
+        render: gap => renderTextValue(formatDate(gap.data_prevista_solucao) ?? null),
+      },
+      {
+        key: 'data_realizada_solucao',
+        label: 'Data realizada solução',
+        minWidth: 180,
+        render: gap => renderTextValue(formatDate(gap.data_realizada_solucao) ?? null),
+      },
+      {
         key: 'necessita_aprovacao',
         label: 'Necessita aprovação?',
         minWidth: 180,
@@ -396,6 +561,18 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
         render: gap => renderTextValue(gap.impacto_resumo ?? null, { multiline: true }),
       },
       {
+        key: 'percentual_previsto',
+        label: '% Previsto',
+        minWidth: 140,
+        render: gap => renderPercentageCell(gap.percentual_previsto ?? null),
+      },
+      {
+        key: 'percentual_planejado',
+        label: '% Planejado',
+        minWidth: 140,
+        render: gap => renderPercentageCell(gap.percentual_planejado ?? null),
+      },
+      {
         key: 'anexos',
         label: 'Anexos (um por linha)',
         minWidth: 240,
@@ -411,6 +588,419 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       },
     ];
   }, [taskNameById]);
+
+  const exportColumns = useMemo(
+    () => [
+      {
+        label: 'Tarefa vinculada',
+        value: (gap: Gap) => taskNameById[gap.task_id] ?? '',
+      },
+      {
+        label: 'Título',
+        value: (gap: Gap) => gap.titulo ?? '',
+      },
+      {
+        label: 'Resumo do GAP',
+        value: (gap: Gap) => formatResumo(gap.descricao ?? null) ?? '',
+      },
+      {
+        label: 'Descrição',
+        value: (gap: Gap) => gap.descricao ?? '',
+      },
+      {
+        label: 'Tipo de GAP',
+        value: (gap: Gap) => gap.tipo ?? '',
+      },
+      {
+        label: 'Origem',
+        value: (gap: Gap) => gap.origem ?? '',
+      },
+      {
+        label: 'Severidade',
+        value: (gap: Gap) => gap.severidade ?? '',
+      },
+      {
+        label: 'Urgência',
+        value: (gap: Gap) => gap.urgencia ?? '',
+      },
+      {
+        label: 'Prioridade',
+        value: (gap: Gap) => gap.prioridade ?? '',
+      },
+      {
+        label: 'Status do GAP',
+        value: (gap: Gap) => gap.status ?? '',
+      },
+      {
+        label: 'Impacto',
+        value: (gap: Gap) => (Array.isArray(gap.impacto) ? gap.impacto.filter(Boolean).join('; ') : ''),
+      },
+      {
+        label: 'Faturável? (Gera cobrança adicional?)',
+        value: (gap: Gap) => formatBoolean(gap.faturavel ?? null) ?? '',
+      },
+      {
+        label: 'Valor de Impacto Financeiro',
+        value: (gap: Gap) => formatCurrency(gap.valor_impacto_financeiro ?? null) ?? '',
+      },
+      {
+        label: 'Causa raiz',
+        value: (gap: Gap) => gap.causa_raiz ?? '',
+      },
+      {
+        label: 'Plano de ação',
+        value: (gap: Gap) => gap.plano_acao ?? '',
+      },
+      {
+        label: 'Responsável',
+        value: (gap: Gap) => gap.responsavel ?? '',
+      },
+      {
+        label: 'Data prometida para tratativa',
+        value: (gap: Gap) => formatDate(gap.data_prometida) ?? '',
+      },
+      {
+        label: 'Data prevista solução',
+        value: (gap: Gap) => formatDate(gap.data_prevista_solucao) ?? '',
+      },
+      {
+        label: 'Data realizada solução',
+        value: (gap: Gap) => formatDate(gap.data_realizada_solucao) ?? '',
+      },
+      {
+        label: 'Necessita aprovação?',
+        value: (gap: Gap) => formatBoolean(gap.necessita_aprovacao ?? null) ?? '',
+      },
+      {
+        label: 'Decisão',
+        value: (gap: Gap) => gap.decisao ?? '',
+      },
+      {
+        label: 'Aprovado por',
+        value: (gap: Gap) => gap.aprovado_por ?? '',
+      },
+      {
+        label: 'Data de aprovação',
+        value: (gap: Gap) => formatDate(gap.data_aprovacao) ?? '',
+      },
+      {
+        label: 'Impacto financeiro (descrição)',
+        value: (gap: Gap) => gap.impacto_financeiro_descricao ?? '',
+      },
+      {
+        label: 'Resumo do impacto',
+        value: (gap: Gap) => gap.impacto_resumo ?? '',
+      },
+      {
+        label: '% Previsto',
+        value: (gap: Gap) => formatPercentageValue(gap.percentual_previsto ?? null) ?? '',
+      },
+      {
+        label: '% Planejado',
+        value: (gap: Gap) => formatPercentageValue(gap.percentual_planejado ?? null) ?? '',
+      },
+      {
+        label: 'Anexos (um por linha)',
+        value: (gap: Gap) => (Array.isArray(gap.anexos) ? gap.anexos.join('\n') : ''),
+      },
+      {
+        label: 'Observações',
+        value: (gap: Gap) => gap.observacoes ?? '',
+      },
+    ],
+    [taskNameById],
+  );
+
+  const handleExportTemplate = useCallback(() => {
+    try {
+      setIsExportingTemplate(true);
+      const worksheet = XLSX.utils.json_to_sheet([
+        {
+          'Tarefa ID': '',
+          'Tarefa Nome': '',
+          'Título': '',
+          'Descrição': '',
+          'Tipo de GAP': '',
+          'Origem': '',
+          'Severidade': '',
+          'Urgência': '',
+          'Prioridade': '',
+          'Status do GAP': '',
+          'Impacto (separe por ;)': '',
+          'Faturável? (Sim/Não)': '',
+          'Valor de Impacto Financeiro': '',
+          'Causa raiz': '',
+          'Plano de ação': '',
+          'Responsável': '',
+          'Data prometida para tratativa': '',
+          'Data prevista solução': '',
+          'Data realizada solução': '',
+          'Necessita aprovação? (Sim/Não)': '',
+          'Decisão': '',
+          'Aprovado por': '',
+          'Data de aprovação': '',
+          'Impacto financeiro (descrição)': '',
+          'Resumo do impacto': '',
+          'Anexos (um por linha ou ;)': '',
+          'Observações': '',
+          '% Previsto': '',
+          '% Planejado': '',
+        },
+      ]);
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'GAPs');
+      XLSX.writeFile(workbook, 'modelo-gaps.xlsx');
+
+      toast({
+        title: 'Modelo exportado',
+        description: 'O modelo de importação foi gerado com sucesso.',
+      });
+    } catch (error) {
+      console.error('Erro ao exportar modelo de GAPs', error);
+      toast({
+        title: 'Erro ao exportar modelo',
+        description: 'Não foi possível gerar o modelo de importação.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExportingTemplate(false);
+    }
+  }, [toast]);
+
+  const handleImportData = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileChange = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+
+      if (!file) {
+        return;
+      }
+
+      const normalize = (text: string) =>
+        text
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
+      try {
+        setIsImporting(true);
+        const data = await file.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+
+        if (!worksheet) {
+          throw new Error('Planilha inválida');
+        }
+
+        const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+
+        let skippedByTask = 0;
+
+        const formattedRows = rows
+          .map(row => {
+            const titulo = String(row['Título'] ?? row['Titulo'] ?? '').trim();
+            if (!titulo) {
+              return null;
+            }
+
+            const rawTaskId = String(row['Tarefa ID'] ?? '').trim();
+            const rawTaskName = String(row['Tarefa Nome'] ?? '').trim();
+
+            let resolvedTaskId = '';
+
+            if (rawTaskId) {
+              const matchById = tasks.find(task => task.id === rawTaskId);
+              if (matchById) {
+                resolvedTaskId = matchById.id;
+              }
+            }
+
+            if (!resolvedTaskId && rawTaskName) {
+              const normalizedName = normalize(rawTaskName);
+              const matchByName = tasks.find(task => normalize(task.nome) === normalizedName);
+              if (matchByName) {
+                resolvedTaskId = matchByName.id;
+              }
+            }
+
+            if (!resolvedTaskId) {
+              skippedByTask += 1;
+              return null;
+            }
+
+            const impactoList = String(row['Impacto'] ?? row['Impacto (separe por ;)'] ?? '')
+              .split(/;|\n/)
+              .map(item => item.trim())
+              .filter(Boolean);
+
+            const anexosList = String(row['Anexos (um por linha)'] ?? row['Anexos (um por linha ou ;)'] ?? '')
+              .split(/\r?\n|;/)
+              .map(item => item.trim())
+              .filter(Boolean);
+
+            const faturavel = parseBooleanCell(row['Faturável? (Sim/Não)'] ?? row['Faturável? (Gera cobrança adicional?)']);
+            const necessitaAprovacao = parseBooleanCell(row['Necessita aprovação? (Sim/Não)'] ?? row['Necessita aprovação?']);
+
+            const payload: Partial<GapFormData> = {
+              task_id: resolvedTaskId,
+              titulo,
+              descricao: String(row['Descrição'] ?? '').trim() || null,
+              tipo: String(row['Tipo de GAP'] ?? '').trim() || null,
+              origem: String(row['Origem'] ?? '').trim() || null,
+              severidade: String(row['Severidade'] ?? '').trim() || null,
+              urgencia: String(row['Urgência'] ?? '').trim() || null,
+              prioridade: String(row['Prioridade'] ?? '').trim() || null,
+              status: String(row['Status do GAP'] ?? '').trim() || null,
+              impacto: impactoList.length ? impactoList : null,
+              faturavel: faturavel ?? null,
+              valor_impacto_financeiro: parseCurrencyCell(row['Valor de Impacto Financeiro'] ?? ''),
+              causa_raiz: String(row['Causa raiz'] ?? '').trim() || null,
+              plano_acao: String(row['Plano de ação'] ?? '').trim() || null,
+              responsavel: String(row['Responsável'] ?? '').trim() || null,
+              data_prometida: parseExcelDate(row['Data prometida para tratativa']),
+              data_prevista_solucao: parseExcelDate(row['Data prevista solução']),
+              data_realizada_solucao: parseExcelDate(row['Data realizada solução']),
+              necessita_aprovacao: necessitaAprovacao ?? null,
+              decisao: String(row['Decisão'] ?? '').trim() || null,
+              aprovado_por: String(row['Aprovado por'] ?? '').trim() || null,
+              data_aprovacao: parseExcelDate(row['Data de aprovação']),
+              impacto_financeiro_descricao: String(row['Impacto financeiro (descrição)'] ?? '').trim() || null,
+              impacto_resumo: String(row['Resumo do impacto'] ?? '').trim() || null,
+              anexos: anexosList.length ? anexosList : null,
+              observacoes: String(row['Observações'] ?? '').trim() || null,
+              percentual_previsto: parsePercentageCell(row['% Previsto']),
+              percentual_planejado: parsePercentageCell(row['% Planejado']),
+            };
+
+            return payload;
+          })
+          .filter((row): row is Partial<GapFormData> => Boolean(row && row.task_id && row.titulo));
+
+        if (formattedRows.length === 0) {
+          toast({
+            title: 'Nenhum dado válido encontrado',
+            description: 'Verifique se a planilha segue o modelo de importação.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        let createdCount = 0;
+
+        for (const row of formattedRows) {
+          try {
+            const result = await createGap(row);
+            if (result) {
+              createdCount += 1;
+            }
+          } catch (error) {
+            console.error('Erro ao importar GAP', error);
+          }
+        }
+
+        if (createdCount > 0) {
+          toast({
+            title: 'Importação concluída',
+            description: `${createdCount} GAP(s) importados com sucesso.${
+              skippedByTask ? ` ${skippedByTask} linha(s) ignoradas por falta de tarefa.` : ''
+            }`,
+          });
+        } else {
+          toast({
+            title: 'Nenhum dado importado',
+            description: skippedByTask
+              ? 'Não foi possível localizar as tarefas informadas na planilha.'
+              : 'Não foi possível importar os dados da planilha.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao importar planilha de GAPs', error);
+        toast({
+          title: 'Erro ao importar dados',
+          description: 'Não foi possível ler a planilha informada.',
+          variant: 'destructive',
+        });
+      } finally {
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setIsImporting(false);
+      }
+    },
+    [createGap, tasks, toast],
+  );
+
+  const handleExportData = useCallback(() => {
+    if (filteredGaps.length === 0) {
+      toast({
+        title: 'Nenhum dado para exportar',
+        description: 'Adicione registros antes de tentar exportar.',
+      });
+      return;
+    }
+
+    try {
+      setIsExporting(true);
+      const workbook = XLSX.utils.book_new();
+      const header = exportColumns.map(column => column.label);
+      const sheetData: (string | number)[][] = [];
+
+      if (selectedTaskId === 'all') {
+        const groups = new Map<string, Gap[]>();
+        filteredGaps.forEach(gap => {
+          const groupName = taskNameById[gap.task_id] ?? 'Sem tarefa';
+          if (!groups.has(groupName)) {
+            groups.set(groupName, []);
+          }
+          groups.get(groupName)!.push(gap);
+        });
+
+        Array.from(groups.entries()).forEach(([groupName, groupGaps], index) => {
+          if (index > 0) {
+            sheetData.push([]);
+          }
+          sheetData.push([groupName]);
+          sheetData.push(header);
+          groupGaps.forEach(gap => {
+            sheetData.push(exportColumns.map(column => column.value(gap) ?? ''));
+          });
+        });
+      } else {
+        sheetData.push(header);
+        filteredGaps.forEach(gap => {
+          sheetData.push(exportColumns.map(column => column.value(gap) ?? ''));
+        });
+      }
+
+      const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'GAPs');
+
+      const baseName = selectedTaskId === 'all' ? 'todos' : taskNameById[selectedTaskId] ?? selectedTaskId;
+      const fileName = `gaps-${sanitizeFileName(baseName || 'export')}.xlsx`;
+
+      XLSX.writeFile(workbook, fileName);
+
+      toast({
+        title: 'Exportação concluída',
+        description: 'Os dados exibidos na grid foram exportados com sucesso.',
+      });
+    } catch (error) {
+      console.error('Erro ao exportar GAPs', error);
+      toast({
+        title: 'Erro ao exportar dados',
+        description: 'Não foi possível gerar o arquivo de exportação.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  }, [exportColumns, filteredGaps, selectedTaskId, taskNameById, toast]);
 
   const openCreateDialog = (taskId?: string) => {
     const baseTaskId = taskId ?? (selectedTaskId !== 'all' ? selectedTaskId : '');
@@ -431,6 +1021,10 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       impacto: Array.isArray(gap.impacto) ? gap.impacto : gap.impacto ? [...(gap.impacto as string[])] : [],
       anexosTexto: Array.isArray(gap.anexos) ? gap.anexos.join('\n') : '',
       valor_impacto_financeiro: gap.valor_impacto_financeiro ?? '',
+      percentual_previsto: gap.percentual_previsto ?? '',
+      percentual_planejado: gap.percentual_planejado ?? '',
+      data_prevista_solucao: gap.data_prevista_solucao ?? '',
+      data_realizada_solucao: gap.data_realizada_solucao ?? '',
     });
     setEditingGap(gap);
     setIsDialogOpen(true);
@@ -491,6 +1085,8 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       plano_acao: formState.plano_acao?.trim() || null,
       responsavel: formState.responsavel?.trim() || null,
       data_prometida: formState.data_prometida || null,
+      data_prevista_solucao: formState.data_prevista_solucao || null,
+      data_realizada_solucao: formState.data_realizada_solucao || null,
       status: formState.status?.trim() || null,
       necessita_aprovacao: Boolean(formState.necessita_aprovacao),
       decisao: formState.decisao?.trim() || null,
@@ -500,6 +1096,8 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
       observacoes: formState.observacoes?.trim() || null,
       impacto_financeiro_descricao: formState.impacto_financeiro_descricao?.trim() || null,
       impacto_resumo: formState.impacto_resumo?.trim() || null,
+      percentual_previsto: parsePercentageCell(formState.percentual_previsto ?? null),
+      percentual_planejado: parsePercentageCell(formState.percentual_planejado ?? null),
     };
 
     setIsSaving(true);
@@ -583,6 +1181,13 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xls,.xlsx"
+        className="hidden"
+        onChange={handleFileChange}
+      />
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl border-border/80">
         <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="space-y-2">
@@ -614,6 +1219,30 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                   <CheckCircle2 className="mr-2 h-4 w-4" /> Gerar GAP automático
                 </Button>
               ) : null}
+              <Button
+                variant="outline"
+                onClick={handleExportData}
+                disabled={isExporting || filteredGaps.length === 0}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                {isExporting ? 'Exportando...' : 'Exportar dados'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportTemplate}
+                disabled={isExportingTemplate}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                {isExportingTemplate ? 'Gerando modelo...' : 'Exportar modelo'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleImportData}
+                disabled={isImporting}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {isImporting ? 'Importando...' : 'Incluir dados'}
+              </Button>
               <Button onClick={() => openCreateDialog(selectedTaskId !== 'all' ? selectedTaskId : undefined)}>
                 <FilePlus2 className="mr-2 h-4 w-4" /> Novo GAP
               </Button>
@@ -825,6 +1454,22 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     placeholder="R$ 0,00"
                   />
                 </div>
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
+                  <label className="text-sm font-semibold text-muted-foreground">% Previsto</label>
+                  <PercentageInput
+                    value={formState.percentual_previsto ?? ''}
+                    onChange={value => setFormState(prev => ({ ...prev, percentual_previsto: value }))}
+                    placeholder="0%"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
+                  <label className="text-sm font-semibold text-muted-foreground">% Planejado</label>
+                  <PercentageInput
+                    value={formState.percentual_planejado ?? ''}
+                    onChange={value => setFormState(prev => ({ ...prev, percentual_planejado: value }))}
+                    placeholder="0%"
+                  />
+                </div>
                 <div className="space-y-2 md:col-span-6 xl:col-span-6">
                   <label className="text-sm font-semibold text-muted-foreground">Causa raiz</label>
                   <Textarea
@@ -854,6 +1499,20 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                   <DateInput
                     value={formState.data_prometida || ''}
                     onChange={value => setFormState(prev => ({ ...prev, data_prometida: value }))}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
+                  <label className="text-sm font-semibold text-muted-foreground">Data prevista solução</label>
+                  <DateInput
+                    value={formState.data_prevista_solucao || ''}
+                    onChange={value => setFormState(prev => ({ ...prev, data_prevista_solucao: value }))}
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-6 xl:col-span-4">
+                  <label className="text-sm font-semibold text-muted-foreground">Data realizada solução</label>
+                  <DateInput
+                    value={formState.data_realizada_solucao || ''}
+                    onChange={value => setFormState(prev => ({ ...prev, data_realizada_solucao: value }))}
                   />
                 </div>
                 <div className="space-y-2 md:col-span-6 xl:col-span-4">
