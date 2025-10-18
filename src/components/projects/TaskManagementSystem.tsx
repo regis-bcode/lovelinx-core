@@ -1683,16 +1683,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     };
 
     const result = await createTimeLog(payload);
+    removeActiveTimer();
+
     if (result) {
-      removeActiveTimer();
-      refreshTimeLogs();
+      await refreshTimeLogs();
       if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
         updateCell(options.rowIndex, 'status', options.statusAfterStop);
       }
       return true;
     }
 
-    removeActiveTimer();
     if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
       updateCell(options.rowIndex, 'status', options.statusAfterStop);
     }

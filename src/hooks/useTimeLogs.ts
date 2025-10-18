@@ -263,16 +263,27 @@ export function useTimeLogs(projectId?: string) {
     }
   };
 
+  const shouldCountLogTime = (log: TimeLog): boolean => {
+    return log.status_aprovacao !== 'reprovado';
+  };
+
+  const normalizeMinutes = (minutes: number): number => {
+    if (!Number.isFinite(minutes)) {
+      return 0;
+    }
+    return Math.max(0, minutes);
+  };
+
   const getTaskTotalTime = (taskId: string): number => {
     return timeLogs
-      .filter(log => log.task_id === taskId && log.status_aprovacao === 'aprovado')
-      .reduce((total, log) => total + log.tempo_minutos, 0);
+      .filter(log => log.task_id === taskId && shouldCountLogTime(log))
+      .reduce((total, log) => total + normalizeMinutes(log.tempo_minutos), 0);
   };
 
   const getProjectTotalTime = (): number => {
     return timeLogs
-      .filter(log => log.status_aprovacao === 'aprovado')
-      .reduce((total, log) => total + log.tempo_minutos, 0);
+      .filter(shouldCountLogTime)
+      .reduce((total, log) => total + normalizeMinutes(log.tempo_minutos), 0);
   };
 
   const getResponsibleTotalTime = useCallback(
