@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Gap, GapFormData } from '@/types/gap';
 import { Task } from '@/types/task';
@@ -8,6 +9,14 @@ export function useGaps(projectId?: string) {
   const { toast } = useToast();
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isRemoteAvailable, setIsRemoteAvailable] = useState(true);
+
+  const generateLocalId = () => `gap-${Math.random().toString(36).slice(2, 10)}`;
+
+  const isTableMissingError = (error: unknown): error is PostgrestError => {
+    const parsed = error as PostgrestError | undefined;
+    return parsed?.code === 'PGRST205';
+  };
 
   const normalizeGap = (gap: any): Gap => {
     const impactoValue = Array.isArray(gap.impacto)
@@ -29,6 +38,40 @@ export function useGaps(projectId?: string) {
     } as Gap;
   };
 
+  const createLocalGap = (payload: Partial<GapFormData>): Gap => {
+    const timestamp = new Date().toISOString();
+    return normalizeGap({
+      id: generateLocalId(),
+      project_id: projectId!,
+      titulo: payload.titulo ?? 'GAP sem título',
+      task_id: payload.task_id ?? '',
+      descricao: payload.descricao ?? null,
+      tipo: payload.tipo ?? null,
+      origem: payload.origem ?? null,
+      severidade: payload.severidade ?? null,
+      urgencia: payload.urgencia ?? null,
+      prioridade: payload.prioridade ?? null,
+      impacto: payload.impacto ?? null,
+      faturavel: payload.faturavel ?? null,
+      valor_impacto_financeiro: payload.valor_impacto_financeiro ?? null,
+      causa_raiz: payload.causa_raiz ?? null,
+      plano_acao: payload.plano_acao ?? null,
+      responsavel: payload.responsavel ?? null,
+      data_prometida: payload.data_prometida ?? null,
+      status: payload.status ?? null,
+      necessita_aprovacao: payload.necessita_aprovacao ?? null,
+      decisao: payload.decisao ?? null,
+      aprovado_por: payload.aprovado_por ?? null,
+      data_aprovacao: payload.data_aprovacao ?? null,
+      anexos: payload.anexos ?? null,
+      observacoes: payload.observacoes ?? null,
+      impacto_financeiro_descricao: payload.impacto_financeiro_descricao ?? null,
+      impacto_resumo: payload.impacto_resumo ?? null,
+      created_at: timestamp,
+      updated_at: timestamp,
+    });
+  };
+
   const loadGaps = async () => {
     if (!projectId) return;
 
@@ -40,18 +83,32 @@ export function useGaps(projectId?: string) {
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          console.warn('Tabela gaps não encontrada. Usando dados locais.', error);
+          setIsRemoteAvailable(false);
+          return;
+        }
+        throw error;
+      }
+
+      setIsRemoteAvailable(true);
 
       const normalized = (data ?? []).map(item => normalizeGap(item));
 
       setGaps(normalized);
     } catch (error) {
-      console.error('Erro ao carregar GAPs:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível carregar os GAPs do projeto.',
-        variant: 'destructive',
-      });
+      if (isTableMissingError(error)) {
+        console.warn('Tabela gaps indisponível durante o carregamento. Mantendo dados locais.', error);
+        setIsRemoteAvailable(false);
+      } else {
+        console.error('Erro ao carregar GAPs:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível carregar os GAPs do projeto.',
+          variant: 'destructive',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -61,6 +118,11 @@ export function useGaps(projectId?: string) {
     if (!projectId) return;
 
     loadGaps();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  useEffect(() => {
+    if (!projectId || !isRemoteAvailable) return;
 
     const channel = supabase
       .channel(`gaps-${projectId}`)
@@ -77,7 +139,7 @@ export function useGaps(projectId?: string) {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  }, [projectId, isRemoteAvailable]);
 
   const createGap = async (payload: Partial<GapFormData>): Promise<Gap | null> => {
     if (!projectId) {
@@ -87,6 +149,18 @@ export function useGaps(projectId?: string) {
         variant: 'destructive',
       });
       return null;
+    }
+
+    if (!isRemoteAvailable) {
+      const localGap = createLocalGap(payload);
+      setGaps(prev => [localGap, ...prev]);
+
+      toast({
+        title: 'GAP criado',
+        description: 'O registro de GAP foi criado em modo offline.',
+      });
+
+      return localGap;
     }
 
     try {
@@ -135,6 +209,11 @@ export function useGaps(projectId?: string) {
 
       return normalized;
     } catch (error) {
+      if (isTableMissingError(error)) {
+        setIsRemoteAvailable(false);
+        return createGap(payload);
+      }
+
       console.error('Erro ao criar GAP:', error);
       toast({
         title: 'Erro',
@@ -146,6 +225,30 @@ export function useGaps(projectId?: string) {
   };
 
   const updateGap = async (id: string, updates: Partial<GapFormData>): Promise<Gap | null> => {
+    if (!isRemoteAvailable) {
+      let updated: Gap | null = null;
+      setGaps(prev =>
+        prev.map(gap => {
+          if (gap.id !== id) return gap;
+          updated = normalizeGap({
+            ...gap,
+            ...updates,
+            updated_at: new Date().toISOString(),
+          });
+          return updated;
+        }),
+      );
+
+      if (updated) {
+        toast({
+          title: 'GAP atualizado',
+          description: 'As informações do GAP foram atualizadas em modo offline.',
+        });
+      }
+
+      return updated;
+    }
+
     try {
       const { data, error } = await supabase
         .from('gaps')
@@ -167,6 +270,11 @@ export function useGaps(projectId?: string) {
 
       return normalized;
     } catch (error) {
+      if (isTableMissingError(error)) {
+        setIsRemoteAvailable(false);
+        return updateGap(id, updates);
+      }
+
       console.error('Erro ao atualizar GAP:', error);
       toast({
         title: 'Erro',
@@ -178,13 +286,30 @@ export function useGaps(projectId?: string) {
   };
 
   const deleteGap = async (id: string): Promise<boolean> => {
+    if (!isRemoteAvailable) {
+      setGaps(prev => prev.filter(gap => gap.id !== id));
+
+      toast({
+        title: 'GAP removido',
+        description: 'O registro de GAP foi removido em modo offline.',
+      });
+
+      return true;
+    }
+
     try {
       const { error } = await supabase
         .from('gaps')
         .delete()
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        if (isTableMissingError(error)) {
+          setIsRemoteAvailable(false);
+          return deleteGap(id);
+        }
+        throw error;
+      }
 
       setGaps(prev => prev.filter(gap => gap.id !== id));
 

@@ -3450,12 +3450,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               <Label htmlFor="task-group-by" className="text-sm font-medium text-muted-foreground">
                 Agrupar por
               </Label>
-              <Select value={groupBy} onValueChange={value => setGroupBy(value as GroupByKey)}>
+              <Select
+                value={groupBy || 'none'}
+                onValueChange={value => setGroupBy(value === 'none' ? '' : (value as GroupByKey))}
+              >
                 <SelectTrigger id="task-group-by" className="w-64">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Sem agrupamento</SelectItem>
+                  <SelectItem value="none">Sem agrupamento</SelectItem>
                   <SelectItem value="responsavel">Responsável</SelectItem>
                   <SelectItem value="prioridade">Prioridade</SelectItem>
                   <SelectItem value="status">Status</SelectItem>
