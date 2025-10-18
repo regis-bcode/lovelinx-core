@@ -160,6 +160,8 @@ const PERCENTUAL_BUCKET_INDEX = new Map<string, number>(
 const EMPTY_GROUP_VALUE = '__empty__';
 const NO_DUE_DATE_VALUE = '__no_due__';
 
+const TASK_TABLE_PREFERENCES_VERSION = 2;
+
 const normalizeTextValue = (value?: string | null) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   if (!trimmed) {
@@ -953,6 +955,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
+    const columnKeys = allColumns.map(column => column.key);
+
     try {
       const stored = window.localStorage.getItem(preferencesStorageKey);
       if (!stored) {
@@ -961,14 +965,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       const parsed = JSON.parse(stored) as {
+        version?: number;
         hiddenColumns?: string[];
         order?: string[];
         widths?: Record<string, number>;
         density?: 'comfortable' | 'condensed';
       } | null;
 
+      if (parsed?.version !== TASK_TABLE_PREFERENCES_VERSION) {
+        setIsLoadedPreferences(true);
+        return;
+      }
+
       if (parsed?.hiddenColumns && Array.isArray(parsed.hiddenColumns)) {
-        setHiddenColumns(parsed.hiddenColumns);
+        const sanitizedHidden = parsed.hiddenColumns.filter(key => columnKeys.includes(key));
+        setHiddenColumns(sanitizedHidden);
       }
 
       if (parsed?.order && Array.isArray(parsed.order)) {
@@ -976,7 +987,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       if (parsed?.widths && typeof parsed.widths === 'object') {
-        setColumnWidths(parsed.widths);
+        const sanitizedWidths = Object.entries(parsed.widths).reduce<Record<string, number>>((acc, [key, value]) => {
+          if (columnKeys.includes(key) && typeof value === 'number' && Number.isFinite(value) && value > 0) {
+            acc[key] = value;
+          }
+          return acc;
+        }, {});
+        setColumnWidths(sanitizedWidths);
       }
 
       if (parsed?.density === 'condensed') {
@@ -987,7 +1004,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setIsLoadedPreferences(true);
     }
-  }, [preferencesStorageKey]);
+  }, [preferencesStorageKey, allColumns]);
 
   useEffect(() => {
     if (!isLoadedPreferences || typeof window === 'undefined') {
@@ -995,6 +1012,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     const payload = JSON.stringify({
+      version: TASK_TABLE_PREFERENCES_VERSION,
       hiddenColumns,
       order: columnOrder,
       widths: columnWidths,
@@ -1466,13 +1484,24 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const visibleColumns = orderedColumns.filter(col => !hiddenColumns.includes(col.key));
 
-  const toggleColumn = (columnKey: string) => {
-    setHiddenColumns(prev =>
-      prev.includes(columnKey)
-        ? prev.filter(k => k !== columnKey)
-        : [...prev, columnKey]
-    );
-  };
+  const toggleColumn = useCallback((columnKey: string) => {
+    setHiddenColumns(prev => {
+      if (prev.includes(columnKey)) {
+        return prev.filter(key => key !== columnKey);
+      }
+
+      const nextHidden = [...prev, columnKey];
+      const visibleCount = allColumns.reduce((count, column) => {
+        return nextHidden.includes(column.key) ? count : count + 1;
+      }, 0);
+
+      if (visibleCount <= 0) {
+        return prev;
+      }
+
+      return nextHidden;
+    });
+  }, [allColumns]);
 
   const getColumnBaseWidth = useCallback(
     (columnKey: string) => {
