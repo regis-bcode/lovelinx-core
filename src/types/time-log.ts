@@ -9,6 +9,8 @@ export interface TimeLog {
   user_id: string;
   tipo_inclusao: TimeEntryType;
   tempo_minutos: number;
+  tempo_segundos?: number;
+  tempo_formatado?: string | null;
   data_inicio?: string;
   data_fim?: string;
   status_aprovacao: ApprovalStatus;
