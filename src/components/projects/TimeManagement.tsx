@@ -45,6 +45,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     loading: logsLoading,
   } = useTimeLogs(projectId);
   const { isAdmin, isGestor } = useUserRoles();
+  const canManageApprovals = isAdmin() || isGestor();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
 
@@ -592,7 +593,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [manualOverridesFromLogs]);
 
   const activeTimerEntries = useMemo(() => Object.entries(activeTimers), [activeTimers]);
-  const canManageApprovals = isAdmin() || isGestor();
 
   const tasksWithLoggedTime = useMemo(() => {
     const trackedTaskIds = new Set<string>();
