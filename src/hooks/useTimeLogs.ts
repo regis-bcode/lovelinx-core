@@ -296,7 +296,7 @@ export function useTimeLogs(projectId?: string) {
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
         aprovador_id: user.id,
-        data_aprovacao: status === 'aprovado' ? isoString : null,
+        data_aprovacao: isoString,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
       };
 
@@ -316,7 +316,7 @@ export function useTimeLogs(projectId?: string) {
                 ...log,
                 status_aprovacao: status,
                 aprovador_id: user.id,
-                data_aprovacao: status === 'aprovado' ? isoString : null,
+                data_aprovacao: isoString,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
               }
             : log,
