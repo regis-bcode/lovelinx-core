@@ -3,7 +3,7 @@ export interface Task {
   project_id: string;
   user_id: string;
   task_id: string; // ID automático gerado pelo sistema
-  nome: string;
+  tarefa: string;
   responsavel?: string;
   data_vencimento?: string;
   prioridade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
@@ -11,7 +11,7 @@ export interface Task {
   custom_fields: Record<string, any>;
   created_at: string;
   updated_at: string;
-  
+
   // Novos campos conforme lista
   cliente?: string;
   modulo?: string;
@@ -19,6 +19,8 @@ export interface Task {
   categoria?: string;
   etapa_projeto?: string;
   sub_etapa_projeto?: string;
+  descricao_tarefa?: string;
+  solucao?: string;
   descricao_detalhada?: string;
   retorno_acao?: string;
   acao_realizada?: string;

@@ -282,12 +282,12 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
   const tasksOptions = useMemo(() => {
     return tasks
       .slice()
-      .sort((a, b) => a.nome.localeCompare(b.nome));
+      .sort((a, b) => a.tarefa.localeCompare(b.tarefa));
   }, [tasks]);
 
   const taskNameById = useMemo(() => {
     return tasks.reduce<Record<string, string>>((acc, task) => {
-      acc[task.id] = task.nome;
+      acc[task.id] = task.tarefa;
       return acc;
     }, {});
   }, [tasks]);
@@ -822,7 +822,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
 
             if (!resolvedTaskId && rawTaskName) {
               const normalizedName = normalize(rawTaskName);
-              const matchByName = tasks.find(task => normalize(task.nome) === normalizedName);
+              const matchByName = tasks.find(task => normalize(task.tarefa) === normalizedName);
               if (matchByName) {
                 resolvedTaskId = matchByName.id;
               }
@@ -1207,7 +1207,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                   <SelectItem value="all">Todas as tarefas</SelectItem>
                   {tasksOptions.map(task => (
                     <SelectItem key={task.id} value={task.id}>
-                      {task.nome}
+                      {task.tarefa}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1346,7 +1346,7 @@ export function GapManagement({ projectId, initialTaskId }: GapManagementProps) 
                     <SelectContent>
                       {tasksOptions.map(task => (
                         <SelectItem key={task.id} value={task.id}>
-                          {task.nome}
+                          {task.tarefa}
                         </SelectItem>
                       ))}
                     </SelectContent>

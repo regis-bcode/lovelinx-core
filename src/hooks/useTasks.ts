@@ -127,12 +127,12 @@ export function useTasks(projectId?: string) {
       return null;
     }
 
-    const nome = typeof taskData.nome === 'string' ? taskData.nome.trim() : '';
+    const tarefa = typeof taskData.tarefa === 'string' ? taskData.tarefa.trim() : '';
 
-    if (!nome) {
+    if (!tarefa) {
       toast({
         title: "Erro",
-        description: "Informe um nome para criar a tarefa.",
+        description: "Informe uma tarefa para criar o registro.",
         variant: "destructive",
       });
       return null;
@@ -141,7 +141,7 @@ export function useTasks(projectId?: string) {
     try {
       const {
         project_id: _ignoredProjectId,
-        nome: _ignoredNome,
+        tarefa: _ignoredTarefa,
         data_vencimento,
         prioridade,
         status,
@@ -151,7 +151,7 @@ export function useTasks(projectId?: string) {
       const createdTask = await createTaskService({
         projectId,
         userId: user.id,
-        nome,
+        tarefa,
         prioridade,
         status,
         vencimento: data_vencimento ?? null,

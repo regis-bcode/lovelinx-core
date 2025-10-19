@@ -1327,7 +1327,7 @@ export default function ProjectOnePage() {
                       <TableBody>
                         {attentionTasks.map((task) => (
                           <TableRow key={task.id}>
-                            <TableCell className="font-medium">{task.nome}</TableCell>
+                            <TableCell className="font-medium">{task.tarefa}</TableCell>
                             <TableCell>{task.status}</TableCell>
                             <TableCell>{getTaskOwner(task)}</TableCell>
                             <TableCell>{formatDate(task.data_vencimento)}</TableCell>
@@ -1420,7 +1420,7 @@ export default function ProjectOnePage() {
                     ) : (
                       deliveredTasks.map((task) => (
                         <TableRow key={task.id}>
-                          <TableCell className="font-medium">{task.nome}</TableCell>
+                          <TableCell className="font-medium">{task.tarefa}</TableCell>
                           <TableCell>{getTaskOwner(task)}</TableCell>
                           <TableCell>{formatDate(task.data_entrega ?? task.updated_at)}</TableCell>
                         </TableRow>
@@ -1454,7 +1454,7 @@ export default function ProjectOnePage() {
                     ) : (
                       upcomingDeliveries.map(({ task }) => (
                         <TableRow key={task.id}>
-                          <TableCell className="font-medium">{task.nome}</TableCell>
+                          <TableCell className="font-medium">{task.tarefa}</TableCell>
                           <TableCell>{getTaskOwner(task)}</TableCell>
                           <TableCell>{formatDate(task.data_vencimento)}</TableCell>
                         </TableRow>
