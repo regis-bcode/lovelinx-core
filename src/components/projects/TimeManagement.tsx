@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Clock, Plus, Loader2, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { CheckCircle2, Clock, Loader2, Plus, ThumbsDown, ThumbsUp, XCircle } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -411,16 +411,23 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const getStatusBadge = (status: ApprovalStatus) => {
     switch (status) {
       case 'pendente':
-        return <Badge variant="secondary">Aguarda Aprovação...</Badge>;
+        return (
+          <Badge variant="secondary" className="gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Aguarda Aprovação...
+          </Badge>
+        );
       case 'aprovado':
         return (
-          <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100">
+          <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 gap-1.5">
+            <CheckCircle2 className="h-3.5 w-3.5" />
             Aprovado
           </Badge>
         );
       case 'reprovado':
         return (
-          <Badge className="border border-red-200 bg-red-100 text-red-700 hover:bg-red-100">
+          <Badge className="border border-red-200 bg-red-100 text-red-700 hover:bg-red-100 gap-1.5">
+            <XCircle className="h-3.5 w-3.5" />
             Reprovado
           </Badge>
         );
