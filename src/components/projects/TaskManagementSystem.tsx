@@ -35,6 +35,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { SortModal } from '@/components/sort/SortModal';
+import { HeaderSortBadge } from '@/components/sort/HeaderSortBadge';
 import {
   Settings,
   Save,
@@ -79,6 +81,9 @@ import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useProjectStages } from '@/hooks/useProjectStages';
 import { useGaps } from '@/hooks/useGaps';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMultiSort } from '@/hooks/useMultiSort';
+import type { SortDirection } from '@/hooks/useMultiSort';
+import { multiSort } from '@/utils/multiSort';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getStatusColorValue } from '@/lib/status-colors';
@@ -165,6 +170,56 @@ const EMPTY_GROUP_VALUE = '__empty__';
 const NO_DUE_DATE_VALUE = '__no_due__';
 
 const TASK_TABLE_PREFERENCES_VERSION = 3;
+const TASK_SORT_STORAGE_KEY = 'task-grid:sortRules';
+
+const DEFAULT_SORT_DIRECTIONS: Partial<Record<string, SortDirection>> = {
+  data_vencimento: 'desc',
+  percentual_conclusao: 'desc',
+};
+
+const PRIORITY_WEIGHTS: Record<string, number> = {
+  baixa: 0,
+  media: 1,
+  média: 1,
+  alta: 2,
+  critica: 3,
+  crítica: 3,
+};
+
+// Ajuste este conjunto conforme as colunas que podem ser ordenadas no seu grid.
+const SORTABLE_COLUMN_KEYS = new Set<string>([
+  'task_id',
+  'tarefa',
+  'prioridade',
+  'status',
+  'cliente',
+  'responsavel',
+  'data_vencimento',
+  'descricao_tarefa',
+  'solucao',
+  'percentual_conclusao',
+  'tempo_total',
+  'modulo',
+  'area',
+  'categoria',
+  'etapa_projeto',
+  'sub_etapa_projeto',
+  'criticidade',
+  'escopo',
+  'cronograma',
+]);
+
+const normalizePriorityWeight = (value: unknown): number => {
+  if (typeof value !== 'string') {
+    return Number.POSITIVE_INFINITY;
+  }
+  const normalized = value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+  return PRIORITY_WEIGHTS[normalized] ?? Number.POSITIVE_INFINITY;
+};
 
 const normalizeTextValue = (value?: string | null) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
@@ -639,6 +694,9 @@ const normalizeHeader = (value: string): string =>
     .toLowerCase()
     .trim();
 
+const getColumnLabel = (column: ColumnDefinition): string =>
+  'isCustom' in column && column.isCustom ? column.field.field_name : column.label;
+
 export function TaskManagementSystem({ projectId, projectClient }: TaskManagementSystemProps) {
   const {
     tasks,
@@ -688,6 +746,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCondensedView, setIsCondensedView] = useState(false);
+  const {
+    sortRules,
+    addRule,
+    toggleDirection,
+    removeRule,
+    reorderRules,
+    clearAll,
+    getRuleForKey,
+    rulePositions,
+  } = useMultiSort({ storageKey: TASK_SORT_STORAGE_KEY });
+  const [isSortModalOpen, setIsSortModalOpen] = useState(false);
+  const [pendingSortColumn, setPendingSortColumn] = useState<
+    { key: string; label: string; defaultDirection?: SortDirection } | null
+  >(null);
   const [savingRowIndex, setSavingRowIndex] = useState<number | null>(null);
   const [deletingRowIndex, setDeletingRowIndex] = useState<number | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
@@ -722,6 +794,43 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
     [projectId]
+  );
+
+  const openSortModalForColumn = useCallback(
+    (columnKey: string, label: string) => {
+      if (!SORTABLE_COLUMN_KEYS.has(columnKey)) {
+        return;
+      }
+      setPendingSortColumn({
+        key: columnKey,
+        label,
+        defaultDirection: DEFAULT_SORT_DIRECTIONS[columnKey] ?? 'asc',
+      });
+      setIsSortModalOpen(true);
+    },
+    [],
+  );
+
+  const closeSortModal = useCallback(() => {
+    setIsSortModalOpen(false);
+    setPendingSortColumn(null);
+  }, []);
+
+  const handleColumnHeaderClick = useCallback(
+    (event: React.MouseEvent<HTMLTableCellElement>, column: ColumnDefinition) => {
+      if (draggingColumn) {
+        return;
+      }
+      if (!SORTABLE_COLUMN_KEYS.has(column.key)) {
+        return;
+      }
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('[data-resize-handle="true"]')) {
+        return;
+      }
+      openSortModalForColumn(column.key, getColumnLabel(column));
+    },
+    [draggingColumn, openSortModalForColumn],
   );
 
   useEffect(() => {
@@ -919,6 +1028,60 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [activeTimers, getTaskTotalTime, timerTick],
   );
 
+  const sortAccessors = useMemo<Record<string, (row: TaskRow) => unknown>>(
+    () => ({
+      // Ajuste este mapa com os campos que representam cada coluna ordenável do seu grid.
+      task_id: row => row.task_id ?? '',
+      tarefa: row => row.tarefa ?? '',
+      prioridade: row => row.prioridade ?? '',
+      status: row => row.status ?? '',
+      cliente: row => row.cliente ?? '',
+      responsavel: row => row.responsavel ?? '',
+      data_vencimento: row => row.data_vencimento ?? null,
+      descricao_tarefa: row => row.descricao_tarefa ?? '',
+      solucao: row => row.solucao ?? '',
+      percentual_conclusao: row => row.percentual_conclusao ?? null,
+      tempo_total: row => getRowAccumulatedSeconds(row),
+      modulo: row => row.modulo ?? '',
+      area: row => row.area ?? '',
+      categoria: row => row.categoria ?? '',
+      etapa_projeto: row => row.etapa_projeto ?? '',
+      sub_etapa_projeto: row => row.sub_etapa_projeto ?? '',
+      criticidade: row => row.criticidade ?? '',
+      escopo: row => row.escopo ?? '',
+      cronograma: row => (typeof row.cronograma === 'boolean' ? Number(row.cronograma) : null),
+    }),
+    [getRowAccumulatedSeconds],
+  );
+
+  const sortValueNormalizers = useMemo<Record<string, (value: unknown, row: TaskRow) => unknown>>(
+    () => ({
+      prioridade: (value: unknown) => normalizePriorityWeight(value),
+      data_vencimento: (value: unknown) => {
+        if (!value) {
+          return null;
+        }
+        const date = new Date(value as string | number | Date);
+        return Number.isNaN(date.getTime()) ? null : date;
+      },
+      percentual_conclusao: (value: unknown) => {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return value;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      },
+      tempo_total: (_value: unknown, row: TaskRow) => getRowAccumulatedSeconds(row),
+      cronograma: (value: unknown) =>
+        typeof value === 'boolean'
+          ? Number(value)
+          : value === null || value === undefined
+            ? null
+            : Number(Boolean(value)),
+    }),
+    [getRowAccumulatedSeconds],
+  );
+
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
 
   const { responsibleTimeSummaries, responsibleTimeSummaryMap } = useMemo(() => {
@@ -1007,9 +1170,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [responsibleTimeSummaryMap],
   );
 
+  const sortedRows = useMemo<TaskRow[]>(() => {
+    if (!sortRules.length) {
+      return editableRows;
+    }
+    return multiSort(editableRows, sortRules, sortAccessors, {
+      valueNormalizers: sortValueNormalizers,
+      locale: 'pt-BR',
+    });
+  }, [editableRows, sortRules, sortAccessors, sortValueNormalizers]);
+
   const groupedTasks = useMemo(
-    () => groupTasks(editableRows, groupBy),
-    [editableRows, groupBy]
+    () => groupTasks(sortedRows, groupBy),
+    [sortedRows, groupBy]
   );
 
   const rowIndexMap = useMemo(() => {
@@ -1019,6 +1192,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     });
     return map;
   }, [editableRows]);
+
+  const sortedRowEntries = useMemo(() => {
+    if (!sortRules.length) {
+      return editableRows.map((row, index) => ({ row, index }));
+    }
+    return sortedRows
+      .map(row => {
+        const resolvedIndex = rowIndexMap.get(row) ?? editableRows.indexOf(row);
+        if (resolvedIndex < 0) {
+          return null;
+        }
+        return { row, index: resolvedIndex };
+      })
+      .filter((entry): entry is { row: TaskRow; index: number } => entry !== null);
+  }, [editableRows, rowIndexMap, sortRules, sortedRows]);
 
   const toggleGroupValue = useCallback((value: string) => {
     setExpandedGroups(prev => {
@@ -3769,6 +3957,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         className="hidden"
         onChange={handleImportFileChange}
       />
+      <SortModal
+        isOpen={isSortModalOpen}
+        onClose={closeSortModal}
+        rules={sortRules}
+        onAddRule={addRule}
+        onToggleDirection={toggleDirection}
+        onRemoveRule={removeRule}
+        onReorderRules={reorderRules}
+        onClearAll={clearAll}
+        pendingColumn={pendingSortColumn}
+      />
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
         <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between rounded-t-3xl">
           <div className="space-y-2">
@@ -4180,6 +4379,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         {/* Cabeçalhos com suporte a reordenação e redimensionamento persistente */}
                         {visibleColumns.map(column => {
                           const width = getColumnWidth(column.key);
+                          const isSortable = SORTABLE_COLUMN_KEYS.has(column.key);
+                          const activeRule = getRuleForKey(column.key);
+                          const position = activeRule ? rulePositions.get(column.key) : undefined;
+
                           return (
                             <TableHead
                               key={column.key}
@@ -4190,17 +4393,25 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                               onDrop={event => handleDrop(event, column.key)}
                               onDragEnd={handleDragEnd}
                               onDoubleClick={() => handleAutoResizeColumn(column.key)}
+                              onClick={event => handleColumnHeaderClick(event, column)}
                               className={cn(
                                 'group relative select-none border-r border-border/60 bg-background px-2 text-left font-semibold text-muted-foreground transition-colors text-[10px]',
                                 isCondensedView ? 'h-8 py-1.5' : 'h-10 py-2',
                                 draggingColumn === column.key && 'opacity-70',
                                 dragOverColumn === column.key && 'ring-2 ring-inset ring-primary/40',
+                                isSortable && 'cursor-pointer hover:bg-muted/40',
                               )}
                               style={{ width: `${width}px`, minWidth: `${width}px` }}
                             >
-                              {column.label}
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="truncate">{column.label}</span>
+                                {activeRule && position ? (
+                                  <HeaderSortBadge position={position} direction={activeRule.direction} />
+                                ) : null}
+                              </div>
                               {/* Handle para redimensionamento manual das colunas */}
                               <div
+                                data-resize-handle="true"
                                 className="absolute right-0 top-0 h-full w-1 cursor-col-resize select-none rounded-sm bg-transparent transition-colors group-hover:bg-primary/30"
                                 onMouseDown={event => handleResizeStart(event, column.key)}
                                 onDoubleClick={event => {
@@ -4233,7 +4444,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                           </TableCell>
                         </TableRow>
                       ) : groupBy === '' ? (
-                        editableRows.map((row, index) => renderTaskRow(row, index))
+                        sortedRowEntries.map(({ row, index }) => renderTaskRow(row, index))
                       ) : (
                         groupedTasks.map((group, groupIndex) => {
                           const isExpanded = expandedGroups[group.value] ?? true;
