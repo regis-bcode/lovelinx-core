@@ -34,7 +34,7 @@ const getOverflowClasses = (
 export default function ProjectDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { getProject, loading: projectsLoading, refreshProjects } = useProjects();
 
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
@@ -242,6 +242,20 @@ export default function ProjectDetails() {
   const inactiveTopNavTriggerClass =
     "bg-muted text-muted-foreground hover:border-primary/40 hover:bg-primary/10 hover:text-foreground";
 
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (value === "tap") {
+      nextParams.delete("tab");
+    } else {
+      nextParams.set("tab", value);
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const projectTopNav = (
     <div className="relative w-full rounded-3xl border border-border/60 bg-background/95 p-4 shadow-lg">
       <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-primary/5 via-background to-primary/10" />
@@ -253,7 +267,7 @@ export default function ProjectDetails() {
             <button
               key={tab.value}
               type="button"
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => handleTabChange(tab.value)}
               className={cn(
                 topNavTriggerClass,
                 "min-w-[110px] sm:min-w-[130px]",
