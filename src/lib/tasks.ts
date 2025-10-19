@@ -43,7 +43,7 @@ export const generateNextTaskIdentifier = async (projectId: string): Promise<str
 interface CreateTaskParams {
   projectId: string;
   userId: string;
-  nome: string;
+  tarefa: string;
   prioridade?: string | null;
   vencimento?: string | Date | null;
   status?: string | null;
@@ -105,7 +105,7 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   const payload: Record<string, unknown> = {
     project_id: params.projectId,
     user_id: params.userId,
-    nome: params.nome.trim(),
+    tarefa: params.tarefa.trim(),
     prioridade: normalizePriority(params.prioridade),
     status: normalizeStatus(params.status),
   };

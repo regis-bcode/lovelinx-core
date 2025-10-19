@@ -21,7 +21,7 @@ interface TaskListProps {
 export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: TaskListProps) {
   const [showNewTask, setShowNewTask] = useState(false);
   const [newTask, setNewTask] = useState<Partial<Task>>({
-    nome: '',
+    tarefa: '',
     responsavel: '',
     data_vencimento: '',
     prioridade: 'Média',
@@ -31,10 +31,10 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
   const [createError, setCreateError] = useState<string | null>(null);
 
   const handleCreateTask = () => {
-    const trimmedName = (newTask.nome ?? '').trim();
+    const trimmedTask = (newTask.tarefa ?? '').trim();
 
-    if (!trimmedName) {
-      setCreateError('Informe o nome da tarefa.');
+    if (!trimmedTask) {
+      setCreateError('Informe a tarefa.');
       return;
     }
 
@@ -69,7 +69,7 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
     const normalizedPriority = newTask.prioridade ?? 'Média';
 
     const payload: Partial<Task> = {
-      nome: trimmedName,
+      tarefa: trimmedTask,
       responsavel: newTask.responsavel ?? '',
       data_vencimento: normalizedDueDate,
       prioridade: normalizedPriority,
@@ -80,7 +80,7 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
     try {
       onTaskCreate(payload);
       setNewTask({
-        nome: '',
+        tarefa: '',
         responsavel: '',
         data_vencimento: '',
         prioridade: 'Média',
@@ -153,7 +153,7 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome</TableHead>
+                <TableHead>Tarefa</TableHead>
                 <TableHead>Responsável</TableHead>
                 <TableHead>Data de vencimento</TableHead>
                 <TableHead>Prioridade</TableHead>
@@ -168,7 +168,7 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${getPriorityColor(task.prioridade)}`} />
                       <div>
-                        <div className="font-medium">{task.nome}</div>
+                        <div className="font-medium">{task.tarefa}</div>
                         <div className="text-xs text-muted-foreground font-mono">
                           {task.task_id}
                         </div>
@@ -222,9 +222,9 @@ export function TaskList({ tasks, onTaskCreate, onTaskUpdate, onTaskDelete }: Ta
                 <TableRow className="bg-muted/50">
                   <TableCell>
                     <Input
-                      value={newTask.nome}
-                      onChange={(e) => setNewTask(prev => ({ ...prev, nome: e.target.value }))}
-                      placeholder="Nome da tarefa"
+                      value={newTask.tarefa}
+                      onChange={(e) => setNewTask(prev => ({ ...prev, tarefa: e.target.value }))}
+                      placeholder="Tarefa"
                       className="h-8"
                     />
                   </TableCell>

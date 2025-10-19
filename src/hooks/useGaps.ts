@@ -378,8 +378,8 @@ export function useGaps(projectId?: string) {
 
     const payload: Partial<GapFormData> = {
       task_id: task.id,
-      titulo: task.nome,
-      descricao: task.descricao_detalhada ?? null,
+      titulo: task.tarefa,
+      descricao: task.descricao_tarefa ?? task.descricao_detalhada ?? null,
       tipo: 'Escopo',
       origem: 'Escopo',
       status: 'Aberto',

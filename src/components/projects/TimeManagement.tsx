@@ -1126,7 +1126,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
                 return (
                   <TableRow key={task.id}>
-                    <TableCell className="font-medium">{task.nome}</TableCell>
+                    <TableCell className="font-medium">{task.tarefa}</TableCell>
                     <TableCell>{task.responsavel || '-'}</TableCell>
                     <TableCell>
                       {isTimerActive ? (

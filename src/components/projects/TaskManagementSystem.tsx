@@ -164,7 +164,7 @@ const PERCENTUAL_BUCKET_INDEX = new Map<string, number>(
 const EMPTY_GROUP_VALUE = '__empty__';
 const NO_DUE_DATE_VALUE = '__no_due__';
 
-const TASK_TABLE_PREFERENCES_VERSION = 2;
+const TASK_TABLE_PREFERENCES_VERSION = 3;
 
 const normalizeTextValue = (value?: string | null) => {
   const trimmed = typeof value === 'string' ? value.trim() : '';
@@ -1114,12 +1114,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const baseColumns = useMemo<ColumnDefinition[]>(() => ([
     { key: 'task_id', label: 'ID', width: '80px' },
-    { key: 'nome', label: 'Nome', width: '200px' },
+    { key: 'tarefa', label: 'Tarefa', width: '220px' },
     { key: 'prioridade', label: 'Prioridade', width: '120px' },
     { key: 'status', label: 'Status', width: '150px' },
     { key: 'cliente', label: 'Cliente', width: '150px' },
     { key: 'responsavel', label: 'Responsável', width: '150px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
+    { key: 'descricao_tarefa', label: 'Descrição Tarefa', width: '240px' },
+    { key: 'solucao', label: 'Solução', width: '240px' },
     { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
     { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
     { key: 'modulo', label: 'Módulo', width: '150px' },
@@ -1372,7 +1374,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         (payload as Record<string, unknown>)[key] = value;
       });
 
-      payload.nome = typeof row.nome === 'string' ? row.nome.trim() : '';
+      payload.tarefa = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
       payload.status =
         typeof row.status === 'string' && row.status.trim().length > 0
           ? row.status.trim()
@@ -1469,7 +1471,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     _tempId: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     project_id: projectId,
     task_id: taskIdentifier ?? '',
-    nome: '',
+    tarefa: '',
+    descricao_tarefa: '',
+    solucao: '',
     prioridade: 'Média',
     status: defaultStatusName || '',
     cliente: defaultClient || undefined,
@@ -1912,19 +1916,29 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const formattedRows = rows
         .map(row => {
-          const nome = getCellString(row, 'Nome');
-          if (!nome) {
+          const tarefa = getCellString(row, 'Tarefa');
+          if (!tarefa) {
             return null;
           }
 
           const payload: Partial<TaskFormData> = {
             project_id: projectId,
-            nome,
+            tarefa,
           };
 
           const taskId = getCellString(row, 'ID');
           if (taskId) {
             payload.task_id = taskId;
+          }
+
+          const descricaoTarefa = getCellString(row, 'Descrição Tarefa');
+          if (descricaoTarefa) {
+            payload.descricao_tarefa = descricaoTarefa;
+          }
+
+          const solucao = getCellString(row, 'Solução');
+          if (solucao) {
+            payload.solucao = solucao;
           }
 
           const prioridade = getCellString(row, 'Prioridade');
@@ -2627,11 +2641,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    const trimmedName = typeof row.nome === 'string' ? row.nome.trim() : '';
+    const trimmedName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
     if (!trimmedName) {
       toast({
-        title: 'Informe o nome da tarefa',
-        description: 'Defina um título para a tarefa antes de salvar.',
+        title: 'Informe a tarefa',
+        description: 'Defina uma tarefa antes de salvar.',
         variant: 'destructive',
       });
       return;
@@ -3225,6 +3239,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
     }
 
+    if (column.key === 'descricao_tarefa' || column.key === 'solucao') {
+      return (
+        <Textarea
+          value={typeof value === 'string' ? value : ''}
+          onChange={event => updateCell(rowIndex, column.key, event.target.value)}
+          className="min-h-[60px] text-xs"
+          placeholder={column.key === 'descricao_tarefa' ? 'Descreva a tarefa' : 'Descreva a solução'}
+        />
+      );
+    }
+
     if (column.key === 'modulo') {
       return (
         <CreatableSelect
@@ -3281,7 +3306,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         value={String(value || '')}
         onChange={(e) => updateCell(rowIndex, column.key, e.target.value)}
         className="h-8 text-xs"
-        placeholder={column.key === 'nome' ? 'Digite o nome da tarefa' : ''}
+        placeholder={column.key === 'tarefa' ? 'Digite a tarefa' : ''}
       />
     );
   };
@@ -3544,7 +3569,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const sanitizedRow = sanitizeTaskForSave(row);
     const sanitizedOriginal = normalizedOriginal ? sanitizeTaskForSave(normalizedOriginal) : null;
     const hasRowChanges = !sanitizedOriginal || !deepEqual(sanitizedRow, sanitizedOriginal);
-    const trimmedRowName = typeof row.nome === 'string' ? row.nome.trim() : '';
+    const trimmedRowName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
     const canPersistRow = trimmedRowName.length > 0 && hasRowChanges;
 
     return (
@@ -4355,8 +4380,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               {pendingResponsavelRow ? (
                 <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                   <p className="font-medium text-foreground">
-                    {pendingResponsavelRow.nome && pendingResponsavelRow.nome.trim().length > 0
-                      ? pendingResponsavelRow.nome
+                    {pendingResponsavelRow.tarefa && pendingResponsavelRow.tarefa.trim().length > 0
+                      ? pendingResponsavelRow.tarefa
                       : 'Tarefa sem título'}
                   </p>
                   {pendingResponsavelRow.task_id ? (
@@ -4420,8 +4445,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <div className="space-y-4">
               <div>
                 <p className="text-sm text-muted-foreground">
-                  {activeDialogRow.nome && activeDialogRow.nome.trim().length > 0
-                    ? activeDialogRow.nome
+                  {activeDialogRow.tarefa && activeDialogRow.tarefa.trim().length > 0
+                    ? activeDialogRow.tarefa
                     : 'Tarefa sem título'}
                 </p>
               </div>
@@ -4476,7 +4501,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                       <span className="font-semibold">Número da tarefa:</span> {successTask.task_id}
                     </p>
                     <p>
-                      <span className="font-semibold">Nome:</span> {successTask.nome}
+                      <span className="font-semibold">Tarefa:</span> {successTask.tarefa}
                     </p>
                     <p>
                       <span className="font-semibold">Status:</span> {successTask.status}
