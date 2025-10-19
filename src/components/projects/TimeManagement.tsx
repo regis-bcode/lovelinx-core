@@ -377,13 +377,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
   };
 
-  const formatApprovalDate = (value?: string | null) => {
+  const parseIsoDate = (value?: string | null): Date | null => {
     if (!value) {
-      return '-';
+      return null;
     }
 
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return parsed;
+  };
+
+  const formatApprovalDate = (value?: string | null) => {
+    const parsed = parseIsoDate(value);
+    if (!parsed) {
       return '-';
     }
 
@@ -391,16 +400,21 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const formatApprovalTime = (value?: string | null) => {
-    if (!value) {
-      return '-';
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) {
+    const parsed = parseIsoDate(value);
+    if (!parsed) {
       return '-';
     }
 
     return format(parsed, 'HH:mm');
+  };
+
+  const formatLogCreatedAt = (value?: string | null) => {
+    const parsed = parseIsoDate(value);
+    if (!parsed) {
+      return '-';
+    }
+
+    return format(parsed, 'dd/MM/yyyy HH:mm', { locale: ptBR });
   };
 
   const totalProjectTime = getProjectTotalTime();
@@ -728,9 +742,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const task = tasks.find(t => t.id === log.task_id);
                   return (
                     <TableRow key={log.id}>
-                      <TableCell>
-                        {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                      </TableCell>
+                      <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
                       <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
                       <TableCell>{task?.responsavel || '-'}</TableCell>
                       <TableCell>
