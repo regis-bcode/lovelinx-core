@@ -155,9 +155,12 @@ export function TimeLogDetailsDialog({
     }
 
     return (
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {summaryCards.map((card) => (
-          <Card key={card.key} className="rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+          <Card
+            key={card.key}
+            className="rounded-2xl border border-slate-200/70 bg-white/95 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
             <CardContent className="flex items-start gap-3 p-5">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                 {card.icon}
@@ -177,9 +180,12 @@ export function TimeLogDetailsDialog({
 
   const renderFieldSkeleton = (rows = 3) =>
     Array.from({ length: rows }).map((_, index) => (
-      <div key={index} className="space-y-2">
-        <Skeleton className="h-2.5 w-24" />
-        <Skeleton className="h-4 w-full" />
+      <div
+        key={index}
+        className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm"
+      >
+        <Skeleton className="mb-2 h-2.5 w-28" />
+        <Skeleton className="h-4 w-40" />
       </div>
     ));
 
@@ -233,7 +239,7 @@ export function TimeLogDetailsDialog({
               {renderSummary()}
 
               <div className="grid gap-6 md:grid-cols-2">
-                <Card className="rounded-3xl border border-slate-200 bg-white/95 shadow-sm">
+                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm">
                   <CardHeader className="flex flex-row items-center gap-3 pb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                       <CalendarIcon className="h-5 w-5" aria-hidden />
@@ -256,7 +262,7 @@ export function TimeLogDetailsDialog({
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-3xl border border-slate-200 bg-white/95 shadow-sm">
+                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm">
                   <CardHeader className="flex flex-row items-center gap-3 pb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                       <CheckCircleIcon className="h-5 w-5" aria-hidden />
@@ -280,7 +286,7 @@ export function TimeLogDetailsDialog({
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-3xl border border-slate-200 bg-white/95 shadow-sm md:col-span-2">
+                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm md:col-span-2">
                   <CardHeader className="flex flex-row items-center gap-3 pb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                       <UserIcon className="h-5 w-5" aria-hidden />
@@ -290,7 +296,7 @@ export function TimeLogDetailsDialog({
                       <p className="text-xs text-muted-foreground">Contexto adicional do apontamento</p>
                     </div>
                   </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-2">
+                  <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                     {isLoading ? (
                       <>{renderFieldSkeleton(8)}</>
                     ) : (
@@ -325,13 +331,17 @@ export function TimeLogDetailsDialog({
                               : `#${log.ordem.toString().padStart(2, "0")}`
                           }
                         />
-                        <Field label="Observações" value={log?.observacoes} />
+                        <Field
+                          label="Observações"
+                          value={log?.observacoes}
+                          placeholder="Nenhuma observação registrada."
+                        />
                       </>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-3xl border border-slate-200 bg-white/95 shadow-sm md:col-span-2">
+                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm md:col-span-2">
                   <CardHeader className="flex flex-row items-center gap-3 pb-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                       <DocumentTextIcon className="h-5 w-5" aria-hidden />
@@ -343,25 +353,28 @@ export function TimeLogDetailsDialog({
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                         <DocumentTextIcon className="h-4 w-4" aria-hidden />
-                        Descrição
+                        Descrição da tarefa
                       </div>
                       {isLoading ? (
                         <Skeleton className="h-32 w-full rounded-2xl" />
                       ) : (
-                        <ScrollArea className="max-h-48 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <ScrollArea className="max-h-48 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
                           <p className="text-sm leading-relaxed text-slate-700">
-                            {log?.descricao?.trim() ? log.descricao : "Sem descrição informada."}
+                            <span className="font-semibold text-slate-600">Descrição da tarefa:</span>{" "}
+                            <span className="font-medium text-slate-900">
+                              {log?.descricao?.trim() ? log.descricao : "Nenhuma descrição registrada."}
+                            </span>
                           </p>
                         </ScrollArea>
                       )}
                     </div>
                     <Separator />
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
                         <BoltIcon className="h-4 w-4" aria-hidden />
-                        Atividade
+                        Atividade registrada
                       </div>
                       {isLoading ? <Skeleton className="h-24 w-full rounded-xl" /> : <Timeline items={log?.atividade} />}
                     </div>
@@ -372,33 +385,39 @@ export function TimeLogDetailsDialog({
           </div>
 
           <div className="sticky bottom-0 z-10 w-full border-t bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:p-6">
-            <div className="flex items-center gap-3">
-              <div className="flex-1" />
-              {status === "Pendente" && log ? (
-                <div className="flex flex-1 justify-center gap-4">
-                  <Button
-                    onClick={handleAprovar}
-                    className="h-14 rounded-2xl bg-emerald-600 px-8 text-white hover:bg-emerald-700"
-                  >
-                    <CheckCircleIcon className="mr-2 h-6 w-6" aria-hidden />
-                    Aprovar
-                  </Button>
-                  <Button
-                    onClick={handleReprovar}
-                    className="h-14 rounded-2xl bg-rose-600 px-8 text-white hover:bg-rose-700"
-                  >
-                    <XCircleIcon className="mr-2 h-6 w-6" aria-hidden />
-                    Reprovar
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex flex-1 justify-center text-sm text-muted-foreground">
-                  {isLoading ? "Carregando ações..." : "Ações concluídas para este registro."}
-                </div>
-              )}
-              <Button variant="secondary" onClick={handleClose} className="ml-auto rounded-xl">
-                Fechar
-              </Button>
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="text-center text-sm text-muted-foreground md:text-left">
+                {isLoading
+                  ? "Carregando ações..."
+                  : status === "Pendente" && log
+                  ? "Escolha uma ação para este registro."
+                  : "Ações concluídas para este registro."}
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 md:justify-end">
+                <Button
+                  onClick={handleAprovar}
+                  disabled={!log || status !== "Pendente"}
+                  className="h-12 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70"
+                >
+                  <CheckCircleIcon className="mr-2 h-5 w-5" aria-hidden />
+                  Aprovar
+                </Button>
+                <Button
+                  onClick={handleReprovar}
+                  disabled={!log || status !== "Pendente"}
+                  className="h-12 rounded-xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 disabled:text-white/70"
+                >
+                  <XCircleIcon className="mr-2 h-5 w-5" aria-hidden />
+                  Reprovar
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleClose}
+                  className="h-12 rounded-xl px-6 text-sm font-semibold uppercase tracking-wide"
+                >
+                  Fechar
+                </Button>
+              </div>
             </div>
           </div>
         </div>
