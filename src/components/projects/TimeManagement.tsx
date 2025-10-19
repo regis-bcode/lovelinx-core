@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
@@ -61,6 +62,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [approvalDialogLog, setApprovalDialogLog] = useState<TimeLog | null>(null);
   const [approvalDialogAction, setApprovalDialogAction] = useState<'approve' | 'reject' | null>(null);
   const [approvalDialogJustification, setApprovalDialogJustification] = useState('');
+  const [selectedLogIds, setSelectedLogIds] = useState<string[]>([]);
+  const [isBulkApprovalDialogOpen, setIsBulkApprovalDialogOpen] = useState(false);
+  const [bulkApprovalAction, setBulkApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [bulkJustification, setBulkJustification] = useState('');
+  const [isProcessingBulkApproval, setIsProcessingBulkApproval] = useState(false);
   const approvalDialogTask = useMemo(() => {
     if (!approvalDialogLog?.task_id) {
       return null;
@@ -374,6 +380,198 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return observation;
   }, []);
 
+  const selectableLogs = useMemo(() => {
+    if (!canManageApprovals) {
+      return [] as TimeLog[];
+    }
+
+    return timeLogs.filter(log => log.status_aprovacao !== 'aprovado');
+  }, [canManageApprovals, timeLogs]);
+
+  const selectableLogsSet = useMemo(() => new Set(selectableLogs.map(log => log.id)), [selectableLogs]);
+
+  const selectedLogs = useMemo(() => {
+    if (!canManageApprovals || selectedLogIds.length === 0) {
+      return [] as TimeLog[];
+    }
+
+    const selectedSet = new Set(selectedLogIds.filter(id => selectableLogsSet.has(id)));
+    if (selectedSet.size === 0) {
+      return [] as TimeLog[];
+    }
+
+    return selectableLogs.filter(log => selectedSet.has(log.id));
+  }, [canManageApprovals, selectableLogs, selectableLogsSet, selectedLogIds]);
+
+  useEffect(() => {
+    if (!canManageApprovals) {
+      setSelectedLogIds([]);
+      return;
+    }
+
+    setSelectedLogIds(prev => prev.filter(id => selectableLogsSet.has(id)));
+  }, [canManageApprovals, selectableLogsSet]);
+
+  const allSelectableSelected = useMemo(() => {
+    if (selectableLogs.length === 0) {
+      return false;
+    }
+
+    return selectableLogs.every(log => selectedLogIds.includes(log.id));
+  }, [selectableLogs, selectedLogIds]);
+
+  const selectedLogsCount = selectedLogs.length;
+
+  const headerCheckboxState = useMemo(() => {
+    if (selectableLogs.length === 0) {
+      return false;
+    }
+
+    if (allSelectableSelected) {
+      return true;
+    }
+
+    return selectedLogsCount > 0 ? 'indeterminate' : false;
+  }, [allSelectableSelected, selectableLogs.length, selectedLogsCount]);
+
+  const selectionSummaryLabel = useMemo(() => {
+    if (selectedLogsCount === 0) {
+      return 'Nenhum registro selecionado.';
+    }
+
+    if (selectedLogsCount === 1) {
+      return '1 registro selecionado.';
+    }
+
+    return `${selectedLogsCount} registros selecionados.`;
+  }, [selectedLogsCount]);
+
+  const bulkSelectedLogsPreview = useMemo(() => {
+    if (selectedLogsCount === 0) {
+      return [] as TimeLog[];
+    }
+
+    return selectedLogs.slice(0, 5);
+  }, [selectedLogs, selectedLogsCount]);
+
+  const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
+
+  const timeLogTableColumnCount = canManageApprovals ? 11 : 10;
+
+  const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
+    if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
+      return;
+    }
+
+    setSelectedLogIds(prev => {
+      const exists = prev.includes(log.id);
+      if (checked) {
+        if (exists) {
+          return prev;
+        }
+        return [...prev, log.id];
+      }
+
+      if (!exists) {
+        return prev;
+      }
+
+      return prev.filter(id => id !== log.id);
+    });
+  }, [canManageApprovals]);
+
+  const handleToggleSelectAll = useCallback((checked: boolean) => {
+    if (!canManageApprovals) {
+      return;
+    }
+
+    if (!checked) {
+      setSelectedLogIds([]);
+      return;
+    }
+
+    setSelectedLogIds(selectableLogs.map(log => log.id));
+  }, [canManageApprovals, selectableLogs]);
+
+  const handleOpenBulkApprovalDialog = useCallback((action: 'approve' | 'reject') => {
+    if (!canManageApprovals || selectedLogsCount === 0) {
+      return;
+    }
+
+    setBulkApprovalAction(action);
+    setBulkJustification('');
+    setIsBulkApprovalDialogOpen(true);
+  }, [canManageApprovals, selectedLogsCount]);
+
+  const handleBulkApprovalDialogOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      if (isProcessingBulkApproval) {
+        return;
+      }
+
+      setIsBulkApprovalDialogOpen(false);
+      setBulkApprovalAction(null);
+      setBulkJustification('');
+      return;
+    }
+
+    setIsBulkApprovalDialogOpen(true);
+  }, [isProcessingBulkApproval]);
+
+  const handleConfirmBulkApproval = useCallback(async () => {
+    if (!bulkApprovalAction || selectedLogIds.length === 0) {
+      return;
+    }
+
+    const logsToUpdate = timeLogs.filter(log => selectedLogIds.includes(log.id) && log.status_aprovacao !== 'aprovado');
+
+    if (logsToUpdate.length === 0) {
+      setIsBulkApprovalDialogOpen(false);
+      setBulkApprovalAction(null);
+      setBulkJustification('');
+      return;
+    }
+
+    if (bulkApprovalAction === 'reject' && bulkJustification.trim().length === 0) {
+      return;
+    }
+
+    setIsProcessingBulkApproval(true);
+
+    try {
+      let encounteredFailure = false;
+      for (const log of logsToUpdate) {
+        const success = await approveTimeLog(
+          log.id,
+          bulkApprovalAction === 'approve' ? 'aprovado' : 'reprovado',
+          bulkApprovalAction === 'reject'
+            ? { justificativa: bulkJustification }
+            : undefined,
+        );
+
+        if (!success) {
+          encounteredFailure = true;
+          break;
+        }
+      }
+
+      if (!encounteredFailure) {
+        setSelectedLogIds(prev => prev.filter(id => !logsToUpdate.some(log => log.id === id)));
+        setIsBulkApprovalDialogOpen(false);
+        setBulkApprovalAction(null);
+        setBulkJustification('');
+      }
+    } finally {
+      setIsProcessingBulkApproval(false);
+    }
+  }, [
+    approveTimeLog,
+    bulkApprovalAction,
+    bulkJustification,
+    selectedLogIds,
+    timeLogs,
+  ]);
+
   useEffect(() => {
     if (!isAssignDialogOpen) {
       setTaskPendingAssignment(null);
@@ -408,6 +606,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return tasks.filter(task => trackedTaskIds.has(task.id)).length;
   }, [tasks, timeLogs, activeTimerEntries, manualOverrides]);
+
+  const taskById = useMemo(() => {
+    const map = new Map<string, Task>();
+    tasks.forEach(task => {
+      map.set(task.id, task);
+    });
+    return map;
+  }, [tasks]);
 
   const handleOpenApprovalDialog = (log: TimeLog, action: 'approve' | 'reject') => {
     if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
@@ -447,6 +653,30 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return 'Gerenciar aprovação';
   }, [approvalDialogAction]);
+
+  const bulkApprovalDialogTitle = useMemo(() => {
+    if (bulkApprovalAction === 'approve') {
+      return 'Aprovar registros selecionados';
+    }
+
+    if (bulkApprovalAction === 'reject') {
+      return 'Reprovar registros selecionados';
+    }
+
+    return 'Gerenciar registros selecionados';
+  }, [bulkApprovalAction]);
+
+  const bulkApprovalDialogDescription = useMemo(() => {
+    if (bulkApprovalAction === 'approve') {
+      return 'Confirme a aprovação dos registros de tempo selecionados.';
+    }
+
+    if (bulkApprovalAction === 'reject') {
+      return 'Confirme a reprovação dos registros de tempo selecionados.';
+    }
+
+    return 'Selecione uma ação para os registros de tempo selecionados.';
+  }, [bulkApprovalAction]);
 
   const handleConfirmApprovalAction = useCallback(async () => {
     if (!approvalDialogLog || !approvalDialogAction) {
@@ -491,7 +721,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             className="gap-1.5 border border-secondary/60 bg-secondary text-secondary-foreground"
           >
             <Clock className="h-3.5 w-3.5" />
-            Aguarda aprovação
+            Pendente
           </Badge>
         );
       case 'aprovado':
@@ -798,17 +1028,55 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       {/* Log de Tempo */}
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de Registros de Tempo</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tarefa</TableHead>
-                <TableHead>Responsável</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Tempo</TableHead>
+      <CardTitle>Histórico de Registros de Tempo</CardTitle>
+    </CardHeader>
+    <CardContent>
+      {canManageApprovals ? (
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">{selectionSummaryLabel}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => handleOpenBulkApprovalDialog('approve')}
+              disabled={selectedLogsCount === 0 || isProcessingBulkApproval}
+              className="gap-1.5"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Aprovar selecionados
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => handleOpenBulkApprovalDialog('reject')}
+              disabled={selectedLogsCount === 0 || isProcessingBulkApproval}
+              className="gap-1.5 border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800"
+            >
+              <XCircle className="h-4 w-4" />
+              Reprovar selecionados
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {canManageApprovals ? (
+              <TableHead className="w-12">
+                <Checkbox
+                  aria-label="Selecionar todos os registros pendentes"
+                  checked={headerCheckboxState}
+                  onCheckedChange={checked => handleToggleSelectAll(checked === true)}
+                  disabled={selectableLogs.length === 0 || isProcessingBulkApproval}
+                />
+              </TableHead>
+            ) : null}
+            <TableHead>Data</TableHead>
+            <TableHead>Tarefa</TableHead>
+            <TableHead>Responsável</TableHead>
+            <TableHead>Tipo</TableHead>
+            <TableHead>Tempo</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Aprovador</TableHead>
                 <TableHead>Data da Aprovação</TableHead>
@@ -818,24 +1086,34 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </TableHeader>
             <TableBody>
               {timeLogs.length > 0 ? (
-                timeLogs.map((log) => {
-                  const task = tasks.find(t => t.id === log.task_id);
-                  const observationText = getLogObservation(log);
-                  const approverDisplayName = getApproverDisplayName(log);
-                  const isPendingApproval = log.status_aprovacao === 'pendente';
+            timeLogs.map((log) => {
+              const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+              const observationText = getLogObservation(log);
+              const approverDisplayName = getApproverDisplayName(log);
+              const isPendingApproval = log.status_aprovacao === 'pendente';
                   const isCurrentProcessing = processingApprovalId === log.id;
                   const showApprovalActions = canManageApprovals && isPendingApproval;
                   const approvalActionsDisabled = processingApprovalId !== null;
                   const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
                   const isRejectLoading = isCurrentProcessing && approvalSubmittingType === 'reject';
 
-                  return (
-                    <TableRow key={log.id}>
-                      <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
-                      <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
-                      <TableCell>{task?.responsavel || '-'}</TableCell>
-                      <TableCell>
-                        <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
+              return (
+                <TableRow key={log.id}>
+                  {canManageApprovals ? (
+                    <TableCell>
+                      <Checkbox
+                        aria-label="Selecionar registro de tempo"
+                        checked={selectedLogIds.includes(log.id)}
+                        onCheckedChange={checked => handleRowSelectionChange(log, checked === true)}
+                        disabled={log.status_aprovacao === 'aprovado' || isProcessingBulkApproval}
+                      />
+                    </TableCell>
+                  ) : null}
+                  <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
+                  <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
+                  <TableCell>{task?.responsavel || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
                         </Badge>
                       </TableCell>
@@ -906,7 +1184,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={timeLogTableColumnCount} className="text-center text-muted-foreground">
                     Nenhum log de tempo registrado.
                   </TableCell>
                 </TableRow>
@@ -991,6 +1269,93 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               }
             >
               {processingApprovalId !== null && approvalDialogLog?.id === processingApprovalId ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isBulkApprovalDialogOpen} onOpenChange={handleBulkApprovalDialogOpenChange}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>{bulkApprovalDialogTitle}</DialogTitle>
+            <DialogDescription>
+              {bulkApprovalDialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-sm">
+            <div className="rounded-md border border-dashed border-muted-foreground/30 p-3">
+              <p className="text-xs font-medium uppercase text-muted-foreground">Registros selecionados</p>
+              {selectedLogsCount === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">Nenhum registro selecionado.</p>
+              ) : (
+                <ul className="mt-2 space-y-2">
+                  {bulkSelectedLogsPreview.map((log) => {
+                    const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+                    const taskName = task?.nome ?? 'Tarefa não encontrada';
+                    const responsavel = task?.responsavel ?? '-';
+                    const formattedTime =
+                      typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
+                        ? log.tempo_formatado
+                        : formatMinutes(log.tempo_trabalhado);
+
+                    return (
+                      <li key={log.id} className="flex flex-col text-sm">
+                        <span className="font-medium">{taskName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatLogCreatedAt(log.created_at)} • {responsavel} • {formattedTime}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {remainingBulkSelectionCount > 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  +{remainingBulkSelectionCount} outros registros selecionados.
+                </p>
+              ) : null}
+            </div>
+            {bulkApprovalAction === 'reject' ? (
+              <div className="space-y-2">
+                <Label htmlFor="bulk-approval-justification" className="text-sm font-medium">
+                  Justificativa da reprovação
+                </Label>
+                <Textarea
+                  id="bulk-approval-justification"
+                  value={bulkJustification}
+                  onChange={(event) => setBulkJustification(event.target.value)}
+                  placeholder="Descreva o motivo da reprovação"
+                  disabled={isProcessingBulkApproval}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Esta justificativa será aplicada a todos os registros selecionados.
+                </p>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleBulkApprovalDialogOpenChange(false)}
+              disabled={isProcessingBulkApproval}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmBulkApproval()}
+              disabled={
+                isProcessingBulkApproval ||
+                !bulkApprovalAction ||
+                selectedLogsCount === 0 ||
+                (bulkApprovalAction === 'reject' && bulkJustification.trim().length === 0)
+              }
+            >
+              {isProcessingBulkApproval ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
               Confirmar
