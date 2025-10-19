@@ -1002,45 +1002,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <Dialog open={Boolean(rejectDialogLog)} onOpenChange={handleRejectDialogOpenChange}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>Reprovar tempo registrado</DialogTitle>
-            <DialogDescription>
-              Informe a justificativa para reprovar o tempo da tarefa "{rejectionTaskName ?? 'Tarefa'}".
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
-            <Textarea
-              value={rejectionReason}
-              onChange={(event) => setRejectionReason(event.target.value)}
-              placeholder="Descreva o motivo da reprovação"
-              rows={4}
-            />
-          </div>
-          <DialogFooter className="gap-2">
-            <Button
-              variant="outline"
-              onClick={() => handleRejectDialogOpenChange(false)}
-              disabled={isSubmittingRejection}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => void handleConfirmRejection()}
-              disabled={isSubmittingRejection}
-            >
-              {isSubmittingRejection ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Reprovar tempo'
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
