@@ -1309,7 +1309,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: 'responsavel', label: 'Responsável', width: '150px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
     { key: 'descricao_tarefa', label: 'Descrição Tarefa', width: '240px' },
-    { key: 'solucao', label: 'Solução', width: '240px' },
+    { key: 'solucao', label: 'Atividade', width: '240px' },
     { key: 'percentual_conclusao', label: '% Conclusão', width: '100px' },
     { key: 'tempo_total', label: 'Tempo Total', width: '120px' },
     { key: 'modulo', label: 'Módulo', width: '150px' },
@@ -2124,7 +2124,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             payload.descricao_tarefa = descricaoTarefa;
           }
 
-          const solucao = getCellString(row, 'Solução');
+          const solucao = getCellString(row, 'Atividade');
           if (solucao) {
             payload.solucao = solucao;
           }
@@ -3433,7 +3433,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           value={typeof value === 'string' ? value : ''}
           onChange={event => updateCell(rowIndex, column.key, event.target.value)}
           className="min-h-[60px] text-xs"
-          placeholder={column.key === 'descricao_tarefa' ? 'Descreva a tarefa' : 'Descreva a solução'}
+          placeholder={column.key === 'descricao_tarefa' ? 'Descreva a tarefa' : 'Descreva a atividade'}
         />
       );
     }
