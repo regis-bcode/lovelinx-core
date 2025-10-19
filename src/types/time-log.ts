@@ -13,9 +13,13 @@ export interface TimeLog {
   data_inicio?: string;
   data_fim?: string;
   status_aprovacao: ApprovalStatus;
-  aprovador_id?: string;
+  aprovador_id?: string | null;
+  aprovador_nome?: string | null;
   data_aprovacao?: string | null;
-  observacoes?: string;
+  aprovacao_data?: string | null;
+  aprovacao_hora?: string | null;
+  observacoes?: string | null;
+  justificativa_reprovacao?: string | null;
   created_at: string;
   updated_at: string;
 }
