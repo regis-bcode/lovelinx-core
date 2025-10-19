@@ -91,7 +91,7 @@ const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
   { key: 'link_drive', label: 'Link do Drive', type: 'link', fullWidth: true },
   { key: 'descricao_tarefa', label: 'Descrição da tarefa', fullWidth: true, isLongText: true },
   { key: 'descricao_detalhada', label: 'Descrição detalhada', fullWidth: true, isLongText: true },
-  { key: 'solucao', label: 'Solução', fullWidth: true, isLongText: true },
+  { key: 'solucao', label: 'Atividade', fullWidth: true, isLongText: true },
   { key: 'retorno_acao', label: 'Retorno da ação', fullWidth: true, isLongText: true },
   { key: 'acao_realizada', label: 'Ação realizada', fullWidth: true, isLongText: true },
   { key: 'gp_consultoria', label: 'GP Consultoria' },
