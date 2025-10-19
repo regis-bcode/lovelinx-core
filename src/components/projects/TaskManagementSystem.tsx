@@ -56,7 +56,9 @@ import {
   FileWarning,
   ChevronDown,
   ChevronRight,
+  Download,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
@@ -1483,6 +1485,172 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   );
 
   const visibleColumns = orderedColumns.filter(col => !hiddenColumns.includes(col.key));
+
+  const formatCustomFieldValueForExport = useCallback((row: TaskRow, column: Extract<ColumnDefinition, { isCustom: true }>) => {
+    const customValue = row.custom_fields?.[column.field.field_name];
+
+    switch (column.field.field_type) {
+      case 'checkbox':
+        return customValue ? 'Sim' : 'Não';
+      case 'monetary': {
+        const numeric = typeof customValue === 'number'
+          ? customValue
+          : typeof customValue === 'string'
+            ? Number(customValue)
+            : undefined;
+        if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+          return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(numeric);
+        }
+        return '-';
+      }
+      case 'percentage': {
+        const numeric = typeof customValue === 'number'
+          ? customValue
+          : typeof customValue === 'string'
+            ? Number(customValue)
+            : undefined;
+        if (typeof numeric === 'number' && !Number.isNaN(numeric)) {
+          return `${numeric}%`;
+        }
+        return '-';
+      }
+      default: {
+        if (Array.isArray(customValue)) {
+          return customValue.length > 0 ? customValue.join(', ') : '-';
+        }
+        if (customValue === null || customValue === undefined) {
+          return '-';
+        }
+        if (typeof customValue === 'boolean') {
+          return customValue ? 'Sim' : 'Não';
+        }
+        const text = String(customValue).trim();
+        return text.length > 0 ? text : '-';
+      }
+    }
+  }, []);
+
+  const formatColumnValueForExport = useCallback((row: TaskRow, column: ColumnDefinition): string => {
+    if ('isCustom' in column && column.isCustom) {
+      return formatCustomFieldValueForExport(row, column);
+    }
+
+    const value = row[column.key as keyof TaskRow];
+    const isEmptyString = typeof value === 'string' && value.trim() === '';
+    const isNullish = value === null || value === undefined;
+
+    switch (column.key) {
+      case 'task_id': {
+        const taskIdValue = typeof row.task_id === 'string' ? row.task_id.trim() : '';
+        if (taskIdValue) {
+          return taskIdValue;
+        }
+        return row.isDraft || row._isNew ? 'Novo' : '-';
+      }
+      case 'tempo_total': {
+        if (!row.id) {
+          return '-';
+        }
+        const totalSeconds = getRowAccumulatedSeconds(row);
+        const formattedDuration = formatDuration(totalSeconds);
+        const isRunning = Boolean(row.id && activeTimers[row.id]);
+        return isRunning ? `${formattedDuration} (Em andamento)` : formattedDuration;
+      }
+      case 'percentual_conclusao':
+        return typeof value === 'number' ? `${value}%` : '0%';
+      case 'cronograma':
+        return value ? 'Sim' : 'Não';
+      case 'etapa_projeto': {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return stageNameById.get(value) ?? value;
+        }
+        return '-';
+      }
+      case 'sub_etapa_projeto': {
+        if (typeof value === 'string' && value.trim().length > 0) {
+          return subStageNameById.get(value)?.label ?? value;
+        }
+        return '-';
+      }
+      case 'data_vencimento': {
+        if (isNullish || isEmptyString) {
+          return '-';
+        }
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+        try {
+          return format(date, 'dd/MM/yyyy');
+        } catch {
+          return String(value);
+        }
+      }
+      case 'escopo':
+        if (value === 'Sim' || value === 'Não') {
+          return value;
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (isNullish) {
+      return '-';
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 'Sim' : 'Não';
+    }
+
+    const textValue = String(value).trim();
+    return textValue.length > 0 ? textValue : '-';
+  }, [
+    activeTimers,
+    formatCustomFieldValueForExport,
+    formatDuration,
+    getRowAccumulatedSeconds,
+    stageNameById,
+    subStageNameById,
+  ]);
+
+  const handleExportToExcel = useCallback(() => {
+    if (!editableRows.length) {
+      toast({
+        title: 'Nenhuma tarefa para exportar',
+        description: 'Adicione ou carregue tarefas antes de exportar os dados.',
+      });
+      return;
+    }
+
+    if (!visibleColumns.length) {
+      toast({
+        title: 'Nenhuma coluna visível',
+        description: 'Ative ao menos uma coluna para exportar o grid.',
+      });
+      return;
+    }
+
+    const headerRow = visibleColumns.map(column => column.label);
+    const dataRows = editableRows.map(row => visibleColumns.map(column => formatColumnValueForExport(row, column)));
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headerRow, ...dataRows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Tarefas');
+
+    const timestamp = format(new Date(), 'yyyyMMdd-HHmmss');
+    XLSX.writeFile(workbook, `tarefas-${timestamp}.xlsx`);
+
+    toast({
+      title: 'Exportação concluída',
+      description: `${editableRows.length} ${editableRows.length === 1 ? 'tarefa' : 'tarefas'} exportada(s) com sucesso.`,
+    });
+  }, [
+    editableRows,
+    formatColumnValueForExport,
+    toast,
+    visibleColumns,
+  ]);
 
   const toggleColumn = useCallback((columnKey: string) => {
     setHiddenColumns(prev => {
@@ -3461,6 +3629,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   </div>
                 </PopoverContent>
               </Popover>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExportToExcel}
+                disabled={editableRows.length === 0 || visibleColumns.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Excel
+              </Button>
 
               <Button
                 size="sm"
