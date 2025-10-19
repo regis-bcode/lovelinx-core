@@ -395,6 +395,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const activeTimerEntries = useMemo(() => Object.entries(activeTimers), [activeTimers]);
 
+  const showActionsColumn = useMemo(() => (
+    canManageApprovals && timeLogs.some(log => log.status_aprovacao === 'pendente')
+  ), [canManageApprovals, timeLogs]);
+
   const tasksWithLoggedTime = useMemo(() => {
     const trackedTaskIds = new Set<string>();
     timeLogs.forEach(log => {
@@ -414,7 +418,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return (
           <Badge variant="secondary" className="gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            Aguarda Aprovação...
+            Aguardando Aprovação
           </Badge>
         );
       case 'aprovado':
@@ -812,7 +816,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Data da Aprovação</TableHead>
                 <TableHead>Hora da Aprovação</TableHead>
                 <TableHead>Observações</TableHead>
-                {canManageApprovals && <TableHead>Ações</TableHead>}
+                {showActionsColumn && <TableHead>AÇÃO</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -874,40 +878,44 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      {canManageApprovals && (
+                      {showActionsColumn && (
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
-                              onClick={() => void handleApproveLog(log)}
-                              disabled={actionsDisabled}
-                              title={approveButtonTitle}
-                            >
-                              {isCurrentProcessing && approvalSubmittingType === 'approve' ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <ThumbsUp className="h-4 w-4" />
-                              )}
-                              <span className="sr-only">Aprovar registro de tempo</span>
-                            </Button>
-                            <Button
-                              size="icon"
-                              variant="outline"
-                              className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
-                              onClick={() => handleOpenRejectionDialog(log)}
-                              disabled={actionsDisabled}
-                              title={rejectButtonTitle}
-                            >
-                              {isCurrentProcessing && approvalSubmittingType === 'reject' ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <ThumbsDown className="h-4 w-4" />
-                              )}
-                              <span className="sr-only">Reprovar registro de tempo</span>
-                            </Button>
-                          </div>
+                          {isPendingApproval ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 border-emerald-200 text-emerald-600 hover:bg-emerald-50"
+                                onClick={() => void handleApproveLog(log)}
+                                disabled={actionsDisabled}
+                                title={approveButtonTitle}
+                              >
+                                {isCurrentProcessing && approvalSubmittingType === 'approve' ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ThumbsUp className="h-4 w-4" />
+                                )}
+                                <span className="sr-only">Aprovar registro de tempo</span>
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-8 w-8 border-red-200 text-red-600 hover:bg-red-50"
+                                onClick={() => handleOpenRejectionDialog(log)}
+                                disabled={actionsDisabled}
+                                title={rejectButtonTitle}
+                              >
+                                {isCurrentProcessing && approvalSubmittingType === 'reject' ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ThumbsDown className="h-4 w-4" />
+                                )}
+                                <span className="sr-only">Reprovar registro de tempo</span>
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -915,7 +923,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={canManageApprovals ? 11 : 10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={showActionsColumn ? 11 : 10} className="text-center text-muted-foreground">
                     Nenhum log de tempo registrado.
                   </TableCell>
                 </TableRow>
