@@ -824,8 +824,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const approverDisplayName = getApproverDisplayName(log);
                   const isPendingApproval = log.status_aprovacao === 'pendente';
                   const isCurrentProcessing = processingApprovalId === log.id;
-                  const showApprovalIcons = canManageApprovals && isPendingApproval;
-                  const approvalIconsDisabled = processingApprovalId !== null;
+                  const showApprovalActions = canManageApprovals && isPendingApproval;
+                  const approvalActionsDisabled = processingApprovalId !== null;
                   const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
                   const isRejectLoading = isCurrentProcessing && approvalSubmittingType === 'reject';
 
@@ -847,36 +847,38 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(log)}
-                          {showApprovalIcons ? (
-                            <div className="flex items-center gap-1">
-                              <button
+                          {showApprovalActions ? (
+                            <div className="flex items-center gap-2">
+                              <Button
                                 type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handleOpenApprovalDialog(log, 'approve')}
-                                className="text-base leading-none text-green-600 transition hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Aprovar registro de tempo"
-                                aria-label="Aprovar registro de tempo"
-                                disabled={approvalIconsDisabled}
+                                disabled={approvalActionsDisabled}
+                                className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
                               >
                                 {isApproveLoading ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  '👍'
+                                  <CheckCircle2 className="h-4 w-4" />
                                 )}
-                              </button>
-                              <button
+                                Aprovar
+                              </Button>
+                              <Button
                                 type="button"
+                                variant="outline"
+                                size="sm"
                                 onClick={() => handleOpenApprovalDialog(log, 'reject')}
-                                className="text-base leading-none text-red-600 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Reprovar registro de tempo"
-                                aria-label="Reprovar registro de tempo"
-                                disabled={approvalIconsDisabled}
+                                disabled={approvalActionsDisabled}
+                                className="gap-1.5 border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800"
                               >
                                 {isRejectLoading ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
                                 ) : (
-                                  '👎'
+                                  <XCircle className="h-4 w-4" />
                                 )}
-                              </button>
+                                Reprovar
+                              </Button>
                             </div>
                           ) : null}
                         </div>
