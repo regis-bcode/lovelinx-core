@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import {
   areActiveTimerRecordsEqual,
   persistActiveTimerRecord,
@@ -38,13 +39,77 @@ import {
   sanitizeActiveTimerRecord,
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
+import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
+
+type TaskFieldDefinition = {
+  key: keyof Task;
+  label: string;
+  type?: 'date' | 'datetime' | 'boolean' | 'numeric' | 'percentage' | 'link';
+  fullWidth?: boolean;
+  isLongText?: boolean;
+};
+
+type TaskDetailEntry = {
+  key: string;
+  label: string;
+  value: ReactNode;
+  fullWidth?: boolean;
+  isLongText?: boolean;
+};
+
+const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
+  { key: 'id', label: 'ID interno' },
+  { key: 'task_id', label: 'ID da tarefa' },
+  { key: 'tarefa', label: 'Título da tarefa', fullWidth: true },
+  { key: 'responsavel', label: 'Responsável' },
+  { key: 'responsavel_consultoria', label: 'Responsável (Consultoria)' },
+  { key: 'responsavel_cliente', label: 'Responsável (Cliente)' },
+  { key: 'cliente', label: 'Cliente' },
+  { key: 'modulo', label: 'Módulo' },
+  { key: 'area', label: 'Área' },
+  { key: 'categoria', label: 'Categoria' },
+  { key: 'etapa_projeto', label: 'Etapa do projeto' },
+  { key: 'sub_etapa_projeto', label: 'Sub-etapa do projeto' },
+  { key: 'status', label: 'Status' },
+  { key: 'prioridade', label: 'Prioridade' },
+  { key: 'criticidade', label: 'Criticidade' },
+  { key: 'escopo', label: 'Escopo', fullWidth: true, isLongText: true },
+  { key: 'cronograma', label: 'Cronograma', type: 'boolean' },
+  { key: 'dias_para_concluir', label: 'Dias para concluir', type: 'numeric' },
+  { key: 'percentual_conclusao', label: 'Percentual de conclusão', type: 'percentage' },
+  { key: 'data_vencimento', label: 'Data de vencimento', type: 'date' },
+  { key: 'data_prevista_entrega', label: 'Data prevista de entrega', type: 'date' },
+  { key: 'data_entrega', label: 'Data de entrega', type: 'date' },
+  { key: 'data_prevista_validacao', label: 'Data prevista de validação', type: 'date' },
+  { key: 'validado_por', label: 'Validado por' },
+  { key: 'numero_ticket', label: 'Número do ticket' },
+  { key: 'descricao_ticket', label: 'Descrição do ticket', fullWidth: true, isLongText: true },
+  { key: 'data_identificacao_ticket', label: 'Data identificação do ticket', type: 'date' },
+  { key: 'responsavel_ticket', label: 'Responsável pelo ticket' },
+  { key: 'status_ticket', label: 'Status do ticket' },
+  { key: 'link', label: 'Link', type: 'link', fullWidth: true },
+  { key: 'link_drive', label: 'Link do Drive', type: 'link', fullWidth: true },
+  { key: 'descricao_tarefa', label: 'Descrição da tarefa', fullWidth: true, isLongText: true },
+  { key: 'descricao_detalhada', label: 'Descrição detalhada', fullWidth: true, isLongText: true },
+  { key: 'solucao', label: 'Solução', fullWidth: true, isLongText: true },
+  { key: 'retorno_acao', label: 'Retorno da ação', fullWidth: true, isLongText: true },
+  { key: 'acao_realizada', label: 'Ação realizada', fullWidth: true, isLongText: true },
+  { key: 'gp_consultoria', label: 'GP Consultoria' },
+  { key: 'project_id', label: 'ID do projeto' },
+  { key: 'user_id', label: 'ID do usuário' },
+  { key: 'parent_task_id', label: 'Tarefa pai' },
+  { key: 'nivel', label: 'Nível', type: 'numeric' },
+  { key: 'ordem', label: 'Ordem', type: 'numeric' },
+  { key: 'created_at', label: 'Criado em', type: 'datetime' },
+  { key: 'updated_at', label: 'Atualizado em', type: 'datetime' },
+];
 
 interface TimeManagementProps {
   projectId: string;
 }
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
-  const { tasks, loading: tasksLoading, updateTask } = useTasks(projectId);
+  const { tasks, customFields, loading: tasksLoading, updateTask } = useTasks(projectId);
   const {
     timeLogs,
     createTimeLog,
@@ -83,6 +148,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [isProcessingBulkApproval, setIsProcessingBulkApproval] = useState(false);
   const [selectedLogForDetails, setSelectedLogForDetails] = useState<TimeLog | null>(null);
   const [isLogDetailsDialogOpen, setIsLogDetailsDialogOpen] = useState(false);
+  const [detailTaskData, setDetailTaskData] = useState<Task | null>(null);
+  const [isDetailTaskLoading, setIsDetailTaskLoading] = useState(false);
+  const [isTaskDetailsVisible, setIsTaskDetailsVisible] = useState(false);
   const [selectedLogForEdit, setSelectedLogForEdit] = useState<TimeLog | null>(null);
   const [isLogEditDialogOpen, setIsLogEditDialogOpen] = useState(false);
   const [logEditObservation, setLogEditObservation] = useState('');
@@ -671,6 +739,82 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return map;
   }, [tasks]);
 
+  const customFieldMap = useMemo(() => {
+    const map = new Map<string, string>();
+    customFields.forEach(field => {
+      map.set(field.field_name, field.field_name);
+    });
+    return map;
+  }, [customFields]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const fetchTaskDetails = async () => {
+      if (!selectedLogForDetails?.task_id) {
+        setDetailTaskData(null);
+        setIsDetailTaskLoading(false);
+        return;
+      }
+
+      const existingTask = taskById.get(selectedLogForDetails.task_id) ?? null;
+
+      if (existingTask) {
+        setDetailTaskData(existingTask);
+        setIsDetailTaskLoading(false);
+        return;
+      }
+
+      setIsDetailTaskLoading(true);
+
+      try {
+        const { data, error } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('id', selectedLogForDetails.task_id)
+          .maybeSingle<Task>();
+
+        if (isCancelled) {
+          return;
+        }
+
+        if (error) {
+          console.error('Erro ao carregar tarefa associada ao registro de tempo:', error);
+          setDetailTaskData(null);
+          return;
+        }
+
+        if (data) {
+          const normalized: Task = {
+            ...data,
+            task_id: ensureTaskIdentifier(data.task_id, data.id),
+            custom_fields: data.custom_fields ?? {},
+          };
+          setDetailTaskData(normalized);
+        } else {
+          setDetailTaskData(null);
+        }
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        console.error('Erro inesperado ao carregar tarefa associada ao registro de tempo:', error);
+        setDetailTaskData(null);
+      } finally {
+        if (!isCancelled) {
+          setIsDetailTaskLoading(false);
+        }
+      }
+    };
+
+    fetchTaskDetails();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedLogForDetails?.task_id, taskById]);
+
   const handleOpenApprovalDialog = (log: TimeLog, action: 'approve' | 'reject') => {
     if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
       return;
@@ -684,6 +828,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const handleOpenLogDetails = (log: TimeLog) => {
     setSelectedLogForDetails(log);
+    const relatedTask = log.task_id ? taskById.get(log.task_id) ?? null : null;
+    setDetailTaskData(relatedTask);
+    setIsDetailTaskLoading(!relatedTask && Boolean(log.task_id));
+    setIsTaskDetailsVisible(false);
     setIsLogDetailsDialogOpen(true);
   };
 
@@ -691,6 +839,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!open) {
       setIsLogDetailsDialogOpen(false);
       setSelectedLogForDetails(null);
+      setDetailTaskData(null);
+      setIsDetailTaskLoading(false);
+      setIsTaskDetailsVisible(false);
       return;
     }
 
@@ -970,7 +1121,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const totalProjectTime = getProjectTotalTime();
   const detailTask = selectedLogForDetails?.task_id
-    ? taskById.get(selectedLogForDetails.task_id) ?? null
+    ? detailTaskData ?? taskById.get(selectedLogForDetails.task_id) ?? null
     : null;
   const detailApproverName = selectedLogForDetails ? getApproverDisplayName(selectedLogForDetails) : '-';
   const detailObservation = selectedLogForDetails ? getLogObservation(selectedLogForDetails) : '';
@@ -978,6 +1129,173 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const detailPeriod = selectedLogForDetails
     ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
     : '-';
+
+  const getTaskFieldDisplayValue = useCallback(
+    (value: Task[keyof Task], definition: TaskFieldDefinition): string | null => {
+      if (value === null || value === undefined) {
+        return null;
+      }
+
+      switch (definition.type) {
+        case 'boolean':
+          if (typeof value === 'boolean') {
+            return value ? 'Sim' : 'Não';
+          }
+          return null;
+        case 'numeric':
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            return value.toString();
+          }
+          return null;
+        case 'percentage':
+          if (typeof value === 'number' && !Number.isNaN(value)) {
+            return `${value}%`;
+          }
+          return null;
+        case 'date':
+        case 'datetime':
+          if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (!trimmed) {
+              return null;
+            }
+            const parsed = parseIsoDate(trimmed);
+            if (!parsed) {
+              return trimmed;
+            }
+            return format(parsed, definition.type === 'date' ? 'dd/MM/yyyy' : 'dd/MM/yyyy HH:mm', {
+              locale: ptBR,
+            });
+          }
+          return null;
+        case 'link':
+          if (typeof value === 'string') {
+            const trimmed = value.trim();
+            return trimmed.length > 0 ? trimmed : null;
+          }
+          return null;
+        default:
+          break;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      }
+
+      if (typeof value === 'number') {
+        return Number.isNaN(value) ? null : value.toString();
+      }
+
+      if (typeof value === 'boolean') {
+        return value ? 'Sim' : 'Não';
+      }
+
+      return null;
+    },
+    [],
+  );
+
+  const taskDetailEntries = useMemo<TaskDetailEntry[]>(() => {
+    if (!detailTask) {
+      return [];
+    }
+
+    return TASK_FIELD_DEFINITIONS.reduce<TaskDetailEntry[]>((acc, definition) => {
+      const rawValue = detailTask[definition.key];
+      const displayValue = getTaskFieldDisplayValue(rawValue, definition);
+
+      if (!displayValue) {
+        return acc;
+      }
+
+      let valueNode: ReactNode = displayValue;
+      if (definition.type === 'link') {
+        valueNode = (
+          <a
+            href={displayValue}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="break-words text-primary underline decoration-primary/60 underline-offset-2 hover:text-primary/80"
+          >
+            {displayValue}
+          </a>
+        );
+      }
+
+      acc.push({
+        key: String(definition.key),
+        label: definition.label,
+        value: valueNode,
+        fullWidth: definition.fullWidth,
+        isLongText: definition.isLongText,
+      });
+
+      return acc;
+    }, []);
+  }, [detailTask, getTaskFieldDisplayValue]);
+
+  const taskCustomFieldEntries = useMemo<TaskDetailEntry[]>(() => {
+    if (!detailTask) {
+      return [];
+    }
+
+    const customValues = detailTask.custom_fields ?? {};
+
+    return Object.entries(customValues).reduce<TaskDetailEntry[]>((acc, [key, rawValue]) => {
+      if (rawValue === null || rawValue === undefined) {
+        return acc;
+      }
+
+      let displayValue: string | null = null;
+
+      if (typeof rawValue === 'string') {
+        const trimmed = rawValue.trim();
+        displayValue = trimmed.length > 0 ? trimmed : null;
+      } else if (typeof rawValue === 'number') {
+        displayValue = Number.isNaN(rawValue) ? null : rawValue.toString();
+      } else if (typeof rawValue === 'boolean') {
+        displayValue = rawValue ? 'Sim' : 'Não';
+      } else if (Array.isArray(rawValue)) {
+        const normalized = rawValue
+          .map(item => {
+            if (item === null || item === undefined) {
+              return null;
+            }
+            const text = typeof item === 'string' ? item.trim() : String(item);
+            return text.length > 0 ? text : null;
+          })
+          .filter((value): value is string => value !== null);
+
+        displayValue = normalized.length > 0 ? normalized.join(', ') : null;
+      } else {
+        try {
+          displayValue = JSON.stringify(rawValue);
+        } catch (error) {
+          console.error('Erro ao formatar campo personalizado da tarefa:', error);
+          displayValue = null;
+        }
+      }
+
+      if (!displayValue) {
+        return acc;
+      }
+
+      const label = customFieldMap.get(key) ?? key;
+
+      acc.push({
+        key: `custom-${key}`,
+        label,
+        value: displayValue,
+        fullWidth: displayValue.length > 60,
+        isLongText: displayValue.length > 120,
+      });
+
+      return acc;
+    }, []);
+  }, [detailTask, customFieldMap]);
+
+  const hasTaskDetailInformation = taskDetailEntries.length > 0 || taskCustomFieldEntries.length > 0;
 
   const handleAssignmentDialogOpenChange = (open: boolean) => {
     if (!open && isAssigning) {
@@ -1408,12 +1726,37 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       </Card>
 
       <Dialog open={isLogDetailsDialogOpen} onOpenChange={handleLogDetailsDialogOpenChange}>
-        <DialogContent className="sm:max-w-[540px]">
-          <DialogHeader>
-            <DialogTitle>Detalhes do registro de tempo</DialogTitle>
-            <DialogDescription>
-              Consulte as informações registradas para o apontamento selecionado.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[640px]">
+          <DialogHeader className="space-y-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <DialogTitle>Detalhes do registro de tempo</DialogTitle>
+                <DialogDescription>
+                  Consulte as informações registradas para o apontamento selecionado.
+                </DialogDescription>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="uppercase tracking-wide"
+                disabled={!selectedLogForDetails?.task_id}
+                onClick={() => {
+                  if (!selectedLogForDetails?.task_id) {
+                    return;
+                  }
+
+                  setIsTaskDetailsVisible(prev => !prev);
+                }}
+              >
+                <span className="flex items-center gap-2">
+                  {isTaskDetailsVisible && isDetailTaskLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  VER TAREFA
+                </span>
+              </Button>
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-2 text-sm">
             <div className="grid gap-3 sm:grid-cols-2">
@@ -1476,6 +1819,82 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 </span>
               </div>
             </div>
+            {isTaskDetailsVisible ? (
+              <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-semibold uppercase text-muted-foreground">Informações da tarefa</span>
+                  {isDetailTaskLoading ? (
+                    <span className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Carregando...
+                    </span>
+                  ) : null}
+                </div>
+                {isDetailTaskLoading ? (
+                  <p className="text-sm text-muted-foreground">Carregando dados da tarefa...</p>
+                ) : detailTask ? (
+                  hasTaskDetailInformation ? (
+                    <div className="space-y-4">
+                      {taskDetailEntries.length > 0 ? (
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {taskDetailEntries.map(entry => (
+                            <div
+                              key={entry.key}
+                              className={`space-y-1 ${entry.fullWidth ? 'sm:col-span-2' : ''}`}
+                            >
+                              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                {entry.label}
+                              </span>
+                              <div
+                                className={`text-sm text-foreground ${
+                                  entry.isLongText ? 'whitespace-pre-wrap leading-relaxed' : 'break-words'
+                                }`}
+                              >
+                                {entry.value}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+                      {taskCustomFieldEntries.length > 0 ? (
+                        <div className="space-y-3">
+                          <span className="text-xs font-semibold uppercase text-muted-foreground">
+                            Campos personalizados
+                          </span>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {taskCustomFieldEntries.map(entry => (
+                              <div
+                                key={entry.key}
+                                className={`space-y-1 ${entry.fullWidth ? 'sm:col-span-2' : ''}`}
+                              >
+                                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                  {entry.label}
+                                </span>
+                                <div
+                                  className={`text-sm text-foreground ${
+                                    entry.isLongText ? 'whitespace-pre-wrap leading-relaxed' : 'break-words'
+                                  }`}
+                                >
+                                  {entry.value}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Nenhuma informação adicional encontrada para esta tarefa.
+                    </p>
+                  )
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Não foi possível localizar a tarefa associada a este registro de tempo.
+                  </p>
+                )}
+              </div>
+            ) : null}
             <div className="space-y-1">
               <span className="text-xs font-medium uppercase text-muted-foreground">Observações</span>
               {detailObservation ? (
