@@ -1087,7 +1087,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   return (
                     <div key={taskId} className="rounded-md border px-3 py-2 shadow-sm">
                       <div className="text-xs uppercase text-muted-foreground">Timer ativo</div>
-                      <div className="font-medium">{task?.nome || 'Tarefa'}</div>
+                      <div className="font-medium">{task?.tarefa || 'Tarefa'}</div>
                       <div className="font-mono text-sm">{formatTime(currentSeconds)}</div>
                     </div>
                   );
@@ -1341,7 +1341,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         </div>
                       </TableCell>
                       <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
-                      <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
+                      <TableCell>{task?.tarefa || 'Tarefa não encontrada'}</TableCell>
                       <TableCell>{task?.responsavel || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
@@ -1420,7 +1420,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
                 <span className="font-medium">
-                  {detailTask?.nome ?? 'Tarefa não encontrada'}
+                  {detailTask?.tarefa ?? 'Tarefa não encontrada'}
                 </span>
               </div>
               <div className="space-y-1">
@@ -1510,7 +1510,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
                 <span className="font-medium">
-                  {selectedLogForEdit?.task_id ? (taskById.get(selectedLogForEdit.task_id)?.nome ?? 'Tarefa não encontrada') : '-'}
+                  {selectedLogForEdit?.task_id ? (taskById.get(selectedLogForEdit.task_id)?.tarefa ?? 'Tarefa não encontrada') : '-'}
                 </span>
               </div>
               <div className="space-y-1">
@@ -1591,7 +1591,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
                 <span className="font-medium">
-                  {approvalDialogTask?.nome ?? 'Tarefa não encontrada'}
+                  {approvalDialogTask?.tarefa ?? 'Tarefa não encontrada'}
                 </span>
               </div>
               <div className="space-y-1">
@@ -1678,7 +1678,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <ul className="mt-2 space-y-2">
                   {bulkSelectedLogsPreview.map((log) => {
                     const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
-                    const taskName = task?.nome ?? 'Tarefa não encontrada';
+                    const taskName = task?.tarefa ?? 'Tarefa não encontrada';
                     const responsavel = task?.responsavel ?? '-';
                     const formattedTime = getFormattedLogDuration(log);
 
@@ -1750,7 +1750,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           <DialogHeader>
             <DialogTitle>Definir responsável</DialogTitle>
             <DialogDescription>
-              Selecione um membro da equipe para associar à tarefa "{taskPendingAssignment?.nome}" antes de iniciar o cronômetro.
+              Selecione um membro da equipe para associar à tarefa "{taskPendingAssignment?.tarefa ?? ''}" antes de iniciar o cronômetro.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
