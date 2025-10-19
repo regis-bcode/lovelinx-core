@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -80,6 +80,52 @@ export function TimeLogDetailsDialog({
     void onReprovar(log.id);
   }, [log.id, onReprovar]);
 
+  const summaryCards = useMemo(
+    () => [
+      {
+        key: "task",
+        label: "Tarefa",
+        accent: "bg-indigo-50 text-indigo-600",
+        icon: <DocumentTextIcon className="h-5 w-5" aria-hidden />,
+        content: (
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-900 md:text-base">{log.taskId}</p>
+            <p className="text-xs text-slate-600 md:text-sm">{log.taskTitle || "Sem título"}</p>
+          </div>
+        )
+      },
+      {
+        key: "owner",
+        label: "Responsável",
+        accent: "bg-emerald-50 text-emerald-600",
+        icon: <UserIcon className="h-5 w-5" aria-hidden />,
+        content: <span className="font-semibold">{log.responsavel}</span>
+      },
+      {
+        key: "duration",
+        label: "Tempo registrado",
+        accent: "bg-sky-50 text-sky-600",
+        icon: <ClockIcon className="h-5 w-5" aria-hidden />,
+        content: <span className="font-semibold">{log.tempoHHMMSS}</span>
+      },
+      {
+        key: "type",
+        label: "Tipo",
+        accent: "bg-amber-50 text-amber-600",
+        icon: <BoltIcon className="h-5 w-5" aria-hidden />,
+        content: (
+          <div className="flex flex-col gap-2">
+            <span className="font-semibold">{log.tipo}</span>
+            <div className="md:hidden">
+              <StatusChip status={log.status} />
+            </div>
+          </div>
+        )
+      }
+    ],
+    [log.responsavel, log.status, log.taskId, log.taskTitle, log.tempoHHMMSS, log.tipo]
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -123,30 +169,25 @@ export function TimeLogDetailsDialog({
 
                     <Separator className="border-[#D8E2FF]" />
 
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                      <Field
-                        label="Tarefa"
-                        value={
-                          <div className="flex flex-col gap-1">
-                            <span className="text-sm font-semibold text-slate-900 md:text-base">{log.taskId}</span>
-                            <span className="text-xs text-slate-600 md:text-sm">{log.taskTitle || "Sem título"}</span>
-                          </div>
-                        }
-                        tooltip={log.taskTitle}
-                      />
-                      <Field label="Responsável" value={log.responsavel} icon={<UserIcon className="h-4 w-4" />} />
-                      <Field label="Tempo registrado" value={log.tempoHHMMSS} icon={<ClockIcon className="h-4 w-4" />} />
-                      <div className="col-span-2 flex flex-col gap-3 md:col-span-1 md:items-end">
-                        <Field
-                          label="Tipo"
-                          value={log.tipo}
-                          icon={<BoltIcon className="h-4 w-4" />}
-                          className="md:text-right"
-                        />
-                        <div className="md:hidden">
-                          <StatusChip status={log.status} />
-                        </div>
-                      </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {summaryCards.map((card) => (
+                        <Card
+                          key={card.key}
+                          className="rounded-2xl border border-[#DFE7FB] bg-white/90 shadow-[0px_8px_24px_rgba(15,23,42,0.05)]"
+                        >
+                          <CardContent className="flex items-start gap-3 p-4">
+                            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.accent}`}>
+                              {card.icon}
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7BAA]">
+                                {card.label}
+                              </p>
+                              <div className="text-sm text-slate-900 md:text-base">{card.content}</div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -163,7 +204,7 @@ export function TimeLogDetailsDialog({
                       <p className="text-xs text-muted-foreground">Linha do tempo deste registro</p>
                     </div>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-4">
+                  <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <Field label="Início" value={formatDateTimeBr(log.periodoInicioISO)} />
                     <Field label="Fim" value={formatDateTimeBr(log.periodoFimISO)} />
                     <Field label="Duração" value={duration} />
@@ -186,6 +227,28 @@ export function TimeLogDetailsDialog({
                     <Field label="Hora" value={log.horaAprovacao} />
                     <Field label="Origem" value={log.tipo} />
                   </CardContent>
+                  {log.status === "Pendente" ? (
+                    <CardFooter className="hidden flex-wrap gap-3 pt-4 md:flex">
+                      <Button
+                        onClick={handleReprovar}
+                        className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                      >
+                        <XCircleIcon className="h-5 w-5" aria-hidden />
+                        Reprovar
+                      </Button>
+                      <Button
+                        onClick={handleAprovar}
+                        className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                      >
+                        <CheckCircleIcon className="h-5 w-5" aria-hidden />
+                        Aprovar
+                      </Button>
+                    </CardFooter>
+                  ) : (
+                    <CardFooter className="hidden pt-4 md:flex">
+                      <p className="text-sm text-muted-foreground">Ações concluídas para este registro.</p>
+                    </CardFooter>
+                  )}
                 </Card>
 
                 <Card className="rounded-3xl border border-[#DFE7FB] bg-white/90 shadow-[0px_12px_32px_rgba(15,23,42,0.06)] md:col-span-2">
@@ -273,31 +336,31 @@ export function TimeLogDetailsDialog({
           <div className="sticky bottom-0 border-t border-[#CBD5F5] bg-[#EEF3FF]/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-[#EEF3FF]/80 md:px-8">
             <div className="flex items-center gap-3">
               {log.status === "Pendente" ? (
-                <div className="flex flex-1 justify-center gap-4">
+                <div className="flex flex-1 justify-center gap-4 md:hidden">
                   <Button
                     onClick={handleReprovar}
-                    className="flex items-center gap-2 rounded-2xl bg-rose-600 px-8 py-3 text-base font-semibold text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2 h-14"
+                    className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                   >
-                    <XCircleIcon className="h-6 w-6" aria-hidden />
+                    <XCircleIcon className="h-5 w-5" aria-hidden />
                     Reprovar
                   </Button>
                   <Button
                     onClick={handleAprovar}
-                    className="flex items-center gap-2 rounded-2xl bg-emerald-600 px-8 py-3 text-base font-semibold text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 h-14"
+                    className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   >
-                    <CheckCircleIcon className="h-6 w-6" aria-hidden />
+                    <CheckCircleIcon className="h-5 w-5" aria-hidden />
                     Aprovar
                   </Button>
                 </div>
               ) : (
-                <div className="flex flex-1 justify-center text-sm text-muted-foreground">
+                <div className="flex flex-1 justify-center text-sm text-muted-foreground md:hidden">
                   Ações concluídas para este registro.
                 </div>
               )}
               <Button
                 variant="secondary"
                 onClick={handleClose}
-                className="ml-auto h-14 rounded-2xl px-6 text-base font-semibold"
+                className="ml-auto h-12 rounded-2xl px-6 text-sm font-semibold md:h-14 md:text-base"
               >
                 Fechar
               </Button>
