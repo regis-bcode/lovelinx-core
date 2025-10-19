@@ -394,6 +394,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [manualOverridesFromLogs]);
 
   const activeTimerEntries = useMemo(() => Object.entries(activeTimers), [activeTimers]);
+  const canManageApprovals = isAdmin() || isGestor();
 
   const showActionsColumn = useMemo(() => (
     canManageApprovals && timeLogs.some(log => log.status_aprovacao === 'pendente')
@@ -497,7 +498,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
-  const canManageApprovals = isAdmin() || isGestor();
 
   const handleAssignmentDialogOpenChange = (open: boolean) => {
     if (!open && isAssigning) {
