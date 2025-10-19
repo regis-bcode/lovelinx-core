@@ -138,47 +138,48 @@ export function TimeLogDetailsDialog({
       >
         <div className="flex max-h-[90vh] flex-col">
           <div className="flex-1 overflow-y-auto">
-            <div className="space-y-8 p-6 md:p-8">
+            <div className="space-y-10 p-6 md:p-10">
               <DialogHeader className="space-y-6 text-left">
-                <div className="rounded-3xl border border-[#CBD5F5] bg-gradient-to-br from-[#EEF3FF] to-[#F8FAFF] p-6 shadow-sm">
-                  <div className="flex flex-col gap-6">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="relative overflow-hidden rounded-3xl border border-[#CBD5F5] bg-gradient-to-br from-[#F9FBFF] via-[#EEF3FF] to-[#E4ECFF] p-8 shadow-[0px_18px_45px_rgba(15,23,42,0.08)]">
+                  <div className="absolute -right-12 -top-10 h-40 w-40 rounded-full bg-emerald-200/30 blur-3xl" aria-hidden />
+                  <div className="absolute -bottom-12 -left-16 h-48 w-48 rounded-full bg-sky-200/30 blur-3xl" aria-hidden />
+                  <div className="relative flex flex-col gap-6">
+                    <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
                       <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                          <ClockIcon className="h-7 w-7" aria-hidden />
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-emerald-600 shadow-inner">
+                          <ClockIcon className="h-8 w-8" aria-hidden />
                         </div>
                         <div className="space-y-2">
                           <DialogTitle
                             id="time-log-dialog-title"
                             ref={titleRef}
                             tabIndex={-1}
-                            className="text-2xl font-semibold tracking-tight text-slate-900"
+                            className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl"
                           >
                             Detalhes do registro de tempo
                           </DialogTitle>
-                          <DialogDescription className="text-sm text-slate-600">
-                            Registro <strong>#{log.id}</strong> vinculado à tarefa <strong>{log.taskId}</strong> com
-                            duração registrada de <strong>{log.tempoHHMMSS}</strong>.
+                          <DialogDescription className="text-sm leading-relaxed text-slate-600 md:text-base">
+                            Registro <strong>#{log.id}</strong> vinculado à tarefa <strong>{log.taskId}</strong> com duração
+                            registrada de <strong>{log.tempoHHMMSS}</strong>.
                           </DialogDescription>
                         </div>
                       </div>
-                      <div className="hidden md:block md:mt-2">
+                      <div className="flex flex-col items-end gap-4 md:mt-1">
                         <StatusChip status={log.status} />
+                        <div className="hidden text-right text-xs uppercase tracking-[0.2em] text-slate-500 md:block">
+                          Última atualização {formatDateTimeBr(log.periodoFimISO)}
+                        </div>
                       </div>
                     </div>
-
-                    <Separator className="border-[#D8E2FF]" />
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                       {summaryCards.map((card) => (
                         <Card
                           key={card.key}
-                          className="rounded-2xl border border-[#DFE7FB] bg-white/90 shadow-[0px_8px_24px_rgba(15,23,42,0.05)]"
+                          className="rounded-2xl border border-white/60 bg-white/80 backdrop-blur shadow-[0px_16px_40px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0px_22px_50px_rgba(15,23,42,0.08)]"
                         >
-                          <CardContent className="flex items-start gap-3 p-4">
-                            <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.accent}`}>
-                              {card.icon}
-                            </span>
+                          <CardContent className="flex items-start gap-3 p-5">
+                            <span className={`flex h-11 w-11 items-center justify-center rounded-xl ${card.accent}`}>{card.icon}</span>
                             <div className="space-y-1">
                               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6B7BAA]">
                                 {card.label}
@@ -231,14 +232,14 @@ export function TimeLogDetailsDialog({
                     <CardFooter className="hidden flex-wrap gap-3 pt-4 md:flex">
                       <Button
                         onClick={handleReprovar}
-                        className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                        className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                       >
                         <XCircleIcon className="h-5 w-5" aria-hidden />
                         Reprovar
                       </Button>
                       <Button
                         onClick={handleAprovar}
-                        className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                        className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                       >
                         <CheckCircleIcon className="h-5 w-5" aria-hidden />
                         Aprovar
@@ -339,14 +340,14 @@ export function TimeLogDetailsDialog({
                 <div className="flex flex-1 justify-center gap-4 md:hidden">
                   <Button
                     onClick={handleReprovar}
-                    className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                    className="flex h-12 items-center gap-2 rounded-2xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white shadow hover:bg-rose-700 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
                   >
                     <XCircleIcon className="h-5 w-5" aria-hidden />
                     Reprovar
                   </Button>
                   <Button
                     onClick={handleAprovar}
-                    className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
+                    className="flex h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white shadow hover:bg-emerald-700 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2"
                   >
                     <CheckCircleIcon className="h-5 w-5" aria-hidden />
                     Aprovar
