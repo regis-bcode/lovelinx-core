@@ -9,7 +9,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { CheckCircle2, Clock, Loader2, Plus, XCircle } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -37,11 +48,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const {
     timeLogs,
     createTimeLog,
+    updateTimeLog,
     approveTimeLog,
     getTaskTotalTime,
     getProjectTotalTime,
     startTimerLog,
     stopTimerLog,
+    deleteTimeLog,
     loading: logsLoading,
   } = useTimeLogs(projectId);
   const { isAdmin, isGestor } = useUserRoles();
@@ -68,6 +81,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [bulkApprovalAction, setBulkApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [bulkJustification, setBulkJustification] = useState('');
   const [isProcessingBulkApproval, setIsProcessingBulkApproval] = useState(false);
+  const [selectedLogForDetails, setSelectedLogForDetails] = useState<TimeLog | null>(null);
+  const [isLogDetailsDialogOpen, setIsLogDetailsDialogOpen] = useState(false);
+  const [selectedLogForEdit, setSelectedLogForEdit] = useState<TimeLog | null>(null);
+  const [isLogEditDialogOpen, setIsLogEditDialogOpen] = useState(false);
+  const [logEditObservation, setLogEditObservation] = useState('');
+  const [isUpdatingLogObservation, setIsUpdatingLogObservation] = useState(false);
+  const [logPendingDeletion, setLogPendingDeletion] = useState<TimeLog | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingLog, setIsDeletingLog] = useState(false);
   const approvalDialogTask = useMemo(() => {
     if (!approvalDialogLog?.task_id) {
       return null;
@@ -413,6 +435,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setSelectedLogIds(prev => prev.filter(id => selectableLogsSet.has(id)));
   }, [canManageApprovals, selectableLogsSet]);
 
+  useEffect(() => {
+    if (!selectedLogForDetails) {
+      return;
+    }
+
+    const updated = timeLogs.find(log => log.id === selectedLogForDetails.id);
+
+    if (!updated) {
+      setSelectedLogForDetails(null);
+      setIsLogDetailsDialogOpen(false);
+      return;
+    }
+
+    if (updated.updated_at === selectedLogForDetails.updated_at) {
+      return;
+    }
+
+    setSelectedLogForDetails(updated);
+  }, [selectedLogForDetails, timeLogs]);
+
   const allSelectableSelected = useMemo(() => {
     if (selectableLogs.length === 0) {
       return false;
@@ -434,6 +476,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return selectedLogsCount > 0 ? 'indeterminate' : false;
   }, [allSelectableSelected, selectableLogs.length, selectedLogsCount]);
+
+  useEffect(() => {
+    if (!selectedLogForEdit) {
+      return;
+    }
+
+    const updated = timeLogs.find(log => log.id === selectedLogForEdit.id);
+
+    if (!updated && !isUpdatingLogObservation) {
+      setIsLogEditDialogOpen(false);
+      setSelectedLogForEdit(null);
+      setLogEditObservation('');
+    }
+  }, [isUpdatingLogObservation, selectedLogForEdit, timeLogs]);
 
   const selectionSummaryLabel = useMemo(() => {
     if (selectedLogsCount === 0) {
@@ -457,7 +513,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 12 : 10;
+  const timeLogTableColumnCount = canManageApprovals ? 13 : 11;
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
     if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
@@ -626,6 +682,99 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setIsApprovalDialogOpen(true);
   };
 
+  const handleOpenLogDetails = (log: TimeLog) => {
+    setSelectedLogForDetails(log);
+    setIsLogDetailsDialogOpen(true);
+  };
+
+  const handleLogDetailsDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setIsLogDetailsDialogOpen(false);
+      setSelectedLogForDetails(null);
+      return;
+    }
+
+    setIsLogDetailsDialogOpen(true);
+  };
+
+  const handleOpenLogEditDialog = (log: TimeLog) => {
+    setSelectedLogForEdit(log);
+    setLogEditObservation(log.observacoes ?? '');
+    setIsLogEditDialogOpen(true);
+  };
+
+  const handleLogEditDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (isUpdatingLogObservation) {
+        return;
+      }
+
+      setIsLogEditDialogOpen(false);
+      setSelectedLogForEdit(null);
+      setLogEditObservation('');
+      return;
+    }
+
+    setIsLogEditDialogOpen(true);
+  };
+
+  const handleSubmitLogEdit = async () => {
+    if (!selectedLogForEdit) {
+      return;
+    }
+
+    setIsUpdatingLogObservation(true);
+    const trimmedObservation = logEditObservation.trim();
+    const result = await updateTimeLog(selectedLogForEdit.id, {
+      observacoes: trimmedObservation.length > 0 ? trimmedObservation : null,
+    });
+    setIsUpdatingLogObservation(false);
+
+    if (!result) {
+      return;
+    }
+
+    setIsLogEditDialogOpen(false);
+    setSelectedLogForEdit(null);
+    setLogEditObservation('');
+  };
+
+  const handleOpenDeleteDialog = (log: TimeLog) => {
+    setLogPendingDeletion(log);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (isDeletingLog) {
+        return;
+      }
+
+      setIsDeleteDialogOpen(false);
+      setLogPendingDeletion(null);
+      return;
+    }
+
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDeleteLog = async () => {
+    if (!logPendingDeletion) {
+      return;
+    }
+
+    setIsDeletingLog(true);
+    const success = await deleteTimeLog(logPendingDeletion.id);
+    setIsDeletingLog(false);
+
+    if (!success) {
+      return;
+    }
+
+    setIsDeleteDialogOpen(false);
+    setLogPendingDeletion(null);
+  };
+
   const handleApprovalDialogOpenChange = (open: boolean) => {
     if (!open) {
       if (processingApprovalId !== null) {
@@ -743,6 +892,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
   };
 
+  const getLogTypeLabel = (entryType: TimeLog['tipo_inclusao']) => {
+    switch (entryType) {
+      case 'manual':
+        return 'Manual';
+      case 'timer':
+        return 'Cronometrado';
+      case 'automatico':
+      default:
+        return 'Automático';
+    }
+  };
+
+  const getFormattedLogDuration = (log: TimeLog) => {
+    if (typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0) {
+      return log.tempo_formatado;
+    }
+
+    return formatMinutes(log.tempo_trabalhado);
+  };
+
   const parseIsoDate = (value?: string | null): Date | null => {
     if (!value) {
       return null;
@@ -800,6 +969,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
+  const detailTask = selectedLogForDetails?.task_id
+    ? taskById.get(selectedLogForDetails.task_id) ?? null
+    : null;
+  const detailApproverName = selectedLogForDetails ? getApproverDisplayName(selectedLogForDetails) : '-';
+  const detailObservation = selectedLogForDetails ? getLogObservation(selectedLogForDetails) : '';
+  const detailDuration = selectedLogForDetails ? getFormattedLogDuration(selectedLogForDetails) : '-';
+  const detailPeriod = selectedLogForDetails
+    ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
+    : '-';
 
   const handleAssignmentDialogOpenChange = (open: boolean) => {
     if (!open && isAssigning) {
@@ -1059,8 +1237,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           </div>
         </div>
       ) : null}
-      <Table>
-        <TableHeader>
+      <TooltipProvider delayDuration={200}>
+        <Table>
+          <TableHeader>
           <TableRow>
             {canManageApprovals ? (
               <TableHead className="w-12">
@@ -1072,6 +1251,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 />
               </TableHead>
             ) : null}
+            <TableHead className="w-24">Ações</TableHead>
             <TableHead>Data</TableHead>
             <TableHead>Tarefa</TableHead>
             <TableHead>Responsável</TableHead>
@@ -1085,7 +1265,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Observações</TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+          <TableBody>
               {timeLogs.length > 0 ? (
                 timeLogs.map((log) => {
                   const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
@@ -1109,6 +1289,57 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           />
                         </TableCell>
                       ) : null}
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenLogDetails(log)}
+                                aria-label="Visualizar registro de tempo"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Visualizar registro</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenLogEditDialog(log)}
+                                aria-label="Editar observações do registro"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Editar observações</TooltipContent>
+                          </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenDeleteDialog(log)}
+                                disabled={isDeletingLog}
+                                aria-label="Excluir registro de tempo"
+                              >
+                                {isDeletingLog && logPendingDeletion?.id === log.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Excluir registro</TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TableCell>
                       <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
                       <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
                       <TableCell>{task?.responsavel || '-'}</TableCell>
@@ -1117,11 +1348,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        {typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
-                          ? log.tempo_formatado
-                          : formatMinutes(log.tempo_trabalhado)}
-                      </TableCell>
+                      <TableCell>{getFormattedLogDuration(log)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(log)}
@@ -1174,10 +1401,182 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   </TableCell>
                 </TableRow>
               )}
-            </TableBody>
-          </Table>
+          </TableBody>
+        </Table>
+      </TooltipProvider>
         </CardContent>
       </Card>
+
+      <Dialog open={isLogDetailsDialogOpen} onOpenChange={handleLogDetailsDialogOpenChange}>
+        <DialogContent className="sm:max-w-[540px]">
+          <DialogHeader>
+            <DialogTitle>Detalhes do registro de tempo</DialogTitle>
+            <DialogDescription>
+              Consulte as informações registradas para o apontamento selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
+                <span className="font-medium">
+                  {detailTask?.nome ?? 'Tarefa não encontrada'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Responsável</span>
+                <span>{detailTask?.responsavel ?? '-'}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tipo de registro</span>
+                <span>
+                  {selectedLogForDetails ? getLogTypeLabel(selectedLogForDetails.tipo_inclusao) : '-'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tempo registrado</span>
+                <span className="font-mono">{detailDuration}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Data do registro</span>
+                <span>
+                  {selectedLogForDetails ? formatLogCreatedAt(selectedLogForDetails.created_at) : '-'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Período</span>
+                <span>{detailPeriod}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
+                <div className="flex items-center gap-2">
+                  {selectedLogForDetails ? getStatusBadge(selectedLogForDetails) : (
+                    <Badge variant="secondary">-</Badge>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Aprovador</span>
+                <span>{detailApproverName}</span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Data da aprovação</span>
+                <span>
+                  {selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
+                    ? formatApprovalDate(selectedLogForDetails.aprovacao_data ?? selectedLogForDetails.data_aprovacao)
+                    : '-'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Hora da aprovação</span>
+                <span>
+                  {selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
+                    ? formatApprovalTime(selectedLogForDetails.aprovacao_hora ?? selectedLogForDetails.data_aprovacao)
+                    : '-'}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-medium uppercase text-muted-foreground">Observações</span>
+              {detailObservation ? (
+                <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailObservation}</p>
+              ) : (
+                <span className="text-muted-foreground">Nenhuma observação registrada.</span>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleLogDetailsDialogOpenChange(false)}
+            >
+              Fechar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isLogEditDialogOpen} onOpenChange={handleLogEditDialogOpenChange}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Editar registro de tempo</DialogTitle>
+            <DialogDescription>
+              Atualize as observações registradas para este apontamento de horas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2 text-sm">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
+                <span className="font-medium">
+                  {selectedLogForEdit?.task_id ? (taskById.get(selectedLogForEdit.task_id)?.nome ?? 'Tarefa não encontrada') : '-'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Tempo registrado</span>
+                <span className="font-mono">
+                  {selectedLogForEdit ? getFormattedLogDuration(selectedLogForEdit) : '-'}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="log-observations" className="text-sm font-medium">
+                Observações
+              </Label>
+              <Textarea
+                id="log-observations"
+                value={logEditObservation}
+                onChange={(event) => setLogEditObservation(event.target.value)}
+                placeholder="Registre um contexto adicional para este apontamento"
+                rows={4}
+                disabled={isUpdatingLogObservation}
+              />
+              <p className="text-xs text-muted-foreground">
+                Esta observação ficará disponível no histórico do registro.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleLogEditDialogOpenChange(false)}
+              disabled={isUpdatingLogObservation}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleSubmitLogEdit()}
+              disabled={isUpdatingLogObservation || !selectedLogForEdit}
+            >
+              {isUpdatingLogObservation ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Salvar alterações
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={handleDeleteDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro de tempo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza de que deseja remover este apontamento? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingLog}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleConfirmDeleteLog()} disabled={isDeletingLog || !logPendingDeletion}>
+              {isDeletingLog ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isApprovalDialogOpen} onOpenChange={handleApprovalDialogOpenChange}>
         <DialogContent className="sm:max-w-[520px]">
@@ -1281,10 +1680,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
                     const taskName = task?.nome ?? 'Tarefa não encontrada';
                     const responsavel = task?.responsavel ?? '-';
-                    const formattedTime =
-                      typeof log.tempo_formatado === 'string' && log.tempo_formatado.trim().length > 0
-                        ? log.tempo_formatado
-                        : formatMinutes(log.tempo_trabalhado);
+                    const formattedTime = getFormattedLogDuration(log);
 
                     return (
                       <li key={log.id} className="flex flex-col text-sm">
