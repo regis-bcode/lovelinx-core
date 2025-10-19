@@ -58,50 +58,21 @@ type TaskDetailEntry = {
 };
 
 const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
-  { key: 'id', label: 'ID interno' },
   { key: 'task_id', label: 'ID da tarefa' },
-  { key: 'tarefa', label: 'Título da tarefa', fullWidth: true },
   { key: 'responsavel', label: 'Responsável' },
-  { key: 'responsavel_consultoria', label: 'Responsável (Consultoria)' },
-  { key: 'responsavel_cliente', label: 'Responsável (Cliente)' },
   { key: 'cliente', label: 'Cliente' },
-  { key: 'modulo', label: 'Módulo' },
-  { key: 'area', label: 'Área' },
-  { key: 'categoria', label: 'Categoria' },
-  { key: 'etapa_projeto', label: 'Etapa do projeto' },
-  { key: 'sub_etapa_projeto', label: 'Sub-etapa do projeto' },
   { key: 'status', label: 'Status' },
+  { key: 'criticidade', label: 'Atenção' },
   { key: 'prioridade', label: 'Prioridade' },
-  { key: 'criticidade', label: 'Criticidade' },
-  { key: 'escopo', label: 'Escopo', fullWidth: true, isLongText: true },
   { key: 'cronograma', label: 'Cronograma', type: 'boolean' },
-  { key: 'dias_para_concluir', label: 'Dias para concluir', type: 'numeric' },
   { key: 'percentual_conclusao', label: 'Percentual de conclusão', type: 'percentage' },
   { key: 'data_vencimento', label: 'Data de vencimento', type: 'date' },
-  { key: 'data_prevista_entrega', label: 'Data prevista de entrega', type: 'date' },
-  { key: 'data_entrega', label: 'Data de entrega', type: 'date' },
-  { key: 'data_prevista_validacao', label: 'Data prevista de validação', type: 'date' },
-  { key: 'validado_por', label: 'Validado por' },
-  { key: 'numero_ticket', label: 'Número do ticket' },
-  { key: 'descricao_ticket', label: 'Descrição do ticket', fullWidth: true, isLongText: true },
-  { key: 'data_identificacao_ticket', label: 'Data identificação do ticket', type: 'date' },
-  { key: 'responsavel_ticket', label: 'Responsável pelo ticket' },
-  { key: 'status_ticket', label: 'Status do ticket' },
-  { key: 'link', label: 'Link', type: 'link', fullWidth: true },
-  { key: 'link_drive', label: 'Link do Drive', type: 'link', fullWidth: true },
-  { key: 'descricao_tarefa', label: 'Descrição da tarefa', fullWidth: true, isLongText: true },
-  { key: 'descricao_detalhada', label: 'Descrição detalhada', fullWidth: true, isLongText: true },
-  { key: 'solucao', label: 'Atividade', fullWidth: true, isLongText: true },
-  { key: 'retorno_acao', label: 'Retorno da ação', fullWidth: true, isLongText: true },
-  { key: 'acao_realizada', label: 'Ação realizada', fullWidth: true, isLongText: true },
-  { key: 'gp_consultoria', label: 'GP Consultoria' },
-  { key: 'project_id', label: 'ID do projeto' },
   { key: 'user_id', label: 'ID do usuário' },
-  { key: 'parent_task_id', label: 'Tarefa pai' },
   { key: 'nivel', label: 'Nível', type: 'numeric' },
   { key: 'ordem', label: 'Ordem', type: 'numeric' },
   { key: 'created_at', label: 'Criado em', type: 'datetime' },
-  { key: 'updated_at', label: 'Atualizado em', type: 'datetime' },
+  { key: 'descricao_tarefa', label: 'Descrição da tarefa', fullWidth: true, isLongText: true },
+  { key: 'solucao', label: 'Atividade', fullWidth: true, isLongText: true },
 ];
 
 interface TimeManagementProps {
@@ -420,6 +391,25 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
 
     return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [projectAllocations]);
+
+  const taskOwnerNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    projectAllocations.forEach(allocation => {
+      const userId = allocation.allocated_user_id;
+      const name = allocation.user?.nome_completo?.trim();
+
+      if (!userId || !name || name.length === 0) {
+        return;
+      }
+
+      if (!map.has(userId)) {
+        map.set(userId, name);
+      }
+    });
+
+    return map;
   }, [projectAllocations]);
 
   const approverNameMap = useMemo(() => {
@@ -1203,7 +1193,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return TASK_FIELD_DEFINITIONS.reduce<TaskDetailEntry[]>((acc, definition) => {
       const rawValue = detailTask[definition.key];
-      const displayValue = getTaskFieldDisplayValue(rawValue, definition);
+      let displayValue = getTaskFieldDisplayValue(rawValue, definition);
+
+      if (definition.key === 'user_id') {
+        const userId = typeof rawValue === 'string' ? rawValue : null;
+
+        if (userId) {
+          const mappedName = taskOwnerNameMap.get(userId);
+          displayValue = mappedName ?? displayValue ?? userId;
+        }
+      }
 
       if (!displayValue) {
         return acc;
@@ -1233,7 +1232,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
       return acc;
     }, []);
-  }, [detailTask, getTaskFieldDisplayValue]);
+  }, [detailTask, getTaskFieldDisplayValue, taskOwnerNameMap]);
 
   const taskCustomFieldEntries = useMemo<TaskDetailEntry[]>(() => {
     if (!detailTask) {
