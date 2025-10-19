@@ -14,7 +14,7 @@ import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { Task } from '@/types/task';
-import { TimeLog, ApprovalStatus } from '@/types/time-log';
+import { TimeLog } from '@/types/time-log';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
@@ -61,6 +61,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [rejectionDialogLog, setRejectionDialogLog] = useState<TimeLog | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isRejectionSubmitting, setIsRejectionSubmitting] = useState(false);
+  const [approvalPromptLog, setApprovalPromptLog] = useState<TimeLog | null>(null);
   const rejectionDialogTask = useMemo(() => {
     if (!rejectionDialogLog?.task_id) {
       return null;
@@ -413,15 +414,69 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return tasks.filter(task => trackedTaskIds.has(task.id)).length;
   }, [tasks, timeLogs, activeTimerEntries, manualOverrides]);
 
-  const getStatusBadge = (status: ApprovalStatus) => {
-    switch (status) {
-      case 'pendente':
-        return (
-          <Badge variant="secondary" className="gap-1.5">
+  const handleOpenApprovalPrompt = (log: TimeLog) => {
+    if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
+      return;
+    }
+
+    setApprovalPromptLog(log);
+  };
+
+  const handleApprovalPromptChange = (open: boolean) => {
+    if (!open) {
+      setApprovalPromptLog(null);
+    }
+  };
+
+  const handleApproveFromPrompt = async () => {
+    if (!approvalPromptLog) {
+      return;
+    }
+
+    const log = approvalPromptLog;
+    setApprovalPromptLog(null);
+    await handleApproveLog(log);
+  };
+
+  const handleRejectFromPrompt = () => {
+    if (!approvalPromptLog) {
+      return;
+    }
+
+    const log = approvalPromptLog;
+    setApprovalPromptLog(null);
+    handleOpenRejectionDialog(log);
+  };
+
+  const getStatusBadge = (log: TimeLog) => {
+    switch (log.status_aprovacao) {
+      case 'pendente': {
+        const isInteractive = canManageApprovals;
+        const badge = (
+          <Badge
+            variant="secondary"
+            className={`gap-1.5 ${isInteractive ? 'cursor-pointer hover:bg-secondary/80' : ''}`}
+          >
             <Clock className="h-3.5 w-3.5" />
             Aguarda aprovação
           </Badge>
         );
+
+        if (!isInteractive) {
+          return badge;
+        }
+
+        return (
+          <button
+            type="button"
+            onClick={() => handleOpenApprovalPrompt(log)}
+            className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            title="Gerenciar aprovação"
+          >
+            {badge}
+          </button>
+        );
+      }
       case 'aprovado':
         return (
           <Badge className="border border-emerald-200 bg-emerald-100 text-emerald-700 hover:bg-emerald-100 gap-1.5">
@@ -859,7 +914,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           ? log.tempo_formatado
                           : formatMinutes(log.tempo_trabalhado)}
                       </TableCell>
-                      <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
+                      <TableCell>{getStatusBadge(log)}</TableCell>
                       <TableCell>{approverDisplayName}</TableCell>
                       <TableCell>
                         {log.status_aprovacao !== 'pendente'
@@ -1001,6 +1056,45 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             >
               {isRejectionSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Confirmar reprovação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={approvalPromptLog !== null} onOpenChange={handleApprovalPromptChange}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Gerenciar aprovação</DialogTitle>
+            <DialogDescription>
+              Escolha como deseja prosseguir com o registro selecionado.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setApprovalPromptLog(null)}
+              disabled={processingApprovalId !== null}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleRejectFromPrompt}
+              disabled={processingApprovalId !== null}
+            >
+              Reprovar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleApproveFromPrompt()}
+              disabled={processingApprovalId !== null}
+            >
+              {processingApprovalId !== null && approvalPromptLog?.id === processingApprovalId && approvalSubmittingType === 'approve'
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : null}
+              Aprovar
             </Button>
           </DialogFooter>
         </DialogContent>
