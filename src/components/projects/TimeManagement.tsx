@@ -418,7 +418,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return (
           <Badge variant="secondary" className="gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            Aguardando Aprovação
+            Aguarda aprovação
           </Badge>
         );
       case 'aprovado':
