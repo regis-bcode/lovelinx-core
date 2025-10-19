@@ -457,7 +457,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 11 : 10;
+  const timeLogTableColumnCount = canManageApprovals ? 12 : 10;
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
     if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
@@ -1081,39 +1081,39 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Aprovador</TableHead>
                 <TableHead>Data da Aprovação</TableHead>
                 <TableHead>Hora da Aprovação</TableHead>
+                {canManageApprovals ? <TableHead>Ação</TableHead> : null}
                 <TableHead>Observações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {timeLogs.length > 0 ? (
-            timeLogs.map((log) => {
-              const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
-              const observationText = getLogObservation(log);
-              const approverDisplayName = getApproverDisplayName(log);
-              const isPendingApproval = log.status_aprovacao === 'pendente';
+                timeLogs.map((log) => {
+                  const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+                  const observationText = getLogObservation(log);
+                  const approverDisplayName = getApproverDisplayName(log);
+                  const isPendingApproval = log.status_aprovacao === 'pendente';
                   const isCurrentProcessing = processingApprovalId === log.id;
-                  const showApprovalActions = canManageApprovals && isPendingApproval;
                   const approvalActionsDisabled = processingApprovalId !== null;
                   const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
-                  const isRejectLoading = isCurrentProcessing && approvalSubmittingType === 'reject';
+                  const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
 
-              return (
-                <TableRow key={log.id}>
-                  {canManageApprovals ? (
-                    <TableCell>
-                      <Checkbox
-                        aria-label="Selecionar registro de tempo"
-                        checked={selectedLogIds.includes(log.id)}
-                        onCheckedChange={checked => handleRowSelectionChange(log, checked === true)}
-                        disabled={log.status_aprovacao === 'aprovado' || isProcessingBulkApproval}
-                      />
-                    </TableCell>
-                  ) : null}
-                  <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
-                  <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
-                  <TableCell>{task?.responsavel || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
+                  return (
+                    <TableRow key={log.id}>
+                      {canManageApprovals ? (
+                        <TableCell>
+                          <Checkbox
+                            aria-label="Selecionar registro de tempo"
+                            checked={selectedLogIds.includes(log.id)}
+                            onCheckedChange={checked => handleRowSelectionChange(log, checked === true)}
+                            disabled={log.status_aprovacao === 'aprovado' || isProcessingBulkApproval}
+                          />
+                        </TableCell>
+                      ) : null}
+                      <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
+                      <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
+                      <TableCell>{task?.responsavel || '-'}</TableCell>
+                      <TableCell>
+                        <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
                         </Badge>
                       </TableCell>
@@ -1125,40 +1125,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(log)}
-                          {showApprovalActions ? (
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenApprovalDialog(log, 'approve')}
-                                disabled={approvalActionsDisabled}
-                                className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
-                              >
-                                {isApproveLoading ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle2 className="h-4 w-4" />
-                                )}
-                                Aprovar
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenApprovalDialog(log, 'reject')}
-                                disabled={approvalActionsDisabled}
-                                className="gap-1.5 border-red-600 text-red-700 hover:bg-red-50 hover:text-red-800"
-                              >
-                                {isRejectLoading ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <XCircle className="h-4 w-4" />
-                                )}
-                                Reprovar
-                              </Button>
-                            </div>
-                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>{approverDisplayName}</TableCell>
@@ -1172,6 +1138,25 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           ? formatApprovalTime(log.aprovacao_hora ?? log.data_aprovacao)
                           : '-'}
                       </TableCell>
+                      {canManageApprovals ? (
+                        <TableCell>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenApprovalDialog(log, 'approve')}
+                            disabled={isApproveButtonDisabled}
+                            className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
+                          >
+                            {isApproveLoading ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            Aprovar
+                          </Button>
+                        </TableCell>
+                      ) : null}
                       <TableCell>
                         {observationText ? (
                           <span className="block max-w-[220px] break-words text-xs">{observationText}</span>
