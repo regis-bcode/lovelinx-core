@@ -56,30 +56,33 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [selectedAssignee, setSelectedAssignee] = useState('');
   const [isAssigning, setIsAssigning] = useState(false);
   const [processingApprovalId, setProcessingApprovalId] = useState<string | null>(null);
-  const [isActionDialogOpen, setIsActionDialogOpen] = useState(false);
-  const [actionDialogLog, setActionDialogLog] = useState<TimeLog | null>(null);
-  const [actionRejectionReason, setActionRejectionReason] = useState('');
-  const [isActionSubmitting, setIsActionSubmitting] = useState(false);
-  const [actionSubmittingType, setActionSubmittingType] = useState<'approve' | 'reject' | null>(null);
-  const actionDialogTask = useMemo(() => {
-    if (!actionDialogLog?.task_id) {
+  const [approvalSubmittingType, setApprovalSubmittingType] = useState<'approve' | 'reject' | null>(null);
+  const [isRejectionDialogOpen, setIsRejectionDialogOpen] = useState(false);
+  const [rejectionDialogLog, setRejectionDialogLog] = useState<TimeLog | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [isRejectionSubmitting, setIsRejectionSubmitting] = useState(false);
+  const rejectionDialogTask = useMemo(() => {
+    if (!rejectionDialogLog?.task_id) {
       return null;
     }
 
-    const task = tasks.find(t => t.id === actionDialogLog.task_id);
+    const task = tasks.find(t => t.id === rejectionDialogLog.task_id);
     return task ?? null;
-  }, [actionDialogLog, tasks]);
-  const actionDialogFormattedTime = useMemo(() => {
-    if (!actionDialogLog) {
+  }, [rejectionDialogLog, tasks]);
+  const rejectionDialogFormattedTime = useMemo(() => {
+    if (!rejectionDialogLog) {
       return '-';
     }
 
-    if (typeof actionDialogLog.tempo_formatado === 'string' && actionDialogLog.tempo_formatado.trim().length > 0) {
-      return actionDialogLog.tempo_formatado;
+    if (
+      typeof rejectionDialogLog.tempo_formatado === 'string' &&
+      rejectionDialogLog.tempo_formatado.trim().length > 0
+    ) {
+      return rejectionDialogLog.tempo_formatado;
     }
 
-    return formatMinutes(actionDialogLog.tempo_trabalhado);
-  }, [actionDialogLog]);
+    return formatMinutes(rejectionDialogLog.tempo_trabalhado);
+  }, [rejectionDialogLog]);
   const activeTimersStorageKey = useMemo(() => `task-active-timers-${projectId}`, [projectId]);
 
   type ActiveTimersUpdater = ActiveTimerRecord | ((prev: ActiveTimerRecord) => ActiveTimerRecord);
@@ -489,53 +492,52 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
   };
 
-  const handleOpenActionDialog = (log: TimeLog) => {
+  const handleApproveLog = async (log: TimeLog) => {
     if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
       return;
     }
 
-    setActionDialogLog(log);
-    setActionRejectionReason('');
-    setIsActionDialogOpen(true);
-  };
-
-  const handleActionDialogOpenChange = (open: boolean) => {
-    setIsActionDialogOpen(open);
-    if (!open) {
-      setActionDialogLog(null);
-      setActionRejectionReason('');
-      setIsActionSubmitting(false);
-      setActionSubmittingType(null);
-      setProcessingApprovalId(null);
-    }
-  };
-
-  const handleApproveSelectedLog = async () => {
-    if (!actionDialogLog) {
-      return;
-    }
-
-    setProcessingApprovalId(actionDialogLog.id);
-    setIsActionSubmitting(true);
-    setActionSubmittingType('approve');
+    setProcessingApprovalId(log.id);
+    setApprovalSubmittingType('approve');
     try {
-      const success = await approveTimeLog(actionDialogLog.id, 'aprovado');
-      if (success) {
-        handleActionDialogOpenChange(false);
-      }
+      await approveTimeLog(log.id, 'aprovado');
     } finally {
-      setIsActionSubmitting(false);
-      setActionSubmittingType(null);
       setProcessingApprovalId(null);
+      setApprovalSubmittingType(null);
     }
   };
 
-  const handleRejectSelectedLog = async () => {
-    if (!actionDialogLog) {
+  const handleOpenRejectionDialog = (log: TimeLog) => {
+    if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
       return;
     }
 
-    if (!actionRejectionReason.trim()) {
+    setRejectionDialogLog(log);
+    setRejectionReason('');
+    setIsRejectionDialogOpen(true);
+  };
+
+  const handleRejectionDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      if (isRejectionSubmitting) {
+        return;
+      }
+
+      setIsRejectionDialogOpen(false);
+      setRejectionDialogLog(null);
+      setRejectionReason('');
+      return;
+    }
+
+    setIsRejectionDialogOpen(true);
+  };
+
+  const handleConfirmRejection = async () => {
+    if (!rejectionDialogLog) {
+      return;
+    }
+
+    if (!rejectionReason.trim()) {
       toast({
         title: 'Justificativa obrigatória',
         description: 'Informe a justificativa para reprovar o tempo registrado.',
@@ -544,21 +546,23 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    setProcessingApprovalId(actionDialogLog.id);
-    setIsActionSubmitting(true);
-    setActionSubmittingType('reject');
+    setProcessingApprovalId(rejectionDialogLog.id);
+    setApprovalSubmittingType('reject');
+    setIsRejectionSubmitting(true);
     try {
-      const success = await approveTimeLog(actionDialogLog.id, 'reprovado', {
-        justificativa: actionRejectionReason,
+      const success = await approveTimeLog(rejectionDialogLog.id, 'reprovado', {
+        justificativa: rejectionReason,
       });
 
       if (success) {
-        handleActionDialogOpenChange(false);
+        setIsRejectionDialogOpen(false);
+        setRejectionDialogLog(null);
+        setRejectionReason('');
       }
     } finally {
-      setIsActionSubmitting(false);
-      setActionSubmittingType(null);
+      setIsRejectionSubmitting(false);
       setProcessingApprovalId(null);
+      setApprovalSubmittingType(null);
     }
   };
 
@@ -780,18 +784,34 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       {canManageApprovals && (
                         <TableCell>
                           {log.status_aprovacao === 'pendente' ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleOpenActionDialog(log)}
-                              disabled={processingApprovalId !== null || isActionDialogOpen}
-                            >
-                              {processingApprovalId === log.id ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                'Ação'
-                              )}
-                            </Button>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button
+                                size="sm"
+                                className="bg-emerald-600 text-white hover:bg-emerald-700"
+                                onClick={() => void handleApproveLog(log)}
+                                disabled={
+                                  processingApprovalId !== null ||
+                                  (isRejectionDialogOpen && rejectionDialogLog?.id === log.id)
+                                }
+                              >
+                                {processingApprovalId === log.id && approvalSubmittingType === 'approve' ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  'Aprovar'
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => handleOpenRejectionDialog(log)}
+                                disabled={
+                                  processingApprovalId !== null ||
+                                  (isRejectionDialogOpen && rejectionDialogLog?.id === log.id)
+                                }
+                              >
+                                Reprovar
+                              </Button>
+                            </div>
                           ) : (
                             <span className="text-xs text-muted-foreground">Sem ações</span>
                           )}
@@ -812,31 +832,31 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         </CardContent>
       </Card>
 
-      <Dialog open={isActionDialogOpen} onOpenChange={handleActionDialogOpenChange}>
-        <DialogContent className="sm:max-w-[640px]">
+      <Dialog open={isRejectionDialogOpen} onOpenChange={handleRejectionDialogOpenChange}>
+        <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Ações do Registro de Tempo</DialogTitle>
+            <DialogTitle>Reprovar registro de tempo</DialogTitle>
             <DialogDescription>
-              Visualize os detalhes do registro antes de aprovar ou reprovar.
+              Informe a justificativa para reprovar o tempo selecionado.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 text-sm">
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
                 <span className="font-medium">
-                  {actionDialogTask?.nome ?? 'Tarefa não encontrada'}
+                  {rejectionDialogTask?.nome ?? 'Tarefa não encontrada'}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Responsável</span>
-                <span>{actionDialogTask?.responsavel ?? '-'}</span>
+                <span>{rejectionDialogTask?.responsavel ?? '-'}</span>
               </div>
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tipo de registro</span>
                 <span>
-                  {actionDialogLog
-                    ? actionDialogLog.tipo_inclusao === 'manual'
+                  {rejectionDialogLog
+                    ? rejectionDialogLog.tipo_inclusao === 'manual'
                       ? 'Manual'
                       : 'Cronometrado'
                     : '-'}
@@ -844,102 +864,43 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </div>
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Tempo registrado</span>
-                <span>{actionDialogFormattedTime}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
-                <div>{actionDialogLog ? getStatusBadge(actionDialogLog.status_aprovacao) : <Badge variant="secondary">-</Badge>}</div>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Aprovador</span>
-                <span>{actionDialogLog?.aprovador_id ?? '-'}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Data do registro</span>
-                <span>
-                  {actionDialogLog
-                    ? format(new Date(actionDialogLog.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                    : '-'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Data da aprovação</span>
-                <span>
-                  {actionDialogLog && actionDialogLog.status_aprovacao !== 'pendente'
-                    ? formatApprovalDate(actionDialogLog.data_aprovacao)
-                    : '-'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Hora da aprovação</span>
-                <span>
-                  {actionDialogLog && actionDialogLog.status_aprovacao !== 'pendente'
-                    ? formatApprovalTime(actionDialogLog.data_aprovacao)
-                    : '-'}
-                </span>
+                <span>{rejectionDialogFormattedTime}</span>
               </div>
             </div>
-            <div className="space-y-1">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Observações</span>
-              <span className="block rounded-md border border-border bg-muted p-3 text-sm text-muted-foreground">
-                {actionDialogLog?.observacoes?.trim()
-                  ? actionDialogLog.observacoes
-                  : 'Sem observações registradas.'}
-              </span>
-            </div>
-          </div>
-          {actionDialogLog?.status_aprovacao === 'pendente' && (
             <div className="space-y-2">
-              <Label htmlFor="action-rejection-reason" className="text-sm font-medium">
-                Justificativa (obrigatória para reprovação)
+              <Label htmlFor="rejection-reason" className="text-sm font-medium">
+                Justificativa da reprovação
               </Label>
               <Textarea
-                id="action-rejection-reason"
-                value={actionRejectionReason}
-                onChange={(event) => setActionRejectionReason(event.target.value)}
+                id="rejection-reason"
+                value={rejectionReason}
+                onChange={(event) => setRejectionReason(event.target.value)}
                 placeholder="Descreva o motivo da reprovação"
-                disabled={isActionSubmitting}
+                disabled={isRejectionSubmitting}
               />
               <p className="text-xs text-muted-foreground">
-                Esta justificativa será registrada caso o tempo seja reprovado.
+                Esta justificativa será registrada junto ao log de tempo.
               </p>
             </div>
-          )}
+          </div>
           <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
-              onClick={() => handleActionDialogOpenChange(false)}
-              disabled={isActionSubmitting}
+              onClick={() => handleRejectionDialogOpenChange(false)}
+              disabled={isRejectionSubmitting}
             >
-              Fechar
+              Cancelar
             </Button>
-            {actionDialogLog?.status_aprovacao === 'pendente' && (
-              <>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={() => void handleRejectSelectedLog()}
-                  disabled={isActionSubmitting}
-                >
-                  {isActionSubmitting && actionSubmittingType === 'reject' ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  Reprovar
-                </Button>
-                <Button
-                  type="button"
-                  className="bg-emerald-600 text-white hover:bg-emerald-700"
-                  onClick={() => void handleApproveSelectedLog()}
-                  disabled={isActionSubmitting}
-                >
-                  {isActionSubmitting && actionSubmittingType === 'approve' ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : null}
-                  Aprovar
-                </Button>
-              </>
-            )}
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleConfirmRejection()}
+              disabled={isRejectionSubmitting}
+            >
+              {isRejectionSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Confirmar reprovação
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
