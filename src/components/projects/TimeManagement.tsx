@@ -43,7 +43,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     stopTimerLog,
     loading: logsLoading,
   } = useTimeLogs(projectId);
-  const { isGestor, isAdmin } = useUserRoles();
+  const { isAdmin } = useUserRoles();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
 
@@ -418,8 +418,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
-  const isGestorUser = isGestor();
-  const isAdminUser = isAdmin();
+  const canManageApprovals = isAdmin();
 
   const handleAssignmentDialogOpenChange = (open: boolean) => {
     if (!open && isAssigning) {
@@ -491,6 +490,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const handleOpenActionDialog = (log: TimeLog) => {
+    if (!canManageApprovals || log.status_aprovacao !== 'pendente') {
+      return;
+    }
+
     setActionDialogLog(log);
     setActionRejectionReason('');
     setIsActionDialogOpen(true);
@@ -733,7 +736,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Data da Aprovação</TableHead>
                 <TableHead>Hora da Aprovação</TableHead>
                 <TableHead>Observações</TableHead>
-                {isGestorUser && <TableHead>Ações</TableHead>}
+                {canManageApprovals && <TableHead>Ações</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -758,12 +761,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>{getStatusBadge(log.status_aprovacao)}</TableCell>
                       <TableCell>{log.aprovador_id || '-'}</TableCell>
                       <TableCell>
-                        {log.status_aprovacao === 'aprovado'
+                        {log.status_aprovacao !== 'pendente'
                           ? formatApprovalDate(log.data_aprovacao)
                           : '-'}
                       </TableCell>
                       <TableCell>
-                        {log.status_aprovacao === 'aprovado'
+                        {log.status_aprovacao !== 'pendente'
                           ? formatApprovalTime(log.data_aprovacao)
                           : '-'}
                       </TableCell>
@@ -774,21 +777,24 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                      {isGestorUser && (
+                      {canManageApprovals && (
                         <TableCell>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleOpenActionDialog(log)}
-                            disabled={processingApprovalId !== null || isActionDialogOpen}
-                            title={!isAdminUser ? 'Somente administradores podem aprovar ou reprovar registros.' : undefined}
-                          >
-                            {processingApprovalId === log.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              'Ação'
-                            )}
-                          </Button>
+                          {log.status_aprovacao === 'pendente' ? (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenActionDialog(log)}
+                              disabled={processingApprovalId !== null || isActionDialogOpen}
+                            >
+                              {processingApprovalId === log.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                'Ação'
+                              )}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Sem ações</span>
+                          )}
                         </TableCell>
                       )}
                     </TableRow>
@@ -796,7 +802,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={isGestorUser ? 11 : 10} className="text-center text-muted-foreground">
+                  <TableCell colSpan={canManageApprovals ? 11 : 10} className="text-center text-muted-foreground">
                     Nenhum log de tempo registrado.
                   </TableCell>
                 </TableRow>
@@ -859,7 +865,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Data da aprovação</span>
                 <span>
-                  {actionDialogLog?.status_aprovacao === 'aprovado'
+                  {actionDialogLog && actionDialogLog.status_aprovacao !== 'pendente'
                     ? formatApprovalDate(actionDialogLog.data_aprovacao)
                     : '-'}
                 </span>
@@ -867,7 +873,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <div className="space-y-1">
                 <span className="text-xs font-medium uppercase text-muted-foreground">Hora da aprovação</span>
                 <span>
-                  {actionDialogLog?.status_aprovacao === 'aprovado'
+                  {actionDialogLog && actionDialogLog.status_aprovacao !== 'pendente'
                     ? formatApprovalTime(actionDialogLog.data_aprovacao)
                     : '-'}
                 </span>
@@ -882,11 +888,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </span>
             </div>
           </div>
-          {!isAdminUser && (
-            <p className="rounded-md border border-dashed border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              Somente administradores podem aprovar ou reprovar registros de tempo.
-            </p>
-          )}
           {actionDialogLog?.status_aprovacao === 'pendente' && (
             <div className="space-y-2">
               <Label htmlFor="action-rejection-reason" className="text-sm font-medium">
@@ -897,7 +898,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 value={actionRejectionReason}
                 onChange={(event) => setActionRejectionReason(event.target.value)}
                 placeholder="Descreva o motivo da reprovação"
-                disabled={!isAdminUser || isActionSubmitting}
+                disabled={isActionSubmitting}
               />
               <p className="text-xs text-muted-foreground">
                 Esta justificativa será registrada caso o tempo seja reprovado.
@@ -919,7 +920,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   type="button"
                   variant="destructive"
                   onClick={() => void handleRejectSelectedLog()}
-                  disabled={!isAdminUser || isActionSubmitting}
+                  disabled={isActionSubmitting}
                 >
                   {isActionSubmitting && actionSubmittingType === 'reject' ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -930,7 +931,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   type="button"
                   className="bg-emerald-600 text-white hover:bg-emerald-700"
                   onClick={() => void handleApproveSelectedLog()}
-                  disabled={!isAdminUser || isActionSubmitting}
+                  disabled={isActionSubmitting}
                 >
                   {isActionSubmitting && actionSubmittingType === 'approve' ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
