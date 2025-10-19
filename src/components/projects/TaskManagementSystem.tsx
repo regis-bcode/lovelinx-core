@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,6 +58,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Upload,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
@@ -481,6 +483,162 @@ const deepEqual = (a: unknown, b: unknown): boolean => {
   return false;
 };
 
+const parseExcelDate = (value: unknown): string | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'number') {
+    const parsed = XLSX.SSF.parse_date_code(value);
+    if (!parsed) {
+      return null;
+    }
+    const date = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
+    return date.toISOString().slice(0, 10);
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return null;
+  }
+
+  const match = text.match(/^([0-9]{1,2})[/-]([0-9]{1,2})[/-]([0-9]{2,4})$/);
+  if (match) {
+    const [, day, month, rawYear] = match;
+    const year = rawYear.length === 2 ? `20${rawYear}` : rawYear;
+    const iso = `${year.padStart(4, '0')}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    const parsedDate = new Date(iso);
+    if (!Number.isNaN(parsedDate.getTime())) {
+      return parsedDate.toISOString().slice(0, 10);
+    }
+  }
+
+  const parsedDate = new Date(text);
+  if (!Number.isNaN(parsedDate.getTime())) {
+    return parsedDate.toISOString().slice(0, 10);
+  }
+
+  return null;
+};
+
+const parseBooleanCell = (value: unknown): boolean | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) {
+    return null;
+  }
+
+  if (['sim', 's', 'yes', 'y', 'verdadeiro', 'true', '1'].includes(normalized)) {
+    return true;
+  }
+
+  if (['nao', 'não', 'n', 'no', 'false', '0'].includes(normalized)) {
+    return false;
+  }
+
+  return null;
+};
+
+const parsePercentageCell = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      return null;
+    }
+    return Math.min(Math.max(value, 0), 100);
+  }
+
+  const normalized = String(value).replace('%', '').replace(',', '.').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return Math.min(Math.max(parsed, 0), 100);
+};
+
+const parseCurrencyCell = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const normalized = String(value)
+    .replace(/[^0-9,.-]/g, '')
+    .replace(/\.(?=\d{3}(?:\.|,))/g, '')
+    .replace(',', '.');
+
+  if (!normalized.trim()) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseNumericCell = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const normalized = String(value).replace(',', '.').trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number.parseFloat(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseTagsCell = (value: unknown): string[] => {
+  if (value === null || value === undefined || value === '') {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .map(item => String(item).trim())
+      .filter(Boolean);
+  }
+
+  return String(value)
+    .split(/[,;\n]/)
+    .map(item => item.trim())
+    .filter(Boolean);
+};
+
+const normalizeHeader = (value: string): string =>
+  value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+
 export function TaskManagementSystem({ projectId, projectClient }: TaskManagementSystemProps) {
   const {
     tasks,
@@ -559,6 +717,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
     [projectId]
@@ -995,6 +1155,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     ...baseColumns,
     ...customFieldColumns,
   ]), [baseColumns, customFieldColumns]);
+
+  const columnLabelMap = useMemo(() => {
+    return allColumns.reduce<Map<string, ColumnDefinition>>((map, column) => {
+      map.set(column.label, column);
+      return map;
+    }, new Map());
+  }, [allColumns]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1651,6 +1818,276 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     toast,
     visibleColumns,
   ]);
+
+  const parseCustomFieldValueForImport = useCallback((field: CustomField, rawValue: unknown) => {
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+      return undefined;
+    }
+
+    switch (field.field_type) {
+      case 'checkbox': {
+        const parsed = parseBooleanCell(rawValue);
+        return parsed === null ? undefined : parsed;
+      }
+      case 'percentage': {
+        const parsed = parsePercentageCell(rawValue);
+        return parsed === null ? undefined : parsed;
+      }
+      case 'monetary': {
+        const parsed = parseCurrencyCell(rawValue);
+        return parsed === null ? undefined : parsed;
+      }
+      case 'numeric': {
+        const parsed = parseNumericCell(rawValue);
+        return parsed === null ? undefined : parsed;
+      }
+      case 'tags': {
+        const tags = parseTagsCell(rawValue);
+        return tags.length ? Array.from(new Set(tags)) : undefined;
+      }
+      default: {
+        const text = String(rawValue).trim();
+        return text.length ? text : undefined;
+      }
+    }
+  }, []);
+
+  const handleImportData = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleImportFileChange = useCallback(async (
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const getCellValue = (row: Record<string, unknown>, label: string) => {
+      if (Object.prototype.hasOwnProperty.call(row, label)) {
+        return row[label];
+      }
+
+      const normalizedLabel = normalizeHeader(label);
+      const matchKey = Object.keys(row).find(key => normalizeHeader(key) === normalizedLabel);
+      if (matchKey) {
+        return row[matchKey];
+      }
+
+      return undefined;
+    };
+
+    const getCellString = (row: Record<string, unknown>, label: string) => {
+      const value = getCellValue(row, label);
+      if (value === null || value === undefined) {
+        return undefined;
+      }
+
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+      }
+
+      if (typeof value === 'number') {
+        return String(value);
+      }
+
+      return String(value).trim() || undefined;
+    };
+
+    try {
+      setIsImporting(true);
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+
+      if (!worksheet) {
+        throw new Error('Planilha inválida');
+      }
+
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet, { defval: '' });
+
+      const formattedRows = rows
+        .map(row => {
+          const nome = getCellString(row, 'Nome');
+          if (!nome) {
+            return null;
+          }
+
+          const payload: Partial<TaskFormData> = {
+            project_id: projectId,
+            nome,
+          };
+
+          const taskId = getCellString(row, 'ID');
+          if (taskId) {
+            payload.task_id = taskId;
+          }
+
+          const prioridade = getCellString(row, 'Prioridade');
+          if (prioridade) {
+            payload.prioridade = prioridade as Task['prioridade'];
+          }
+
+          const status = getCellString(row, 'Status');
+          if (status) {
+            payload.status = status;
+          }
+
+          const cliente = getCellString(row, 'Cliente');
+          if (cliente) {
+            payload.cliente = cliente;
+          }
+
+          const responsavel = getCellString(row, 'Responsável');
+          if (responsavel) {
+            payload.responsavel = responsavel;
+          }
+
+          const modulo = getCellString(row, 'Módulo');
+          if (modulo) {
+            payload.modulo = modulo;
+          }
+
+          const area = getCellString(row, 'Área');
+          if (area) {
+            payload.area = area;
+          }
+
+          const categoria = getCellString(row, 'Categoria');
+          if (categoria) {
+            payload.categoria = categoria;
+          }
+
+          const etapaProjeto = getCellString(row, 'Etapa do Projeto');
+          if (etapaProjeto) {
+            payload.etapa_projeto = etapaProjeto;
+          }
+
+          const subEtapa = getCellString(row, 'Sub-Etapa');
+          if (subEtapa) {
+            payload.sub_etapa_projeto = subEtapa;
+          }
+
+          const criticidade = getCellString(row, 'Criticidade');
+          if (criticidade) {
+            payload.criticidade = criticidade;
+          }
+
+          const escopo = getCellString(row, 'Escopo');
+          if (escopo) {
+            payload.escopo = escopo;
+          }
+
+          const cronogramaCell = getCellValue(row, 'Cronograma?');
+          const cronograma = parseBooleanCell(cronogramaCell);
+          if (cronograma !== null) {
+            payload.cronograma = cronograma;
+          }
+
+          const percentual = parsePercentageCell(getCellValue(row, '% Conclusão'));
+          if (percentual !== null) {
+            payload.percentual_conclusao = percentual;
+          }
+
+          const dueDate = parseExcelDate(getCellValue(row, 'Vencimento'));
+          if (dueDate) {
+            payload.data_vencimento = dueDate;
+          }
+
+          const customValues: Record<string, unknown> = {};
+          columnLabelMap.forEach((column, label) => {
+            if (!('isCustom' in column) || !column.isCustom) {
+              return;
+            }
+
+            const rawValue = getCellValue(row, label);
+            if (rawValue === undefined) {
+              return;
+            }
+
+            const parsedValue = parseCustomFieldValueForImport(column.field, rawValue);
+            if (parsedValue !== undefined) {
+              customValues[column.field.field_name] = parsedValue;
+            }
+          });
+
+          if (Object.keys(customValues).length > 0) {
+            payload.custom_fields = customValues;
+          }
+
+          return payload;
+        })
+        .filter((row): row is Partial<TaskFormData> => Boolean(row));
+
+      if (formattedRows.length === 0) {
+        toast({
+          title: 'Nenhum dado válido encontrado',
+          description: 'Verifique se a planilha segue o modelo de importação.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      let createdCount = 0;
+      let failedCount = 0;
+
+      for (const payload of formattedRows) {
+        try {
+          const result = await createTaskMutation(payload);
+          if (result) {
+            createdCount += 1;
+          }
+        } catch (error) {
+          console.error('Erro ao importar tarefa', error);
+          failedCount += 1;
+        }
+      }
+
+      if (createdCount > 0) {
+        toast({
+          title: 'Importação concluída',
+          description: `${createdCount} tarefa${createdCount === 1 ? '' : 's'} importada${
+            createdCount === 1 ? '' : 's'
+          } com sucesso.${
+            failedCount
+              ? ` ${failedCount} registro${failedCount === 1 ? '' : 's'} não pôde${
+                failedCount === 1 ? '' : 'ram'
+              } ser importado${failedCount === 1 ? '' : 's'}.`
+              : ''
+          }`,
+        });
+      } else {
+        toast({
+          title: 'Nenhum dado importado',
+          description: 'Não foi possível importar os dados da planilha.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao importar dados de tarefas', error);
+      toast({
+        title: 'Erro ao importar dados',
+        description: 'Não foi possível ler a planilha informada.',
+        variant: 'destructive',
+      });
+    } finally {
+      if (event.target) {
+        event.target.value = '';
+      }
+      setIsImporting(false);
+    }
+  }, [
+    columnLabelMap,
+    createTaskMutation,
+    parseCustomFieldValueForImport,
+    projectId,
+    toast,
+  ]);
+
 
   const toggleColumn = useCallback((columnKey: string) => {
     setHiddenColumns(prev => {
@@ -3300,6 +3737,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        className="hidden"
+        onChange={handleImportFileChange}
+      />
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
         <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between rounded-t-3xl">
           <div className="space-y-2">
@@ -3637,7 +4081,22 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 disabled={editableRows.length === 0 || visibleColumns.length === 0}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Exportar Excel
+                Exportar modelo
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleImportData}
+                disabled={isImporting}
+                className="flex items-center"
+              >
+                {isImporting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {isImporting ? 'Importando...' : 'Importar dados'}
               </Button>
 
               <Button
