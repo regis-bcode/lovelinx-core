@@ -17,8 +17,12 @@ const TIME_LOG_COLUMNS = new Set([
   'data_fim',
   'status_aprovacao',
   'aprovador_id',
+  'aprovador_nome',
   'data_aprovacao',
+  'aprovacao_data',
+  'aprovacao_hora',
   'observacoes',
+  'justificativa_reprovacao',
   'created_at',
   'updated_at',
 ]);
@@ -79,6 +83,10 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   return {
     ...log,
+    aprovador_nome: log.aprovador_nome ?? null,
+    aprovacao_data: log.aprovacao_data ?? null,
+    aprovacao_hora: log.aprovacao_hora ?? null,
+    justificativa_reprovacao: log.justificativa_reprovacao ?? null,
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
@@ -194,7 +202,11 @@ export function useTimeLogs(projectId?: string) {
         project_id: projectId,
         status_aprovacao: logData.status_aprovacao ?? 'pendente',
         aprovador_id: null,
+        aprovador_nome: null,
         data_aprovacao: null,
+        aprovacao_data: null,
+        aprovacao_hora: null,
+        justificativa_reprovacao: null,
       };
 
       const { data, error } = await supabase
@@ -282,6 +294,41 @@ export function useTimeLogs(projectId?: string) {
 
       const isoString = new Date().toISOString();
 
+      const metadata = user.user_metadata as Record<string, unknown> | undefined;
+      const metadataFullName =
+        metadata && typeof metadata['full_name'] === 'string'
+          ? (metadata['full_name'] as string)
+          : null;
+      let approverName = metadataFullName && metadataFullName.trim().length > 0
+        ? metadataFullName.trim()
+        : null;
+
+      if (!approverName) {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('nome_completo')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Erro ao buscar nome do aprovador:', profileError);
+        }
+
+        if (profile?.nome_completo && profile.nome_completo.trim().length > 0) {
+          approverName = profile.nome_completo.trim();
+        }
+      }
+
+      if (!approverName) {
+        approverName = user.email ?? null;
+      }
+
+      const [datePart, timePartRaw] = isoString.split('T');
+      const sanitizedTime = timePartRaw ? timePartRaw.replace('Z', '') : null;
+      const approvalTime = sanitizedTime
+        ? sanitizedTime.split('.')[0]?.slice(0, 8) ?? sanitizedTime.slice(0, 8)
+        : null;
+
       const rejectionReason = _options?.justificativa?.trim() ?? null;
 
       if (status === 'reprovado' && (!rejectionReason || rejectionReason.length === 0)) {
@@ -296,7 +343,11 @@ export function useTimeLogs(projectId?: string) {
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
         aprovador_id: user.id,
+        aprovador_nome: approverName,
         data_aprovacao: isoString,
+        aprovacao_data: datePart ?? null,
+        aprovacao_hora: approvalTime ?? null,
+        justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
       };
 
@@ -316,7 +367,12 @@ export function useTimeLogs(projectId?: string) {
                 ...log,
                 status_aprovacao: status,
                 aprovador_id: user.id,
+                aprovador_nome: approverName,
                 data_aprovacao: isoString,
+                aprovacao_data: datePart ?? null,
+                aprovacao_hora: approvalTime ?? null,
+                justificativa_reprovacao:
+                  status === 'reprovado' ? rejectionReason ?? null : null,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
               }
             : log,
