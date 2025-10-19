@@ -67,7 +67,6 @@ const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
   { key: 'cronograma', label: 'Cronograma', type: 'boolean' },
   { key: 'percentual_conclusao', label: 'Percentual de conclusão', type: 'percentage' },
   { key: 'data_vencimento', label: 'Data de vencimento', type: 'date' },
-  { key: 'user_id', label: 'ID do usuário' },
   { key: 'nivel', label: 'Nível', type: 'numeric' },
   { key: 'ordem', label: 'Ordem', type: 'numeric' },
   { key: 'created_at', label: 'Criado em', type: 'datetime' },
@@ -1119,6 +1118,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const detailPeriod = selectedLogForDetails
     ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
     : '-';
+  const detailTaskDescription = detailTask?.descricao_tarefa?.trim() ?? '';
+  const detailTaskActivity = detailTask?.solucao?.trim() ?? '';
 
   const getTaskFieldDisplayValue = useCallback(
     (value: Task[keyof Task], definition: TaskFieldDefinition): string | null => {
@@ -1816,6 +1817,24 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     ? formatApprovalTime(selectedLogForDetails.aprovacao_hora ?? selectedLogForDetails.data_aprovacao)
                     : '-'}
                 </span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Descrição da tarefa</span>
+                {detailTaskDescription ? (
+                  <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailTaskDescription}</p>
+                ) : (
+                  <span className="text-muted-foreground">Nenhuma descrição registrada.</span>
+                )}
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-medium uppercase text-muted-foreground">Atividade</span>
+                {detailTaskActivity ? (
+                  <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailTaskActivity}</p>
+                ) : (
+                  <span className="text-muted-foreground">Nenhuma atividade registrada.</span>
+                )}
               </div>
             </div>
             {isTaskDetailsVisible ? (
