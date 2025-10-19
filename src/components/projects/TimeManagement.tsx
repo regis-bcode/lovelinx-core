@@ -43,7 +43,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     stopTimerLog,
     loading: logsLoading,
   } = useTimeLogs(projectId);
-  const { isAdmin } = useUserRoles();
+  const { isAdmin, isGestor } = useUserRoles();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
 
@@ -493,7 +493,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
-  const canManageApprovals = isAdmin();
+  const canManageApprovals = isAdmin() || isGestor();
 
   const handleAssignmentDialogOpenChange = (open: boolean) => {
     if (!open && isAssigning) {
