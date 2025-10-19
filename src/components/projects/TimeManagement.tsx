@@ -671,6 +671,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               <TableRow>
                 <TableHead>Data</TableHead>
                 <TableHead>Tarefa</TableHead>
+                <TableHead>Responsável</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Tempo</TableHead>
                 <TableHead>Status</TableHead>
@@ -691,6 +692,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         {format(new Date(log.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
                       </TableCell>
                       <TableCell>{task?.nome || 'Tarefa não encontrada'}</TableCell>
+                      <TableCell>{task?.responsavel || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
@@ -753,7 +755,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={isGestorUser ? 10 : 9} className="text-center text-muted-foreground">
+                  <TableCell colSpan={isGestorUser ? 11 : 10} className="text-center text-muted-foreground">
                     Nenhum log de tempo registrado.
                   </TableCell>
                 </TableRow>
