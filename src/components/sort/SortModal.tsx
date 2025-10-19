@@ -1,20 +1,9 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import {
-  DndContext,
-  type DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, ArrowUp, ArrowDown, X } from 'lucide-react';
+import React, { useEffect, useRef } from 'react';
+import { ArrowUp, ArrowDown, X, ChevronUp, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
 import type { SortDirection, SortRule } from '@/hooks/useMultiSort';
 
 interface SortModalProps {
@@ -34,37 +23,54 @@ interface SortableRuleItemProps {
   index: number;
   onToggle: (key: string) => void;
   onRemove: (key: string) => void;
+  onMoveUp: (fromIndex: number) => void;
+  onMoveDown: (fromIndex: number) => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   isFirst: boolean;
   focusRef?: React.RefObject<HTMLButtonElement | null>;
 }
 
-const SortableRuleItem: React.FC<SortableRuleItemProps> = ({ rule, index, onToggle, onRemove, isFirst, focusRef }) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: rule.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  } as React.CSSProperties;
-
+const SortableRuleItem: React.FC<SortableRuleItemProps> = ({
+  rule,
+  index,
+  onToggle,
+  onRemove,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
+  isFirst,
+  focusRef,
+}) => {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        'flex items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/50',
-        isDragging && 'z-10 border-primary/60 bg-background shadow-lg',
-      )}
+      className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-3 py-2 shadow-sm transition-colors hover:bg-muted/50"
     >
-      <button
-        type="button"
-        className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-muted-foreground transition-colors hover:border-border/80 hover:bg-muted/60"
-        aria-label={`Reordenar ${rule.label}`}
-        ref={isFirst ? focusRef : undefined}
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+      <div className="flex flex-col gap-1">
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-muted-foreground hover:text-primary"
+          aria-label={`Mover ${rule.label} para cima`}
+          onClick={() => onMoveUp(index)}
+          disabled={!canMoveUp}
+        >
+          <ChevronUp className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-7 w-7 text-muted-foreground hover:text-primary"
+          aria-label={`Mover ${rule.label} para baixo`}
+          onClick={() => onMoveDown(index)}
+          disabled={!canMoveDown}
+        >
+          <ChevronDown className="h-4 w-4" />
+        </Button>
+      </div>
       <div className="flex flex-1 flex-col text-left">
         <span className="text-sm font-medium text-foreground">{rule.label}</span>
         <span className="text-xs text-muted-foreground">Critério {index + 1}</span>
@@ -77,6 +83,7 @@ const SortableRuleItem: React.FC<SortableRuleItemProps> = ({ rule, index, onTogg
         aria-pressed={rule.direction === 'desc'}
         aria-label={rule.direction === 'asc' ? `Ordenar ${rule.label} em ordem decrescente` : `Ordenar ${rule.label} em ordem crescente`}
         onClick={() => onToggle(rule.key)}
+        ref={isFirst ? focusRef : undefined}
       >
         {rule.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
       </Button>
@@ -122,33 +129,6 @@ export const SortModal: React.FC<SortModalProps> = ({
     firstRuleHandleRef.current?.focus();
   }, [isOpen]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
-
-  const ruleIds = useMemo(() => rules.map(rule => rule.id), [rules]);
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) {
-      return;
-    }
-    const oldIndex = rules.findIndex(rule => rule.id === active.id);
-    const newIndex = rules.findIndex(rule => rule.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) {
-      return;
-    }
-    if (oldIndex === newIndex) {
-      return;
-    }
-    onReorderRules(oldIndex, newIndex);
-  };
-
   const pendingRuleExists = pendingColumn
     ? rules.some(rule => rule.key === pendingColumn.key)
     : false;
@@ -162,6 +142,20 @@ export const SortModal: React.FC<SortModalProps> = ({
       label: pendingColumn.label,
       direction: pendingColumn.defaultDirection,
     });
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index <= 0) {
+      return;
+    }
+    onReorderRules(index, index - 1);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index >= rules.length - 1) {
+      return;
+    }
+    onReorderRules(index, index + 1);
   };
 
   return (
@@ -186,23 +180,23 @@ export const SortModal: React.FC<SortModalProps> = ({
             </div>
           ) : (
             <ScrollArea className="max-h-80 pr-2">
-              <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-                <SortableContext items={ruleIds} strategy={verticalListSortingStrategy}>
-                  <div className="grid gap-3">
-                    {rules.map((rule, index) => (
-                      <SortableRuleItem
-                        key={rule.id}
-                        rule={rule}
-                        index={index}
-                        onToggle={onToggleDirection}
-                        onRemove={onRemoveRule}
-                        isFirst={index === 0}
-                        focusRef={firstRuleHandleRef}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <div className="grid gap-3">
+                {rules.map((rule, index) => (
+                  <SortableRuleItem
+                    key={rule.id}
+                    rule={rule}
+                    index={index}
+                    onToggle={onToggleDirection}
+                    onRemove={onRemoveRule}
+                    onMoveUp={handleMoveUp}
+                    onMoveDown={handleMoveDown}
+                    canMoveUp={index > 0}
+                    canMoveDown={index < rules.length - 1}
+                    isFirst={index === 0}
+                    focusRef={firstRuleHandleRef}
+                  />
+                ))}
+              </div>
             </ScrollArea>
           )}
         </div>
