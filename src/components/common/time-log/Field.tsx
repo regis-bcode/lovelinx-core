@@ -13,15 +13,12 @@ interface FieldProps {
   tooltip?: string | null;
 }
 
-function renderValue(content: ReactNode, placeholder: string) {
-  const resolved =
-    content === undefined || content === null || content === "" ? placeholder : content;
-
-  if (typeof resolved === "string" || typeof resolved === "number") {
-    return <span className="font-medium leading-tight">{resolved as Primitive}</span>;
+function resolveValue(content: ReactNode, placeholder: string) {
+  if (content === undefined || content === null || content === "") {
+    return placeholder;
   }
 
-  return <div className="font-medium leading-tight">{resolved}</div>;
+  return content;
 }
 
 export function Field({
@@ -32,12 +29,31 @@ export function Field({
   className,
   tooltip
 }: FieldProps) {
+  const resolved = resolveValue(value, placeholder);
+  const isPrimitive = typeof resolved === "string" || typeof resolved === "number";
+
+  const valueContent = !isPrimitive ? (
+    <div className="font-semibold text-slate-900">{resolved}</div>
+  ) : null;
+
   const content = (
-    <div className={cn("space-y-1", className)}>
-      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6B7BAA]">{label}</p>
-      <div className="flex items-start gap-2 text-sm text-slate-900 md:text-base">
-        {icon ? <span className="mt-0.5 text-[#6B7BAA]">{icon}</span> : null}
-        {renderValue(value, placeholder)}
+    <div
+      className={cn(
+        "rounded-2xl border border-slate-200/70 bg-white/80 p-4 shadow-sm transition hover:border-slate-300",
+        className
+      )}
+    >
+      <div className="flex items-start gap-3 text-sm text-slate-700 md:text-base">
+        {icon ? <span className="mt-0.5 text-slate-500">{icon}</span> : null}
+        <div className="space-y-1">
+          <div className="font-semibold text-slate-600">
+            {label}:
+            {isPrimitive ? (
+              <span className="ml-1 font-semibold text-slate-900">{resolved as Primitive}</span>
+            ) : null}
+          </div>
+          {valueContent}
+        </div>
       </div>
     </div>
   );
