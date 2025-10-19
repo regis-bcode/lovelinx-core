@@ -34,9 +34,9 @@ export function Field({
 }: FieldProps) {
   const content = (
     <div className={cn("space-y-1", className)}>
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6B7BAA]">{label}</p>
       <div className="flex items-start gap-2 text-sm text-slate-900 md:text-base">
-        {icon ? <span className="mt-0.5 text-slate-500">{icon}</span> : null}
+        {icon ? <span className="mt-0.5 text-[#6B7BAA]">{icon}</span> : null}
         {renderValue(value, placeholder)}
       </div>
     </div>
