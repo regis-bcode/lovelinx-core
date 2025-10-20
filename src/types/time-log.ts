@@ -2,6 +2,8 @@ export type TimeEntryType = 'automatico' | 'manual';
 export type ApprovalStatus = 'pendente' | 'aprovado' | 'reprovado';
 export type AppRole = 'admin' | 'gestor' | 'usuario';
 
+export type TimeLogStatus = 'running' | 'completed' | 'canceled';
+
 export interface TimeLog {
   id: string;
   task_id: string;
@@ -10,8 +12,12 @@ export interface TimeLog {
   tipo_inclusao: TimeEntryType;
   tempo_trabalhado: number;
   tempo_formatado?: string | null;
-  data_inicio?: string;
-  data_fim?: string;
+  data_inicio?: string | null;
+  data_fim?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  duration_secs?: number | null;
+  status?: TimeLogStatus;
   atividade?: string | null;
   status_aprovacao: ApprovalStatus;
   aprovador_id?: string | null;

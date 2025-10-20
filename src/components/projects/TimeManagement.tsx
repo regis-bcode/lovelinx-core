@@ -40,6 +40,7 @@ import {
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
+import { useAuth } from '@/contexts/AuthContext';
 
 type TaskFieldDefinition = {
   key: keyof Task;
@@ -96,6 +97,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const canManageApprovals = isAdmin() || isGestor();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
@@ -128,6 +130,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [logPendingDeletion, setLogPendingDeletion] = useState<TimeLog | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingLog, setIsDeletingLog] = useState(false);
+  const [pendingStopTaskId, setPendingStopTaskId] = useState<string | null>(null);
+  const [stopActivityDescription, setStopActivityDescription] = useState('');
+  const [isSavingStopActivity, setIsSavingStopActivity] = useState(false);
   const approvalDialogTask = useMemo(() => {
     if (!approvalDialogLog?.task_id) {
       return null;
@@ -176,6 +181,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     [activeTimersStorageKey, projectId],
   );
 
+  const runningTaskId = useMemo(() => {
+    const entries = Object.entries(activeTimers);
+    if (entries.length === 0) {
+      return null;
+    }
+    const [firstId] = entries[0];
+    return firstId ?? null;
+  }, [activeTimers]);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -216,6 +230,74 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     };
   }, [activeTimersStorageKey, applyActiveTimersUpdate]);
 
+  useEffect(() => {
+    if (!user?.id) {
+      applyActiveTimersUpdate(prev => {
+        if (Object.keys(prev).length === 0) {
+          return prev;
+        }
+        return {};
+      });
+      setElapsedSeconds({});
+      return;
+    }
+
+    const runningLogs = timeLogs.filter(
+      log =>
+        log.user_id === user.id &&
+        log.status === 'running' &&
+        (!log.end_time && !log.data_fim) &&
+        typeof log.task_id === 'string' &&
+        log.task_id.length > 0,
+    );
+
+    if (runningLogs.length === 0) {
+      applyActiveTimersUpdate(prev => {
+        if (Object.keys(prev).length === 0) {
+          return prev;
+        }
+        return {};
+      });
+      setElapsedSeconds({});
+      return;
+    }
+
+    const latestRunning = runningLogs.reduce((latest, current) => {
+      const latestStartIso = latest.start_time ?? latest.data_inicio ?? null;
+      const currentStartIso = current.start_time ?? current.data_inicio ?? null;
+      const latestMs = latestStartIso ? Date.parse(latestStartIso) : NaN;
+      const currentMs = currentStartIso ? Date.parse(currentStartIso) : NaN;
+
+      if (!Number.isFinite(currentMs)) {
+        return latest;
+      }
+
+      if (!Number.isFinite(latestMs) || currentMs > latestMs) {
+        return current;
+      }
+
+      return latest;
+    }, runningLogs[0]);
+
+    const startIso = latestRunning.start_time ?? latestRunning.data_inicio ?? null;
+    const startMs = startIso ? Date.parse(startIso) : NaN;
+
+    if (!latestRunning.task_id || !Number.isFinite(startMs)) {
+      return;
+    }
+
+    const elapsed = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+
+    applyActiveTimersUpdate(prev => {
+      if (Object.keys(prev).length === 1 && prev[latestRunning.task_id as string] === startMs) {
+        return prev;
+      }
+      return { [latestRunning.task_id as string]: startMs };
+    });
+
+    setElapsedSeconds({ [latestRunning.task_id as string]: elapsed });
+  }, [timeLogs, user?.id, applyActiveTimersUpdate]);
+
   // Timer effect
   useEffect(() => {
     if (Object.keys(activeTimers).length === 0) return;
@@ -235,7 +317,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [activeTimers]);
 
   const startTimer = async (taskId: string) => {
-    if (activeTimers[taskId]) {
+    if (runningTaskId && runningTaskId !== taskId) {
+      toast({
+        title: 'Apontamento em andamento',
+        description: 'Encerre o apontamento atual antes de iniciar outro.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -250,22 +337,17 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    const normalizedStart =
-      typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
-        ? new Date(startedLog.data_inicio).getTime()
-        : tentativeStart;
+    const startIso =
+      (typeof startedLog.start_time === 'string' && startedLog.start_time) ||
+      (typeof startedLog.data_inicio === 'string' && startedLog.data_inicio) ||
+      null;
+    const normalizedStart = startIso ? new Date(startIso).getTime() : tentativeStart;
 
-    applyActiveTimersUpdate(prev => {
-      if (prev[taskId]) {
-        return prev;
-      }
-      return { ...prev, [taskId]: normalizedStart };
-    });
+    applyActiveTimersUpdate(() => ({ [taskId]: normalizedStart }));
 
-    setElapsedSeconds(prev => ({
-      ...prev,
+    setElapsedSeconds({
       [taskId]: Math.max(0, Math.floor((Date.now() - normalizedStart) / 1000)),
-    }));
+    });
 
     setManualOverrides(prev => {
       if (!(taskId in prev)) return prev;
@@ -275,35 +357,85 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   };
 
-  const stopTimer = async (taskId: string) => {
-    if (!activeTimers[taskId]) {
+  const stopTimer = (taskId: string) => {
+    if (!taskId) {
       return;
     }
 
-    const result = await stopTimerLog(taskId);
-
-    if (!result) {
+    if (!runningTaskId) {
+      toast({
+        title: 'Nenhum apontamento em andamento',
+        description: 'Inicie um apontamento antes de tentar encerrá-lo.',
+        variant: 'destructive',
+      });
       return;
     }
 
-    applyActiveTimersUpdate(prev => {
-      if (!prev[taskId]) {
-        return prev;
-      }
-      const updated = { ...prev };
-      delete updated[taskId];
-      return updated;
-    });
+    if (runningTaskId !== taskId) {
+      toast({
+        title: 'Apontamento em andamento',
+        description: 'Encerre o apontamento atual antes de parar outra tarefa.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
-    setElapsedSeconds(prev => {
-      if (!(taskId in prev)) {
-        return prev;
-      }
-      const updated = { ...prev };
-      delete updated[taskId];
-      return updated;
-    });
+    setPendingStopTaskId(taskId);
+    setStopActivityDescription('');
   };
+
+  const handleCancelStopActivity = useCallback(() => {
+    if (isSavingStopActivity) {
+      return;
+    }
+    setPendingStopTaskId(null);
+    setStopActivityDescription('');
+  }, [isSavingStopActivity]);
+
+  const handleConfirmStopActivity = useCallback(async () => {
+    if (!pendingStopTaskId) {
+      return;
+    }
+
+    const trimmedActivity = stopActivityDescription.trim();
+
+    if (trimmedActivity.length < 3) {
+      toast({
+        title: 'Informe a atividade realizada',
+        description: 'Descreva rapidamente o que foi feito (mínimo de 3 caracteres).',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingStopActivity(true);
+
+    try {
+      const result = await stopTimerLog(pendingStopTaskId, { atividade: trimmedActivity });
+
+      if (!result) {
+        return;
+      }
+
+      applyActiveTimersUpdate(() => ({}));
+      setElapsedSeconds({});
+      setManualOverrides(prev => {
+        if (!(pendingStopTaskId in prev)) {
+          return prev;
+        }
+        const updated = { ...prev };
+        delete updated[pendingStopTaskId];
+        return updated;
+      });
+
+      setPendingStopTaskId(null);
+      setStopActivityDescription('');
+    } catch (error) {
+      console.error('Erro ao finalizar apontamento com atividade:', error);
+    } finally {
+      setIsSavingStopActivity(false);
+    }
+  }, [pendingStopTaskId, stopActivityDescription, stopTimerLog, applyActiveTimersUpdate, toast]);
 
   const addManualTime = async (taskId: string) => {
     const time = manualTime[taskId];
@@ -1115,7 +1247,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const detailObservation = selectedLogForDetails ? getLogObservation(selectedLogForDetails) : '';
   const detailDuration = selectedLogForDetails ? getFormattedLogDuration(selectedLogForDetails) : '-';
   const detailPeriod = selectedLogForDetails
-    ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
+    ? `${formatLogCreatedAt(selectedLogForDetails.start_time ?? selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.end_time ?? selectedLogForDetails.data_fim)}`
     : '-';
   const detailTaskDescription = detailTask?.descricao_tarefa?.trim() ?? '';
   const detailTaskActivity = detailTask?.solucao?.trim() ?? '';
@@ -1371,6 +1503,59 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   return (
     <div className="space-y-6">
+      <Dialog
+        open={pendingStopTaskId !== null}
+        onOpenChange={open => {
+          if (!open) {
+            handleCancelStopActivity();
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Registrar atividade</DialogTitle>
+            <DialogDescription>
+              Informe a atividade realizada antes de encerrar o apontamento desta tarefa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="stop-activity-description" className="text-sm font-medium">
+                Atividade realizada
+              </Label>
+              <Textarea
+                id="stop-activity-description"
+                value={stopActivityDescription}
+                onChange={event => setStopActivityDescription(event.target.value)}
+                placeholder="Descreva rapidamente o que foi feito..."
+                minLength={3}
+                rows={4}
+              />
+              <p className="text-xs text-muted-foreground">
+                O campo é obrigatório e deve conter ao menos 3 caracteres.
+              </p>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCancelStopActivity}
+              disabled={isSavingStopActivity}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmStopActivity()}
+              disabled={isSavingStopActivity || stopActivityDescription.trim().length < 3}
+            >
+              {isSavingStopActivity ? 'Salvando...' : 'Confirmar atividade'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header com total de horas do projeto */}
       <Card>
         <CardHeader>
@@ -1425,16 +1610,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <TableBody>
               {tasks.map((task) => {
                 const taskTime = getTaskTotalTime(task.id);
-                const isTimerActive = Boolean(activeTimers[task.id]);
+                const isTimerActive = runningTaskId === task.id;
                 const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
                 const manualOverrideMinutes = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
                 const runningSeconds = elapsedSeconds[task.id] || 0;
                 const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
-                const startButtonTitle = manualOverrideMinutes !== undefined
-                  ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.'
-                  : requiresResponsavel
-                    ? 'Associe um responsável antes de iniciar o cronômetro.'
-                    : undefined;
+                const hasDifferentRunningTimer = Boolean(runningTaskId && runningTaskId !== task.id);
+                const startButtonTitle = hasDifferentRunningTimer
+                  ? 'Encerre o apontamento atual antes de iniciar outro.'
+                  : manualOverrideMinutes !== undefined
+                    ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.'
+                    : requiresResponsavel
+                      ? 'Associe um responsável antes de iniciar o cronômetro.'
+                      : undefined;
                 const displayedTime = manualOverrideMinutes !== undefined
                   ? `Manual: ${formatMinutes(manualOverrideMinutes)}`
                   : isTimerActive
@@ -1463,6 +1651,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                               size="sm"
                               variant="outline"
                               onClick={() => stopTimer(task.id)}
+                              disabled={runningTaskId !== task.id || isSavingStopActivity}
                             >
                               Parar
                             </Button>
@@ -1471,7 +1660,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                               size="sm"
                               variant="outline"
                               onClick={() => handleStartTimerRequest(task)}
-                              disabled={manualOverrideMinutes !== undefined}
+                              disabled={
+                                manualOverrideMinutes !== undefined ||
+                                hasDifferentRunningTimer ||
+                                isSavingStopActivity
+                              }
                               title={startButtonTitle}
                             >
                               {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
