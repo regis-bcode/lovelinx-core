@@ -7,6 +7,7 @@ import type { Database } from '@/integrations/supabase/types';
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
 type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
+type TaskActivityInsert = Database['public']['Tables']['task_activities']['Insert'];
 
 const TIME_LOG_COLUMNS = new Set([
   'task_id',
@@ -486,7 +487,13 @@ export function useTimeLogs(projectId?: string) {
     }
   };
 
-  const stopTimerLog = async (taskId: string): Promise<TimeLog | null> => {
+  const stopTimerLog = async (
+    taskId: string,
+    options?: {
+      activityDescription?: string | null;
+      taskName?: string | null;
+    },
+  ): Promise<TimeLog | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -522,8 +529,18 @@ export function useTimeLogs(projectId?: string) {
       const nowMs = Date.now();
       const isoNow = new Date(nowMs).toISOString();
 
+      const normalizedDescription =
+        typeof options?.activityDescription === 'string'
+          ? options.activityDescription.trim()
+          : '';
+      const observacoes =
+        normalizedDescription.length > 0
+          ? normalizedDescription
+          : (typeof openLog.observacoes === 'string' ? openLog.observacoes : null);
+
       const updatePayload = {
         data_fim: isoNow,
+        observacoes,
       };
 
       const { data, error: updateError } = await supabase
@@ -544,6 +561,47 @@ export function useTimeLogs(projectId?: string) {
         }
         return [normalized, ...prev];
       });
+
+      try {
+        const summaryParts: string[] = [];
+        if (normalized.tempo_formatado) {
+          summaryParts.push(`Tempo registrado: ${normalized.tempo_formatado}`);
+        }
+        if (normalizedDescription.length > 0) {
+          summaryParts.push(`Atividade: ${normalizedDescription}`);
+        }
+
+        const activityPayload: TaskActivityInsert = {
+          task_id: taskId,
+          actor_id: user.id,
+          kind: 'system.time_log',
+          title:
+            typeof options?.taskName === 'string' && options.taskName.trim().length > 0
+              ? `Tempo registrado - ${options.taskName.trim()}`
+              : 'Tempo registrado via cronômetro',
+          message:
+            summaryParts.length > 0
+              ? summaryParts.join(' • ')
+              : 'Tempo registrado via Gestão de Tarefas.',
+          payload: {
+            time_log_id: normalized.id,
+            tempo_formatado: normalized.tempo_formatado ?? null,
+            data_inicio: normalized.data_inicio ?? null,
+            data_fim: normalized.data_fim ?? null,
+            observacoes: observacoes ?? null,
+          } as TaskActivityInsert['payload'],
+        };
+
+        const { error: activityError } = await supabase
+          .from('task_activities')
+          .insert(activityPayload);
+
+        if (activityError) {
+          console.error('Erro ao registrar atividade de tempo:', activityError);
+        }
+      } catch (activityError) {
+        console.error('Erro inesperado ao registrar atividade de tempo:', activityError);
+      }
 
       toast({
         title: 'Sucesso',

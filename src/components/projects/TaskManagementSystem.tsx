@@ -38,6 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SortModal } from '@/components/sort/SortModal';
 import { HeaderSortBadge } from '@/components/sort/HeaderSortBadge';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Settings,
   Save,
@@ -63,7 +64,9 @@ import {
   ChevronRight,
   Download,
   Upload,
+  History,
 } from 'lucide-react';
+import { ActivityPanel } from '@/components/tasks/activity-panel';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TaskGanttView } from '@/components/projects/TaskGanttView';
@@ -460,6 +463,8 @@ const TASK_ACTION_ICON_VARIANTS = {
   view: 'bg-slate-500 text-white hover:bg-slate-600 hover:text-white focus-visible:ring-slate-500',
   edit: 'bg-indigo-500 text-white hover:bg-indigo-600 hover:text-white focus-visible:ring-indigo-500',
   gaps: 'bg-purple-500 text-white hover:bg-purple-600 hover:text-white focus-visible:ring-purple-500',
+  activity:
+    'bg-amber-500 text-white hover:bg-amber-600 hover:text-white focus-visible:ring-amber-500 disabled:bg-amber-300 disabled:text-amber-700',
   save: 'bg-sky-500 text-white hover:bg-sky-600 hover:text-white focus-visible:ring-sky-500 disabled:bg-sky-300 disabled:text-sky-700',
   start:
     'bg-emerald-500 text-white hover:bg-emerald-600 hover:text-white focus-visible:ring-emerald-500 disabled:bg-emerald-300 disabled:text-emerald-700',
@@ -793,6 +798,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   } | null>(null);
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
+  const [pendingStopTimer, setPendingStopTimer] = useState<{ rowIndex: number; row: TaskRow } | null>(null);
+  const [stopTimerActivityDescription, setStopTimerActivityDescription] = useState('');
+  const [stopTimerError, setStopTimerError] = useState<string | null>(null);
+  const [isSubmittingStopTimer, setIsSubmittingStopTimer] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
@@ -809,6 +818,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [activitySheetTask, setActivitySheetTask] = useState<{ taskId: string; taskName: string | null } | null>(null);
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
     [projectId]
@@ -2766,6 +2776,113 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setSelectedResponsavelForTimer(null);
   }, []);
 
+  const closeStopTimerDialog = useCallback(() => {
+    setPendingStopTimer(null);
+    setStopTimerActivityDescription('');
+    setStopTimerError(null);
+  }, []);
+
+  const openStopTimerDialog = useCallback(
+    (row: TaskRow, rowIndex: number) => {
+      if (!row.id) {
+        toast({
+          title: 'Atenção',
+          description: 'Salve a tarefa antes de finalizar o apontamento.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (!activeTimers[row.id]) {
+        toast({
+          title: 'Nenhum apontamento em andamento',
+          description: 'Inicie o cronômetro desta tarefa para registrar a atividade.',
+        });
+        return;
+      }
+
+      const runningLog = timeLogs.find(log => log.task_id === row.id && !log.data_fim);
+
+      setPendingStopTimer({ rowIndex, row });
+      setStopTimerActivityDescription(runningLog?.observacoes ?? '');
+      setStopTimerError(null);
+    },
+    [activeTimers, timeLogs, toast],
+  );
+
+  const handleConfirmStopTimerDialog = useCallback(async () => {
+    if (!pendingStopTimer) {
+      return;
+    }
+
+    const trimmedDescription = stopTimerActivityDescription.trim();
+    if (!trimmedDescription) {
+      setStopTimerError('Informe a atividade realizada para finalizar o apontamento.');
+      return;
+    }
+
+    const { rowIndex, row: storedRow } = pendingStopTimer;
+    const currentRow = editableRows[rowIndex] ?? storedRow;
+
+    if (!currentRow || !currentRow.id) {
+      setStopTimerError('Não foi possível identificar a tarefa selecionada.');
+      return;
+    }
+
+    setIsSubmittingStopTimer(true);
+    setStopTimerError(null);
+
+    try {
+      const didStop = await handleStopTimer(currentRow, {
+        rowIndex,
+        activityDescription: trimmedDescription,
+      });
+
+      if (didStop) {
+        closeStopTimerDialog();
+      } else {
+        setStopTimerError('Não foi possível registrar o tempo. Tente novamente.');
+      }
+    } finally {
+      setIsSubmittingStopTimer(false);
+    }
+  }, [closeStopTimerDialog, editableRows, handleStopTimer, pendingStopTimer, stopTimerActivityDescription]);
+
+  const handleStopDialogOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        closeStopTimerDialog();
+      }
+    },
+    [closeStopTimerDialog],
+  );
+
+  const openActivitySheet = useCallback(
+    (row: TaskRow) => {
+      if (!row.id) {
+        toast({
+          title: 'Atenção',
+          description: 'Salve a tarefa para visualizar o histórico de atividades.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const taskName = typeof row.tarefa === 'string' ? row.tarefa.trim() : null;
+      setActivitySheetTask({ taskId: row.id, taskName: taskName && taskName.length > 0 ? taskName : null });
+    },
+    [toast],
+  );
+
+  const handleActivitySheetChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        setActivitySheetTask(null);
+      }
+    },
+    [],
+  );
+
   const startTimer = useCallback(
     async (row: TaskRow) => {
       if (!row.id) {
@@ -2859,6 +2976,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   interface StopTimerOptions {
     rowIndex?: number;
     statusAfterStop?: string | null;
+    activityDescription?: string | null;
   }
 
   const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
@@ -2886,7 +3004,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       });
     };
 
-    const result = await stopTimerLog(row.id);
+    const taskName = typeof row.tarefa === 'string' ? row.tarefa : null;
+    const description =
+      typeof options?.activityDescription === 'string' && options.activityDescription.trim().length > 0
+        ? options.activityDescription.trim()
+        : undefined;
+
+    const result = await stopTimerLog(row.id, {
+      activityDescription: description,
+      taskName,
+    });
     removeActiveTimer();
 
     if (result) {
@@ -4090,6 +4217,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   <Button
                     variant="ghost"
                     size="icon"
+                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.activity)}
+                    onClick={() => openActivitySheet(row)}
+                    aria-label="Visualizar atividades da tarefa"
+                    disabled={!row.id}
+                  >
+                    <History className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Ver atividades</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.save)}
                     onClick={() => void handleSaveRow(index)}
                     disabled={isSavingRow || !canPersistRow}
@@ -4130,7 +4272,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.stop)}
                     disabled={isDraftRow || isSavingRow || !isRunning}
-                    onClick={() => void handleStopTimer(row)}
+                    onClick={() => openStopTimerDialog(row, index)}
                     aria-label="Encerrar apontamento"
                   >
                     <Square className="h-3.5 w-3.5" />
@@ -4186,6 +4328,40 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     : null;
   const isResponsavelDialogOpen = Boolean(pendingResponsavelAssignment);
   const pendingResponsavelRow = pendingResponsavelAssignment?.row ?? null;
+  const isStopTimerDialogOpen = Boolean(pendingStopTimer);
+  const stopTimerDialogRow = useMemo(() => {
+    if (!pendingStopTimer) {
+      return null;
+    }
+    const latest = editableRows[pendingStopTimer.rowIndex];
+    return latest ?? pendingStopTimer.row;
+  }, [editableRows, pendingStopTimer]);
+  const stopTimerDialogTaskId = stopTimerDialogRow?.id ?? pendingStopTimer?.row.id ?? null;
+  const stopTimerDialogTaskCode = stopTimerDialogRow?.task_id ?? pendingStopTimer?.row.task_id ?? null;
+  const stopTimerDialogTaskName = (() => {
+    const rawName =
+      (typeof stopTimerDialogRow?.tarefa === 'string' && stopTimerDialogRow.tarefa) ||
+      (typeof pendingStopTimer?.row.tarefa === 'string' ? pendingStopTimer.row.tarefa : null);
+    if (typeof rawName !== 'string') {
+      return null;
+    }
+    const trimmed = rawName.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  })();
+  const stopTimerDialogSessionSeconds = stopTimerDialogTaskId
+    ? (() => {
+        const start = activeTimers[stopTimerDialogTaskId];
+        if (!start) {
+          return 0;
+        }
+        const reference = timerTick || Date.now();
+        return Math.max(0, Math.round((reference - start) / 1000));
+      })()
+    : 0;
+  const stopTimerDialogSessionFormatted = formatDuration(stopTimerDialogSessionSeconds);
+  const stopTimerDialogTotalSeconds = stopTimerDialogRow ? getRowAccumulatedSeconds(stopTimerDialogRow) : null;
+  const stopTimerDialogTotalFormatted =
+    typeof stopTimerDialogTotalSeconds === 'number' ? formatDuration(stopTimerDialogTotalSeconds) : null;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
@@ -4861,6 +5037,78 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         )}
       </CardContent>
       </Card>
+      <Dialog open={isStopTimerDialogOpen} onOpenChange={handleStopDialogOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Finalizar apontamento</DialogTitle>
+            <DialogDescription>
+              Informe qual atividade foi realizada durante o período cronometrado antes de salvar o tempo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              {stopTimerDialogTaskName ? (
+                <p className="font-medium text-foreground">{stopTimerDialogTaskName}</p>
+              ) : null}
+              {stopTimerDialogTaskCode ? (
+                <p className="mt-1">ID: {stopTimerDialogTaskCode}</p>
+              ) : null}
+              <div className="mt-3 space-y-1 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-foreground">Sessão atual</span>
+                  <span>{stopTimerDialogSessionFormatted}</span>
+                </div>
+                {stopTimerDialogTotalFormatted ? (
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-foreground">Tempo total acumulado</span>
+                    <span>{stopTimerDialogTotalFormatted}</span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="stop-timer-activity">Atividade realizada</Label>
+              <Textarea
+                id="stop-timer-activity"
+                value={stopTimerActivityDescription}
+                onChange={event => setStopTimerActivityDescription(event.target.value)}
+                placeholder="Descreva o que foi executado neste período"
+                rows={4}
+              />
+              {stopTimerError ? <p className="text-xs text-destructive">{stopTimerError}</p> : null}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={closeStopTimerDialog} disabled={isSubmittingStopTimer}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleConfirmStopTimerDialog()} disabled={isSubmittingStopTimer}>
+              {isSubmittingStopTimer ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Registrar atividade
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Sheet open={Boolean(activitySheetTask)} onOpenChange={handleActivitySheetChange}>
+        <SheetContent side="right" className="flex h-full w-full flex-col gap-4 overflow-y-auto sm:max-w-xl">
+          <SheetHeader>
+            <SheetTitle>Atividades da tarefa</SheetTitle>
+          </SheetHeader>
+          {activitySheetTask ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                {activitySheetTask.taskName ? (
+                  <p className="font-medium text-foreground">{activitySheetTask.taskName}</p>
+                ) : (
+                  <p className="font-medium text-foreground">Tarefa sem título</p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground">ID interno: {activitySheetTask.taskId}</p>
+              </div>
+              <ActivityPanel key={activitySheetTask.taskId} taskId={activitySheetTask.taskId} />
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
       <Dialog
         open={isResponsavelDialogOpen}
         onOpenChange={open => {

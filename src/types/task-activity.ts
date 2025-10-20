@@ -6,6 +6,7 @@ export type TaskActivityKind =
   | 'system.due_date_changed'
   | 'system.priority_changed'
   | 'system.assignee_changed'
+  | 'system.time_log'
   | 'comment';
 
 export interface TaskActivity {

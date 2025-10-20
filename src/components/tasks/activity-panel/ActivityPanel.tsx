@@ -27,6 +27,8 @@ function kindLabel(kind: TaskActivity['kind']) {
       return 'Prioridade';
     case 'system.assignee_changed':
       return 'Responsável';
+    case 'system.time_log':
+      return 'Tempo';
     case 'comment':
       return 'Comentário';
     default:
@@ -76,6 +78,65 @@ function DiffView({ payload }: { payload: TaskActivity['payload'] }) {
   }
 
   return null;
+}
+
+function TimeLogDetails({ payload }: { payload: TaskActivity['payload'] }) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const data = payload as Record<string, unknown> & {
+    tempo_formatado?: string | null;
+    data_inicio?: string | null;
+    data_fim?: string | null;
+    observacoes?: string | null;
+  };
+
+  const rows: Array<{ label: string; value: string }> = [];
+
+  if (typeof data.tempo_formatado === 'string' && data.tempo_formatado.trim().length > 0) {
+    rows.push({ label: 'Duração', value: data.tempo_formatado });
+  }
+
+  const formatDateTime = (value: unknown) => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const timestamp = Date.parse(value);
+    if (!Number.isFinite(timestamp)) {
+      return null;
+    }
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const startedAt = formatDateTime(data.data_inicio);
+  if (startedAt) {
+    rows.push({ label: 'Iniciado em', value: startedAt });
+  }
+
+  const finishedAt = formatDateTime(data.data_fim);
+  if (finishedAt) {
+    rows.push({ label: 'Finalizado em', value: finishedAt });
+  }
+
+  if (typeof data.observacoes === 'string' && data.observacoes.trim().length > 0) {
+    rows.push({ label: 'Atividade', value: data.observacoes.trim() });
+  }
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return (
+    <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
+      {rows.map(entry => (
+        <div key={`${entry.label}-${entry.value}`} className="flex flex-col gap-0.5">
+          <dt className="font-medium text-foreground">{entry.label}</dt>
+          <dd>{entry.value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
 }
 
 function getActorInitial(actorId: string | null) {
@@ -177,7 +238,11 @@ export default function ActivityPanel({ taskId }: Props) {
                   ) : (
                     <>
                       {item.message && <div className="mt-1 text-sm">{item.message}</div>}
-                      <DiffView payload={item.payload} />
+                      {item.kind === 'system.time_log' ? (
+                        <TimeLogDetails payload={item.payload} />
+                      ) : (
+                        <DiffView payload={item.payload} />
+                      )}
                     </>
                   )}
                 </div>
