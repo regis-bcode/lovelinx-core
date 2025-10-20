@@ -1201,6 +1201,50 @@ export type Database = {
           },
         ]
       }
+      task_activities: {
+        Row: {
+          actor_id: string | null
+          comment_body: string | null
+          created_at: string
+          id: string
+          kind: string
+          message: string | null
+          payload: Json | null
+          task_id: string
+          title: string
+        }
+        Insert: {
+          actor_id?: string | null
+          comment_body?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          message?: string | null
+          payload?: Json | null
+          task_id: string
+          title: string
+        }
+        Update: {
+          actor_id?: string | null
+          comment_body?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          message?: string | null
+          payload?: Json | null
+          task_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_activities_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acao_realizada: string | null
