@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Task, TaskFormData, CustomField, CustomFieldFormData } from '@/types/task';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
-import { createTask as createTaskService } from '@/lib/tasks';
+import { createTask as createTaskService, normalizeDatabaseTaskRecord } from '@/lib/tasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -12,6 +12,61 @@ export function useTasks(projectId?: string) {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const normalizeTask = (task: Task | (Task & { nome?: string | null })): Task => {
+    const normalizedRecord = normalizeDatabaseTaskRecord(task);
+    return {
+      ...normalizedRecord,
+      task_id: ensureTaskIdentifier(normalizedRecord.task_id, normalizedRecord.id),
+    };
+  };
+
+  const sanitizeTaskUpdatePayload = (data: Partial<TaskFormData>): Record<string, unknown> => {
+    return Object.entries(data).reduce<Record<string, unknown>>((acc, [key, value]) => {
+      if (value === undefined) {
+        return acc;
+      }
+
+      if (typeof value === 'string') {
+        acc[key] = value.trim();
+        return acc;
+      }
+
+      acc[key] = value as unknown;
+      return acc;
+    }, {});
+  };
+
+  const shouldRetryWithNomeColumn = (error: unknown): boolean => {
+    if (typeof error !== 'object' || error === null) {
+      return false;
+    }
+
+    const typedError = error as { code?: string; message?: string };
+    return typedError.code === 'PGRST204' && typeof typedError.message === 'string'
+      ? typedError.message.includes("'tarefa' column")
+      : false;
+  };
+
+  const buildUpdatePayload = (
+    payload: Record<string, unknown>,
+    useNomeColumn: boolean,
+  ): Record<string, unknown> => {
+    const updatePayload: Record<string, unknown> = { ...payload };
+
+    if ('tarefa' in updatePayload) {
+      const raw = updatePayload.tarefa;
+
+      if (useNomeColumn) {
+        updatePayload.nome = raw;
+        delete updatePayload.tarefa;
+      } else if (typeof raw === 'string') {
+        updatePayload.tarefa = raw.trim();
+      }
+    }
+
+    return updatePayload;
+  };
+
   useEffect(() => {
     if (!projectId || !user) return;
     loadTasks();
@@ -21,18 +76,12 @@ export function useTasks(projectId?: string) {
       .channel(`tasks-realtime-${projectId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
         const task = payload.new as Task;
-        const normalized: Task = {
-          ...task,
-          task_id: ensureTaskIdentifier(task.task_id, task.id),
-        };
+        const normalized = normalizeTask(task);
         setTasks((prev) => [normalized, ...prev.filter((t) => t.id !== normalized.id)]);
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
         const task = payload.new as Task;
-        const normalized: Task = {
-          ...task,
-          task_id: ensureTaskIdentifier(task.task_id, task.id),
-        };
+        const normalized = normalizeTask(task);
         setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'tasks', filter: `project_id=eq.${projectId}` }, (payload) => {
@@ -84,10 +133,7 @@ export function useTasks(projectId?: string) {
         return;
       }
 
-      const normalizedTasks = (data as Task[]).map(task => ({
-        ...task,
-        task_id: ensureTaskIdentifier(task.task_id, task.id),
-      }));
+      const normalizedTasks = (data as (Task | (Task & { nome?: string | null }))[]).map(normalizeTask);
       setTasks(normalizedTasks);
     } catch (error) {
       console.error('Erro ao carregar tarefas:', error);
@@ -183,12 +229,23 @@ export function useTasks(projectId?: string) {
 
   const updateTask = async (id: string, taskData: Partial<TaskFormData>): Promise<Task | null> => {
     try {
-      const { data, error } = await (supabase as any)
-        .from('tasks')
-        .update(taskData)
-        .eq('id', id)
-        .select()
-        .single();
+      const sanitizedPayload = sanitizeTaskUpdatePayload(taskData);
+
+      const executeUpdate = async (useNomeColumn: boolean) => {
+        const payload = buildUpdatePayload(sanitizedPayload, useNomeColumn);
+        return (supabase as any)
+          .from('tasks')
+          .update(payload)
+          .eq('id', id)
+          .select()
+          .single();
+      };
+
+      let { data, error } = await executeUpdate(false);
+
+      if (error && shouldRetryWithNomeColumn(error)) {
+        ({ data, error } = await executeUpdate(true));
+      }
 
       if (error) {
         console.error('Erro ao atualizar tarefa:', error);
@@ -200,11 +257,7 @@ export function useTasks(projectId?: string) {
         return null;
       }
 
-      const updatedTask = data as Task;
-      const normalized: Task = {
-        ...updatedTask,
-        task_id: ensureTaskIdentifier(updatedTask.task_id, updatedTask.id),
-      };
+      const normalized = normalizeTask(data as Task);
       setTasks(prev => prev.map(task => (task.id === id ? normalized : task)));
       return normalized;
     } catch (error) {
