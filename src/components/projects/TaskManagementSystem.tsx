@@ -805,6 +805,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
+  const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeTimersStorageKey = useMemo(
@@ -3046,6 +3047,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
 
       setSuccessDialogData({ task: savedTask, wasDraft });
+      setIsSuccessDialogOpen(true);
 
       const normalizedSavedTask: TaskRow = {
         ...savedTask,
@@ -3087,6 +3089,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   ]);
 
   const handleSuccessDialogDismiss = useCallback(() => {
+    setIsSuccessDialogOpen(false);
     setSuccessDialogData(null);
   }, []);
 
@@ -4907,7 +4910,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       </Dialog>
 
       <AlertDialog
-        open={Boolean(successDialogData)}
+        open={isSuccessDialogOpen}
         onOpenChange={open => {
           if (!open) {
             handleSuccessDialogDismiss();
