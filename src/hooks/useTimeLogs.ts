@@ -485,7 +485,7 @@ export function useTimeLogs(projectId?: string) {
         task_id: taskId,
         project_id: projectId,
         user_id: user.id,
-        tipo_inclusao: options?.tipoInclusao ?? 'timer',
+        tipo_inclusao: options?.tipoInclusao ?? 'automatico',
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',

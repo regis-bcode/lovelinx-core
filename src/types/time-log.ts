@@ -1,4 +1,4 @@
-export type TimeEntryType = 'automatico' | 'manual' | 'timer';
+export type TimeEntryType = 'automatico' | 'manual';
 export type ApprovalStatus = 'pendente' | 'aprovado' | 'reprovado';
 export type AppRole = 'admin' | 'gestor' | 'usuario';
 
