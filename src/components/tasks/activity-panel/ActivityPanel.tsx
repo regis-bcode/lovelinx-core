@@ -147,6 +147,19 @@ function getActorInitial(actorId: string | null) {
   return actorId.charAt(0).toUpperCase();
 }
 
+function formatActivityTimestamp(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return new Date(parsed).toLocaleString();
+}
+
 export default function ActivityPanel({ taskId }: Props) {
   const [items, setItems] = useState<TaskActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,36 +231,41 @@ export default function ActivityPanel({ taskId }: Props) {
           <div className="text-sm text-muted-foreground">Sem atividades ainda.</div>
         ) : (
           <ul className="space-y-3">
-            {items.map((item) => (
-              <li key={item.id} className="flex gap-3">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback>{getActorInitial(item.actor_id)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-                    <Badge variant={item.kind === 'comment' ? 'secondary' : 'default'}>
-                      {kindLabel(item.kind)}
-                    </Badge>
-                    <div className="text-sm font-medium truncate">{item.title}</div>
-                    <div className="text-xs text-muted-foreground sm:ml-auto">
-                      {new Date(item.created_at).toLocaleString()}
+            {items.map((item) => {
+              const formattedCreatedAt = formatActivityTimestamp(item.created_at);
+              return (
+                <li key={item.id} className="flex gap-3">
+                  <Avatar className="h-8 w-8">
+                    <AvatarFallback>{getActorInitial(item.actor_id)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                      <Badge variant={item.kind === 'comment' ? 'secondary' : 'default'}>
+                        {kindLabel(item.kind)}
+                      </Badge>
+                      <div className="text-sm font-medium truncate">{item.title}</div>
+                      {formattedCreatedAt ? (
+                        <div className="text-xs text-muted-foreground sm:ml-auto">
+                          {formattedCreatedAt}
+                        </div>
+                      ) : null}
                     </div>
+                    {item.kind === 'comment' ? (
+                      <div className="mt-1 text-sm whitespace-pre-wrap">{item.comment_body}</div>
+                    ) : (
+                      <>
+                        {item.message && <div className="mt-1 text-sm">{item.message}</div>}
+                        {item.kind === 'system.time_log' ? (
+                          <TimeLogDetails payload={item.payload} />
+                        ) : (
+                          <DiffView payload={item.payload} />
+                        )}
+                      </>
+                    )}
                   </div>
-                  {item.kind === 'comment' ? (
-                    <div className="mt-1 text-sm whitespace-pre-wrap">{item.comment_body}</div>
-                  ) : (
-                    <>
-                      {item.message && <div className="mt-1 text-sm">{item.message}</div>}
-                      {item.kind === 'system.time_log' ? (
-                        <TimeLogDetails payload={item.payload} />
-                      ) : (
-                        <DiffView payload={item.payload} />
-                      )}
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         )}
       </CardContent>
