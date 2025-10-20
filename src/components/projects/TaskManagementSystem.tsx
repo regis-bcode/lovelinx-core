@@ -797,6 +797,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [startingTimerTaskIds, setStartingTimerTaskIds] = useState<Record<string, boolean>>({});
   const [timerTick, setTimerTick] = useState(0);
+  const runningTaskId = useMemo(() => {
+    const entries = Object.entries(activeTimers);
+    if (entries.length === 0) {
+      return null;
+    }
+    const [firstId] = entries[0];
+    return firstId ?? null;
+  }, [activeTimers]);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1264,6 +1272,68 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       window.removeEventListener('storage', handleStorage);
     };
   }, [activeTimersStorageKey, applyActiveTimersUpdate]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      applyActiveTimersUpdate(prev => {
+        if (Object.keys(prev).length === 0) {
+          return prev;
+        }
+        return {};
+      });
+      return;
+    }
+
+    const runningLogs = timeLogs.filter(
+      log =>
+        log.user_id === user.id &&
+        log.status === 'running' &&
+        (!log.end_time && !log.data_fim) &&
+        typeof log.task_id === 'string' &&
+        log.task_id.length > 0,
+    );
+
+    if (runningLogs.length === 0) {
+      applyActiveTimersUpdate(prev => {
+        if (Object.keys(prev).length === 0) {
+          return prev;
+        }
+        return {};
+      });
+      return;
+    }
+
+    const latestRunning = runningLogs.reduce((latest, current) => {
+      const latestStartIso = latest.start_time ?? latest.data_inicio ?? null;
+      const currentStartIso = current.start_time ?? current.data_inicio ?? null;
+      const latestMs = latestStartIso ? Date.parse(latestStartIso) : NaN;
+      const currentMs = currentStartIso ? Date.parse(currentStartIso) : NaN;
+
+      if (!Number.isFinite(currentMs)) {
+        return latest;
+      }
+
+      if (!Number.isFinite(latestMs) || currentMs > latestMs) {
+        return current;
+      }
+
+      return latest;
+    }, runningLogs[0]);
+
+    const startIso = latestRunning.start_time ?? latestRunning.data_inicio ?? null;
+    const startMs = startIso ? Date.parse(startIso) : NaN;
+
+    if (!latestRunning.task_id || !Number.isFinite(startMs)) {
+      return;
+    }
+
+    applyActiveTimersUpdate(prev => {
+      if (Object.keys(prev).length === 1 && prev[latestRunning.task_id as string] === startMs) {
+        return prev;
+      }
+      return { [latestRunning.task_id as string]: startMs };
+    });
+  }, [timeLogs, user?.id, applyActiveTimersUpdate]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -1921,7 +1991,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
         const totalSeconds = getRowAccumulatedSeconds(row);
         const formattedDuration = formatDuration(totalSeconds);
-        const isRunning = Boolean(row.id && activeTimers[row.id]);
+        const isRunning = Boolean(row.id && runningTaskId === row.id);
         return isRunning ? `${formattedDuration} (Em andamento)` : formattedDuration;
       }
       case 'percentual_conclusao':
@@ -2599,6 +2669,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return false;
       }
 
+      if (runningTaskId && runningTaskId !== timerTaskId) {
+        toast({
+          title: 'Apontamento em andamento',
+          description: 'Encerre o apontamento atual antes de iniciar outro.',
+          variant: 'destructive',
+        });
+        return false;
+      }
+
       setStartingTimerTaskIds(prev => ({ ...prev, [timerTaskId]: true }));
 
       try {
@@ -2613,17 +2692,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return false;
         }
 
-        const normalizedStart =
-          typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
-            ? new Date(startedLog.data_inicio).getTime()
-            : tentativeStart;
+        const startIso =
+          (typeof startedLog.start_time === 'string' && startedLog.start_time) ||
+          (typeof startedLog.data_inicio === 'string' && startedLog.data_inicio) ||
+          null;
+        const normalizedStart = startIso ? new Date(startIso).getTime() : tentativeStart;
 
-        applyActiveTimersUpdate(prev => {
-          if (prev[timerTaskId]) {
-            return prev;
-          }
-          return { ...prev, [timerTaskId]: normalizedStart };
-        });
+        applyActiveTimersUpdate(() => ({ [timerTaskId]: normalizedStart }));
         setTimerTick(Date.now());
         return true;
       } catch (error) {
@@ -2646,11 +2721,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         });
       }
     },
-    [toast, applyActiveTimersUpdate, startTimerLog],
+    [toast, applyActiveTimersUpdate, startTimerLog, runningTaskId],
   );
 
   const handleStartTimer = (row: TaskRow, rowIndex: number) => {
     if (row.id && startingTimerTaskIds[row.id]) {
+      return;
+    }
+
+    if (runningTaskId && runningTaskId !== row.id) {
+      toast({
+        title: 'Apontamento em andamento',
+        description: 'Encerre o apontamento atual antes de iniciar outro.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -2736,9 +2820,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return prev;
         }
 
-        const next = { ...prev };
-        delete next[taskId];
-        return next;
+        return {};
       });
     },
     [applyActiveTimersUpdate],
@@ -2754,7 +2836,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    if (!activeTimers[row.id]) {
+    if (runningTaskId !== row.id) {
       return;
     }
 
@@ -2779,10 +2861,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const trimmedActivity = activityDescription.trim();
 
-    if (!trimmedActivity) {
+    if (trimmedActivity.length < 3) {
       toast({
         title: 'Informe a atividade realizada',
-        description: 'Descreva rapidamente o que foi feito antes de finalizar o apontamento.',
+        description: 'Descreva rapidamente o que foi feito (mínimo de 3 caracteres).',
         variant: 'destructive',
       });
       return;
@@ -3220,7 +3302,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
 
       const totalSeconds = getRowAccumulatedSeconds(row);
-      const isRunning = Boolean(activeTimers[row.id]);
+      const isRunning = Boolean(row.id && runningTaskId === row.id);
 
       return (
         <div className="flex flex-col text-xs">
@@ -3651,7 +3733,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-muted-foreground">-</span>;
       const totalSeconds = getRowAccumulatedSeconds(row);
-      const isRunning = Boolean(activeTimers[row.id]);
+      const isRunning = Boolean(row.id && runningTaskId === row.id);
       return (
         <span>
           {formatDuration(totalSeconds)}
@@ -3832,7 +3914,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [fieldSearch]);
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
-    const isRunning = Boolean(row.id && activeTimers[row.id]);
+    const isRunning = Boolean(row.id && runningTaskId === row.id);
+    const hasDifferentRunningTimer = Boolean(runningTaskId && runningTaskId !== row.id);
     const isStartingTimer = Boolean(row.id && startingTimerTaskIds[row.id]);
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
@@ -3932,7 +4015,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     onKeyDown={event => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        if (isDraftRow || isSavingRow || isRunning || isStartingTimer) {
+                        if (
+                          isDraftRow ||
+                          isSavingRow ||
+                          isRunning ||
+                          isStartingTimer ||
+                          hasDifferentRunningTimer
+                        ) {
                           return;
                         }
                         handleStartTimer(row, index);
@@ -3940,17 +4029,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     }}
                     onClick={event => {
                       event.preventDefault();
-                      if (isDraftRow || isSavingRow || isRunning || isStartingTimer) {
+                      if (
+                        isDraftRow ||
+                        isSavingRow ||
+                        isRunning ||
+                        isStartingTimer ||
+                        hasDifferentRunningTimer
+                      ) {
                         return;
                       }
                       handleStartTimer(row, index);
                     }}
                     className={cn(
                       'inline-flex rounded-full transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60',
-                      isStartingTimer && 'pointer-events-none opacity-60'
+                      (!hasAssignedResponsible(row.responsavel) || hasDifferentRunningTimer) &&
+                        'cursor-not-allowed opacity-60',
+                      (isStartingTimer || hasDifferentRunningTimer) && 'pointer-events-none opacity-60'
                     )}
-                    aria-disabled={!hasAssignedResponsible(row.responsavel) || isStartingTimer}
+                    aria-disabled={
+                      !hasAssignedResponsible(row.responsavel) || isStartingTimer || hasDifferentRunningTimer
+                    }
                   >
                     <Button
                       variant="ghost"
@@ -3958,14 +4056,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                       className={cn(
                         TASK_ACTION_ICON_BASE_CLASS,
                         TASK_ACTION_ICON_VARIANTS.start,
-                        !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
+                        (!hasAssignedResponsible(row.responsavel) || hasDifferentRunningTimer) &&
+                          'pointer-events-none'
                       )}
                       disabled={
                         isDraftRow ||
                         isSavingRow ||
                         isRunning ||
                         !hasAssignedResponsible(row.responsavel) ||
-                        isStartingTimer
+                        isStartingTimer ||
+                        hasDifferentRunningTimer
                       }
                       aria-label="Iniciar apontamento"
                     >
@@ -3978,9 +4078,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {hasAssignedResponsible(row.responsavel)
-                    ? 'Iniciar apontamento'
-                    : 'Associe um responsável para iniciar'}
+                  {hasDifferentRunningTimer
+                    ? 'Encerre o apontamento atual para iniciar outro'
+                    : hasAssignedResponsible(row.responsavel)
+                      ? 'Iniciar apontamento'
+                      : 'Associe um responsável para iniciar'}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>

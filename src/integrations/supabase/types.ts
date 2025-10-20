@@ -1397,10 +1397,14 @@ export type Database = {
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
+          duration_secs: number | null
+          end_time: string | null
           id: string
           justificativa_reprovacao: string | null
           observacoes: string | null
           project_id: string
+          start_time: string | null
+          status: "running" | "completed" | "canceled"
           status_aprovacao: Database["public"]["Enums"]["approval_status"]
           task_id: string
           tempo_trabalhado: number
@@ -1418,10 +1422,14 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          duration_secs?: number | null
+          end_time?: string | null
           id?: string
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id: string
+          start_time?: string | null
+          status?: "running" | "completed" | "canceled"
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id: string
           tempo_trabalhado?: number
@@ -1439,10 +1447,14 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          duration_secs?: number | null
+          end_time?: string | null
           id?: string
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id?: string
+          start_time?: string | null
+          status?: "running" | "completed" | "canceled"
           status_aprovacao?: Database["public"]["Enums"]["approval_status"]
           task_id?: string
           tempo_trabalhado?: number
