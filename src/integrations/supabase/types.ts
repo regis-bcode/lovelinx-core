@@ -1160,6 +1160,47 @@ export type Database = {
           },
         ]
       }
+      log_audit_tasks: {
+        Row: {
+          audit_operation: "INSERT" | "UPDATE" | "DELETE"
+          audit_timestamp: string
+          audit_user: string | null
+          de: Json | null
+          id: string
+          para: Json | null
+          task_id: string
+          task_snapshot: Json | null
+        }
+        Insert: {
+          audit_operation: "INSERT" | "UPDATE" | "DELETE"
+          audit_timestamp?: string
+          audit_user?: string | null
+          de?: Json | null
+          id?: string
+          para?: Json | null
+          task_id: string
+          task_snapshot?: Json | null
+        }
+        Update: {
+          audit_operation?: "INSERT" | "UPDATE" | "DELETE"
+          audit_timestamp?: string
+          audit_user?: string | null
+          de?: Json | null
+          id?: string
+          para?: Json | null
+          task_id?: string
+          task_snapshot?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "log_audit_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           acao_realizada: string | null
