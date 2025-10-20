@@ -97,6 +97,7 @@ import {
   sanitizeActiveTimerRecord,
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
 interface TaskManagementSystemProps {
@@ -1731,21 +1732,54 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
+      const shouldFallbackToLegacySnapshot = (error: PostgrestError | null) => {
+        if (!error) {
+          return false;
+        }
+
+        if (error.code === 'PGRST204') {
+          return true;
+        }
+
+        const message = error.message?.toLowerCase?.() ?? '';
+        return message.includes("'de'") || message.includes('de column') || message.includes("'para'");
+      };
+
       try {
-        const { error } = await supabase.from('log_audit_tasks').insert({
+        const basePayload = {
           task_id: task.id,
           audit_operation: operation,
-          audit_user: user?.email ?? user?.name ?? user?.id ?? null,
-          de: before ? serializeForJson(before) : null,
-          para: serializeForJson(after),
-          task_snapshot: serializeForJson({
-            ...task,
-            custom_fields: task.custom_fields ?? {},
-          }),
+          audit_user: user?.id ?? null,
+        };
+
+        const serializedBefore = before ? serializeForJson(before) : null;
+        const serializedAfter = serializeForJson(after);
+        const serializedSnapshot = serializeForJson({
+          ...task,
+          custom_fields: task.custom_fields ?? {},
+        });
+
+        const { error } = await supabase.from('log_audit_tasks').insert({
+          ...basePayload,
+          de: serializedBefore,
+          para: serializedAfter,
+          task_snapshot: serializedSnapshot,
         });
 
         if (error) {
-          console.error('Erro ao registrar auditoria de tarefa:', error);
+          if (!shouldFallbackToLegacySnapshot(error)) {
+            console.error('Erro ao registrar auditoria de tarefa:', error);
+            return;
+          }
+
+          const fallbackResult = await supabase.from('log_audit_tasks').insert({
+            ...basePayload,
+            task_snapshot: serializedSnapshot,
+          });
+
+          if (fallbackResult.error) {
+            console.error('Erro ao registrar auditoria de tarefa (modo legado):', fallbackResult.error);
+          }
         }
       } catch (error) {
         console.error('Erro inesperado ao registrar auditoria de tarefa:', error);
