@@ -241,7 +241,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     const tentativeStart = Date.now();
     const startedLog = await startTimerLog(taskId, {
-      tipoInclusao: 'timer',
+      tipoInclusao: 'automatico',
       startedAt: new Date(tentativeStart),
       observacoes: 'Registro automático pela Gestão de Tempo',
     });
@@ -1036,9 +1036,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     switch (entryType) {
       case 'manual':
         return 'Manual';
-      case 'timer':
-        return 'Cronometrado';
       case 'automatico':
+        return 'Cronometrado';
       default:
         return 'Automático';
     }
