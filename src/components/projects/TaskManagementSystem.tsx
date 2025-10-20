@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SortModal } from '@/components/sort/SortModal';
 import { HeaderSortBadge } from '@/components/sort/HeaderSortBadge';
 import {
@@ -53,6 +54,7 @@ import {
   Pencil,
   Eye,
   Table as TableIcon,
+  GanttChart,
   Loader2,
   Play,
   Square,
@@ -64,6 +66,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { TaskGanttView } from '@/components/projects/TaskGanttView';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
 import type { TAP } from '@/types/tap';
@@ -746,6 +749,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isLoadedPreferences, setIsLoadedPreferences] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCondensedView, setIsCondensedView] = useState(false);
+  const [activeView, setActiveView] = useState<'table' | 'gantt'>('table');
   const {
     sortRules,
     addRule,
@@ -2757,6 +2761,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
   }, [createBlankRow, editableRows, getNextTaskIdentifier, toast]);
 
+  const handleToolbarAddTask = useCallback(() => {
+    setActiveView('table');
+    addNewRow();
+  }, [addNewRow]);
+
+  const handleOpenTaskFromGantt = useCallback(
+    (index: number) => {
+      if (!editableRows[index]) {
+        return;
+      }
+      setActiveTaskDialog({ mode: 'view', index });
+    },
+    [editableRows],
+  );
+
   const deleteRow = useCallback(async (index: number) => {
     const row = editableRows[index];
     if (!row) {
@@ -4007,6 +4026,45 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </div>
 
           <div className="flex w-full max-w-full flex-wrap items-center gap-2 justify-start xl:w-auto xl:justify-end">
+            <Button
+              size="sm"
+              onClick={handleToolbarAddTask}
+              className="flex items-center gap-2"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Nova tarefa
+            </Button>
+
+            <ToggleGroup
+              type="single"
+              size="sm"
+              variant="outline"
+              value={activeView}
+              onValueChange={value => {
+                if (value === 'table' || value === 'gantt') {
+                  setActiveView(value);
+                }
+              }}
+              className="rounded-lg border border-border/60 bg-muted/30 p-1"
+              aria-label="Selecionar visualização das tarefas"
+            >
+              <ToggleGroupItem
+                value="table"
+                className="flex items-center gap-2 px-3 text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                aria-label="Visualização em lista"
+              >
+                <TableIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Lista</span>
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="gantt"
+                className="flex items-center gap-2 px-3 text-sm data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                aria-label="Visualização em Gantt"
+              >
+                <GanttChart className="h-4 w-4" />
+                <span className="hidden sm:inline">Gantt</span>
+              </ToggleGroupItem>
+            </ToggleGroup>
 
             <Dialog
               open={isCustomFieldDialogOpen}
@@ -4323,47 +4381,51 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 {isImporting ? 'Importando...' : 'Importar dados'}
               </Button>
 
-              <Button
-                size="sm"
-                variant={isCondensedView ? 'default' : 'outline'}
-                onClick={() => setIsCondensedView(prev => !prev)}
-                aria-pressed={isCondensedView}
-              >
-                <TableIcon className="h-4 w-4 mr-2" />
-                {isCondensedView ? 'Visão padrão' : 'Visão condensada'}
-              </Button>
+              {activeView === 'table' ? (
+                <Button
+                  size="sm"
+                  variant={isCondensedView ? 'default' : 'outline'}
+                  onClick={() => setIsCondensedView(prev => !prev)}
+                  aria-pressed={isCondensedView}
+                >
+                  <TableIcon className="h-4 w-4 mr-2" />
+                  {isCondensedView ? 'Visão padrão' : 'Visão condensada'}
+                </Button>
+              ) : null}
 
             </div>
           </CardHeader>
           <CardContent className="flex flex-1 min-h-0 min-w-0 flex-col gap-4 overflow-hidden bg-background pt-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Label htmlFor="task-group-by" className="text-sm font-medium text-muted-foreground">
-                Agrupar por
-              </Label>
-              <Select
-                value={groupBy || 'none'}
-                onValueChange={value => setGroupBy(value === 'none' ? '' : (value as GroupByKey))}
-              >
-                <SelectTrigger id="task-group-by" className="w-64">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem agrupamento</SelectItem>
-                  <SelectItem value="responsavel">Responsável</SelectItem>
-                  <SelectItem value="prioridade">Prioridade</SelectItem>
-                  <SelectItem value="status">Status</SelectItem>
-                  <SelectItem value="cliente">Cliente</SelectItem>
-                  <SelectItem value="modulo">Módulo</SelectItem>
-                  <SelectItem value="area">Área</SelectItem>
-                  <SelectItem value="percentualConclusao">% Conclusão</SelectItem>
-                  <SelectItem value="vencimento">Vencimento (Data)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden rounded-2xl border border-border/60">
-              <div className="h-full w-full overflow-auto">
-                <div className="min-w-full">
-                  <Table className="w-full min-w-max caption-bottom text-[10px]">
+            {activeView === 'table' ? (
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  <Label htmlFor="task-group-by" className="text-sm font-medium text-muted-foreground">
+                    Agrupar por
+                  </Label>
+                  <Select
+                    value={groupBy || 'none'}
+                    onValueChange={value => setGroupBy(value === 'none' ? '' : (value as GroupByKey))}
+                  >
+                    <SelectTrigger id="task-group-by" className="w-64">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem agrupamento</SelectItem>
+                      <SelectItem value="responsavel">Responsável</SelectItem>
+                      <SelectItem value="prioridade">Prioridade</SelectItem>
+                      <SelectItem value="status">Status</SelectItem>
+                      <SelectItem value="cliente">Cliente</SelectItem>
+                      <SelectItem value="modulo">Módulo</SelectItem>
+                      <SelectItem value="area">Área</SelectItem>
+                      <SelectItem value="percentualConclusao">% Conclusão</SelectItem>
+                      <SelectItem value="vencimento">Vencimento (Data)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative min-h-0 min-w-0 w-full flex-1 overflow-hidden rounded-2xl border border-border/60">
+                  <div className="h-full w-full overflow-auto">
+                    <div className="min-w-full">
+                      <Table className="w-full min-w-max caption-bottom text-[10px]">
                     <TableHeader className="sticky top-0 z-20 bg-background">
                       <TableRow className={cn(isCondensedView ? 'h-8' : 'h-10')}>
                         {/* Coluna de ações mantida fixa à esquerda para navegação durante a rolagem */}
@@ -4568,7 +4630,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   </Table>
                 </div>
               </div>
-            </div>
+              </>
+            ) : (
+              <TaskGanttView
+                tasks={editableRows}
+                isLoading={loading}
+                onTaskClick={(_, index) => handleOpenTaskFromGantt(index)}
+              />
+            )}
         </CardContent>
       </Card>
       <Dialog
