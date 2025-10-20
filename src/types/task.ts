@@ -5,6 +5,7 @@ export interface Task {
   task_id: string; // ID automático gerado pelo sistema
   tarefa: string;
   responsavel?: string;
+  data_inicio?: string;
   data_vencimento?: string;
   prioridade: 'Baixa' | 'Média' | 'Alta' | 'Crítica';
   status: string; // Status customizável

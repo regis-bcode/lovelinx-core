@@ -1174,6 +1174,7 @@ export type Database = {
           data_identificacao_ticket: string | null
           data_prevista_entrega: string | null
           data_prevista_validacao: string | null
+          data_inicio: string | null
           data_vencimento: string | null
           descricao_detalhada: string | null
           descricao_ticket: string | null
@@ -1219,6 +1220,7 @@ export type Database = {
           data_identificacao_ticket?: string | null
           data_prevista_entrega?: string | null
           data_prevista_validacao?: string | null
+          data_inicio?: string | null
           data_vencimento?: string | null
           descricao_detalhada?: string | null
           descricao_ticket?: string | null
@@ -1264,6 +1266,7 @@ export type Database = {
           data_identificacao_ticket?: string | null
           data_prevista_entrega?: string | null
           data_prevista_validacao?: string | null
+          data_inicio?: string | null
           data_vencimento?: string | null
           descricao_detalhada?: string | null
           descricao_ticket?: string | null
