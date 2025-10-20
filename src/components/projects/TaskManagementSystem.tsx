@@ -117,11 +117,6 @@ type ColumnDefinition =
       field: CustomField;
     };
 
-interface StopTimerOptions {
-  rowIndex?: number;
-  statusAfterStop?: string | null;
-}
-
 type GroupByKey =
   | ''
   | 'responsavel'
@@ -781,9 +776,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   } | null>(null);
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
-  const [pendingStopTimer, setPendingStopTimer] = useState<{ row: TaskRow; options?: StopTimerOptions } | null>(null);
-  const [activityDescription, setActivityDescription] = useState('');
-  const [isSavingActivity, setIsSavingActivity] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
@@ -795,16 +787,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [groupBy]
   );
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
-  const [startingTimerTaskIds, setStartingTimerTaskIds] = useState<Record<string, boolean>>({});
   const [timerTick, setTimerTick] = useState(0);
-  const runningTaskId = useMemo(() => {
-    const entries = Object.entries(activeTimers);
-    if (entries.length === 0) {
-      return null;
-    }
-    const [firstId] = entries[0];
-    return firstId ?? null;
-  }, [activeTimers]);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1246,11 +1229,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       try {
         const restoredActive = readActiveTimerRecord(activeTimersStorageKey);
         applyActiveTimersUpdate(restoredActive);
-        if (Object.keys(restoredActive).length > 0) {
-          setTimerTick(Date.now());
-        } else {
-          setTimerTick(0);
-        }
       } catch (error) {
         console.error('Erro ao restaurar temporizadores ativos:', error);
         try {
@@ -1259,7 +1237,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           console.warn('Não foi possível limpar registros de temporizadores de tarefas:', error);
         }
         applyActiveTimersUpdate({});
-        setTimerTick(0);
       }
     };
 
@@ -1277,72 +1254,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey, applyActiveTimersUpdate, setTimerTick]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      applyActiveTimersUpdate(prev => {
-        if (Object.keys(prev).length === 0) {
-          return prev;
-        }
-        return {};
-      });
-      setTimerTick(0);
-      return;
-    }
-
-    const runningLogs = timeLogs.filter(
-      log =>
-        log.user_id === user.id &&
-        log.status === 'running' &&
-        (!log.end_time && !log.data_fim) &&
-        typeof log.task_id === 'string' &&
-        log.task_id.length > 0,
-    );
-
-    if (runningLogs.length === 0) {
-      applyActiveTimersUpdate(prev => {
-        if (Object.keys(prev).length === 0) {
-          return prev;
-        }
-        return {};
-      });
-      setTimerTick(0);
-      return;
-    }
-
-    const latestRunning = runningLogs.reduce((latest, current) => {
-      const latestStartIso = latest.start_time ?? latest.data_inicio ?? null;
-      const currentStartIso = current.start_time ?? current.data_inicio ?? null;
-      const latestMs = latestStartIso ? Date.parse(latestStartIso) : NaN;
-      const currentMs = currentStartIso ? Date.parse(currentStartIso) : NaN;
-
-      if (!Number.isFinite(currentMs)) {
-        return latest;
-      }
-
-      if (!Number.isFinite(latestMs) || currentMs > latestMs) {
-        return current;
-      }
-
-      return latest;
-    }, runningLogs[0]);
-
-    const startIso = latestRunning.start_time ?? latestRunning.data_inicio ?? null;
-    const startMs = startIso ? Date.parse(startIso) : NaN;
-
-    if (!latestRunning.task_id || !Number.isFinite(startMs)) {
-      return;
-    }
-
-    applyActiveTimersUpdate(prev => {
-      if (Object.keys(prev).length === 1 && prev[latestRunning.task_id as string] === startMs) {
-        return prev;
-      }
-      return { [latestRunning.task_id as string]: startMs };
-    });
-    setTimerTick(Date.now());
-  }, [timeLogs, user?.id, applyActiveTimersUpdate, setTimerTick]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -2000,7 +1912,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
         const totalSeconds = getRowAccumulatedSeconds(row);
         const formattedDuration = formatDuration(totalSeconds);
-        const isRunning = Boolean(row.id && runningTaskId === row.id);
+        const isRunning = Boolean(row.id && activeTimers[row.id]);
         return isRunning ? `${formattedDuration} (Em andamento)` : formattedDuration;
       }
       case 'percentual_conclusao':
@@ -2666,87 +2578,43 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, []);
 
   const startTimer = useCallback(
-    async (row: TaskRow): Promise<boolean> => {
-      const timerTaskId = row.id;
-
-      if (!timerTaskId) {
+    async (row: TaskRow) => {
+      if (!row.id) {
         toast({
           title: 'Atenção',
           description: 'Salve a tarefa antes de iniciar o apontamento de tempo.',
           variant: 'destructive',
         });
-        return false;
+        return;
       }
 
-      if (runningTaskId && runningTaskId !== timerTaskId) {
-        toast({
-          title: 'Apontamento em andamento',
-          description: 'Encerre o apontamento atual antes de iniciar outro.',
-          variant: 'destructive',
-        });
-        return false;
+      const tentativeStart = Date.now();
+      const startedLog = await startTimerLog(row.id, {
+        tipoInclusao: 'automatico',
+        startedAt: new Date(tentativeStart),
+        observacoes: 'Registro automático pela Gestão de Tarefas',
+      });
+
+      if (!startedLog) {
+        return;
       }
 
-      setStartingTimerTaskIds(prev => ({ ...prev, [timerTaskId]: true }));
+      const normalizedStart =
+        typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
+          ? new Date(startedLog.data_inicio).getTime()
+          : tentativeStart;
 
-      try {
-        const tentativeStart = Date.now();
-        const startedLog = await startTimerLog(timerTaskId, {
-          tipoInclusao: 'automatico',
-          startedAt: new Date(tentativeStart),
-          observacoes: 'Registro automático pela Gestão de Tarefas',
-        });
-
-        if (!startedLog) {
-          return false;
+      applyActiveTimersUpdate(prev => {
+        if (prev[row.id!]) {
+          return prev;
         }
-
-        const startIso =
-          (typeof startedLog.start_time === 'string' && startedLog.start_time) ||
-          (typeof startedLog.data_inicio === 'string' && startedLog.data_inicio) ||
-          null;
-        const normalizedStart = startIso ? new Date(startIso).getTime() : tentativeStart;
-
-        applyActiveTimersUpdate(() => ({ [timerTaskId]: normalizedStart }));
-        setTimerTick(Date.now());
-        return true;
-      } catch (error) {
-        console.error('Erro ao iniciar cronômetro da tarefa:', error);
-        toast({
-          title: 'Erro',
-          description: 'Não foi possível iniciar o apontamento de tempo.',
-          variant: 'destructive',
-        });
-        return false;
-      } finally {
-        setStartingTimerTaskIds(prev => {
-          if (!prev[timerTaskId]) {
-            return prev;
-          }
-
-          const next = { ...prev };
-          delete next[timerTaskId];
-          return next;
-        });
-      }
+        return { ...prev, [row.id!]: normalizedStart };
+      });
     },
-    [toast, applyActiveTimersUpdate, startTimerLog, runningTaskId],
+    [toast, applyActiveTimersUpdate, startTimerLog],
   );
 
   const handleStartTimer = (row: TaskRow, rowIndex: number) => {
-    if (row.id && startingTimerTaskIds[row.id]) {
-      return;
-    }
-
-    if (runningTaskId && runningTaskId !== row.id) {
-      toast({
-        title: 'Apontamento em andamento',
-        description: 'Encerre o apontamento atual antes de iniciar outro.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     if (!row.id) {
       void startTimer(row);
       return;
@@ -2799,12 +2667,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
       }
 
-      const started = await startTimer({ ...row, responsavel: trimmedResponsavel });
-      if (started) {
-        closeResponsavelDialog();
-      } else {
-        applyLocalResponsavelUpdate(previousResponsavel);
-      }
+      await startTimer({ ...row, responsavel: trimmedResponsavel });
+      closeResponsavelDialog();
     } catch (error) {
       console.error('Erro ao associar responsável antes de iniciar o cronômetro:', error);
       applyLocalResponsavelUpdate(previousResponsavel);
@@ -2818,30 +2682,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
   };
 
-  const removeActiveTimerForRow = useCallback(
-    (taskId: string) => {
-      if (!taskId) {
-        return;
-      }
+  interface StopTimerOptions {
+    rowIndex?: number;
+    statusAfterStop?: string | null;
+  }
 
-      applyActiveTimersUpdate(prev => {
-        if (!prev[taskId]) {
-          return prev;
-        }
-
-        const { [taskId]: _removed, ...rest } = prev;
-        if (Object.keys(rest).length === 0) {
-          setTimerTick(0);
-          return {};
-        }
-
-        return rest;
-      });
-    },
-    [applyActiveTimersUpdate, setTimerTick],
-  );
-
-  const handleStopTimer = (row: TaskRow, options?: StopTimerOptions) => {
+  const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
     if (!row.id) {
       toast({
         title: 'Atenção',
@@ -2851,66 +2697,36 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    if (runningTaskId !== row.id) {
+    if (!activeTimers[row.id]) {
       return;
     }
 
-    setPendingStopTimer({ row, options });
-    setActivityDescription('');
-  };
-
-  const handleCancelActivityDialog = useCallback(() => {
-    if (isSavingActivity) {
-      return;
-    }
-    setPendingStopTimer(null);
-    setActivityDescription('');
-  }, [isSavingActivity]);
-
-  const handleConfirmStopTimerActivity = useCallback(async () => {
-    const currentPending = pendingStopTimer;
-
-    if (!currentPending?.row?.id) {
-      return;
-    }
-
-    const trimmedActivity = activityDescription.trim();
-
-    if (trimmedActivity.length < 3) {
-      toast({
-        title: 'Informe a atividade realizada',
-        description: 'Descreva rapidamente o que foi feito (mínimo de 3 caracteres).',
-        variant: 'destructive',
+    const removeActiveTimer = () => {
+      applyActiveTimersUpdate(prev => {
+        if (!prev[row.id!]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[row.id!];
+        return next;
       });
-      return;
+    };
+
+    const result = await stopTimerLog(row.id);
+    removeActiveTimer();
+
+    if (result) {
+      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+        updateCell(options.rowIndex, 'status', options.statusAfterStop);
+      }
+      return true;
     }
 
-    setIsSavingActivity(true);
-
-    try {
-      const result = await stopTimerLog(currentPending.row.id, { atividade: trimmedActivity });
-
-      if (!result) {
-        return;
-      }
-
-      removeActiveTimerForRow(currentPending.row.id);
-
-      if (
-        currentPending.options?.statusAfterStop &&
-        typeof currentPending.options.rowIndex === 'number'
-      ) {
-        updateCell(currentPending.options.rowIndex, 'status', currentPending.options.statusAfterStop);
-      }
-
-      setPendingStopTimer(null);
-      setActivityDescription('');
-    } catch (error) {
-      console.error('Erro ao finalizar apontamento com atividade:', error);
-    } finally {
-      setIsSavingActivity(false);
+    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+      updateCell(options.rowIndex, 'status', options.statusAfterStop);
     }
-  }, [activityDescription, pendingStopTimer, removeActiveTimerForRow, stopTimerLog, toast, updateCell]);
+    return false;
+  };
 
   const navigateToGaps = (taskId?: string) => {
     if (!taskId) {
@@ -3317,7 +3133,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
 
       const totalSeconds = getRowAccumulatedSeconds(row);
-      const isRunning = Boolean(row.id && runningTaskId === row.id);
+      const isRunning = Boolean(activeTimers[row.id]);
 
       return (
         <div className="flex flex-col text-xs">
@@ -3748,7 +3564,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     if (column.key === 'tempo_total') {
       if (!row.id) return <span className="text-muted-foreground">-</span>;
       const totalSeconds = getRowAccumulatedSeconds(row);
-      const isRunning = Boolean(row.id && runningTaskId === row.id);
+      const isRunning = Boolean(activeTimers[row.id]);
       return (
         <span>
           {formatDuration(totalSeconds)}
@@ -3929,9 +3745,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, [fieldSearch]);
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
-    const isRunning = Boolean(row.id && runningTaskId === row.id);
-    const hasDifferentRunningTimer = Boolean(runningTaskId && runningTaskId !== row.id);
-    const isStartingTimer = Boolean(row.id && startingTimerTaskIds[row.id]);
+    const isRunning = Boolean(row.id && activeTimers[row.id]);
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
     const isDeletingRow = deletingRowIndex === index;
@@ -4030,13 +3844,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     onKeyDown={event => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        if (
-                          isDraftRow ||
-                          isSavingRow ||
-                          isRunning ||
-                          isStartingTimer ||
-                          hasDifferentRunningTimer
-                        ) {
+                        if (isDraftRow || isSavingRow || isRunning) {
                           return;
                         }
                         handleStartTimer(row, index);
@@ -4044,26 +3852,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     }}
                     onClick={event => {
                       event.preventDefault();
-                      if (
-                        isDraftRow ||
-                        isSavingRow ||
-                        isRunning ||
-                        isStartingTimer ||
-                        hasDifferentRunningTimer
-                      ) {
+                      if (isDraftRow || isSavingRow || isRunning) {
                         return;
                       }
                       handleStartTimer(row, index);
                     }}
                     className={cn(
                       'inline-flex rounded-full transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                      (!hasAssignedResponsible(row.responsavel) || hasDifferentRunningTimer) &&
-                        'cursor-not-allowed opacity-60',
-                      (isStartingTimer || hasDifferentRunningTimer) && 'pointer-events-none opacity-60'
+                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60'
                     )}
-                    aria-disabled={
-                      !hasAssignedResponsible(row.responsavel) || isStartingTimer || hasDifferentRunningTimer
-                    }
+                    aria-disabled={!hasAssignedResponsible(row.responsavel)}
                   >
                     <Button
                       variant="ghost"
@@ -4071,33 +3869,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                       className={cn(
                         TASK_ACTION_ICON_BASE_CLASS,
                         TASK_ACTION_ICON_VARIANTS.start,
-                        (!hasAssignedResponsible(row.responsavel) || hasDifferentRunningTimer) &&
-                          'pointer-events-none'
+                        !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
                       )}
-                      disabled={
-                        isDraftRow ||
-                        isSavingRow ||
-                        isRunning ||
-                        !hasAssignedResponsible(row.responsavel) ||
-                        isStartingTimer ||
-                        hasDifferentRunningTimer
-                      }
+                      disabled={isDraftRow || isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
                       aria-label="Iniciar apontamento"
                     >
-                      {isStartingTimer ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Play className="h-3.5 w-3.5" />
-                      )}
+                      <Play className="h-3.5 w-3.5" />
                     </Button>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {hasDifferentRunningTimer
-                    ? 'Encerre o apontamento atual para iniciar outro'
-                    : hasAssignedResponsible(row.responsavel)
-                      ? 'Iniciar apontamento'
-                      : 'Associe um responsável para iniciar'}
+                  {hasAssignedResponsible(row.responsavel)
+                    ? 'Iniciar apontamento'
+                    : 'Associe um responsável para iniciar'}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -4163,8 +3947,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     : null;
   const isResponsavelDialogOpen = Boolean(pendingResponsavelAssignment);
   const pendingResponsavelRow = pendingResponsavelAssignment?.row ?? null;
-  const isActivityDialogOpen = Boolean(pendingStopTimer);
-  const pendingActivityRow = pendingStopTimer?.row ?? null;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
@@ -4186,50 +3968,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         onClearAll={clearAll}
         pendingColumn={pendingSortColumn}
       />
-      <Dialog
-        open={isActivityDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleCancelActivityDialog();
-          }
-        }}
-      >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Registrar atividade</DialogTitle>
-            <DialogDescription>
-              Informe a atividade realizada antes de encerrar o apontamento desta tarefa.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {pendingActivityRow?.tarefa ? (
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">Tarefa:</span> {pendingActivityRow.tarefa}
-              </p>
-            ) : null}
-            <div className="grid gap-2">
-              <Label htmlFor="time-log-activity">Atividade realizada</Label>
-              <Textarea
-                id="time-log-activity"
-                value={activityDescription}
-                onChange={event => setActivityDescription(event.target.value)}
-                rows={4}
-                maxLength={1000}
-                placeholder="Descreva em poucas palavras o que foi realizado durante este apontamento."
-                disabled={isSavingActivity}
-              />
-            </div>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={handleCancelActivityDialog} disabled={isSavingActivity}>
-              Cancelar
-            </Button>
-            <Button onClick={handleConfirmStopTimerActivity} disabled={isSavingActivity}>
-              {isSavingActivity ? 'Salvando...' : 'Confirmar atividade'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
         <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between rounded-t-3xl">
           <div className="space-y-2">
