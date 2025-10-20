@@ -1660,6 +1660,16 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      },
+      insert_log_audit_task: {
+        Args: {
+          _task_id: string
+          _audit_operation: "INSERT" | "UPDATE" | "DELETE"
+          _de?: Json | null
+          _para?: Json | null
+          _task_snapshot?: Json | null
+        }
+        Returns: Database["public"]["Tables"]["log_audit_tasks"]["Row"]
       }
     }
     Enums: {

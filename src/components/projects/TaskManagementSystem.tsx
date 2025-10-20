@@ -1745,6 +1745,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return message.includes("'de'") || message.includes('de column') || message.includes("'para'");
       };
 
+      const shouldFallbackToDirectInsert = (error: PostgrestError | null) => {
+        if (!error) {
+          return false;
+        }
+
+        if (error.code === 'PGRST100' || error.code === '42883') {
+          return true;
+        }
+
+        const message = error.message?.toLowerCase?.() ?? '';
+        return message.includes('insert_log_audit_task');
+      };
+
       try {
         const basePayload = {
           task_id: task.id,
@@ -1759,26 +1772,43 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           custom_fields: task.custom_fields ?? {},
         });
 
-        const { error } = await supabase.from('log_audit_tasks').insert({
-          ...basePayload,
-          de: serializedBefore,
-          para: serializedAfter,
-          task_snapshot: serializedSnapshot,
-        });
+        const rpcPayload = {
+          _task_id: task.id,
+          _audit_operation: operation,
+          _de: serializedBefore,
+          _para: serializedAfter,
+          _task_snapshot: serializedSnapshot,
+        };
 
-        if (error) {
-          if (!shouldFallbackToLegacySnapshot(error)) {
-            console.error('Erro ao registrar auditoria de tarefa:', error);
+        const rpcResult = await supabase.rpc('insert_log_audit_task', rpcPayload);
+
+        if (rpcResult.error) {
+          if (!shouldFallbackToDirectInsert(rpcResult.error)) {
+            console.error('Erro ao registrar auditoria de tarefa:', rpcResult.error);
             return;
           }
 
-          const fallbackResult = await supabase.from('log_audit_tasks').insert({
+          const { error } = await supabase.from('log_audit_tasks').insert({
             ...basePayload,
+            de: serializedBefore,
+            para: serializedAfter,
             task_snapshot: serializedSnapshot,
           });
 
-          if (fallbackResult.error) {
-            console.error('Erro ao registrar auditoria de tarefa (modo legado):', fallbackResult.error);
+          if (error) {
+            if (!shouldFallbackToLegacySnapshot(error)) {
+              console.error('Erro ao registrar auditoria de tarefa:', error);
+              return;
+            }
+
+            const fallbackResult = await supabase.from('log_audit_tasks').insert({
+              ...basePayload,
+              task_snapshot: serializedSnapshot,
+            });
+
+            if (fallbackResult.error) {
+              console.error('Erro ao registrar auditoria de tarefa (modo legado):', fallbackResult.error);
+            }
           }
         }
       } catch (error) {
