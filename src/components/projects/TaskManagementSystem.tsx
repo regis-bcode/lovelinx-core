@@ -172,10 +172,11 @@ const PERCENTUAL_BUCKET_INDEX = new Map<string, number>(
 const EMPTY_GROUP_VALUE = '__empty__';
 const NO_DUE_DATE_VALUE = '__no_due__';
 
-const TASK_TABLE_PREFERENCES_VERSION = 3;
+const TASK_TABLE_PREFERENCES_VERSION = 4;
 const TASK_SORT_STORAGE_KEY = 'task-grid:sortRules';
 
 const DEFAULT_SORT_DIRECTIONS: Partial<Record<string, SortDirection>> = {
+  data_inicio: 'desc',
   data_vencimento: 'desc',
   percentual_conclusao: 'desc',
 };
@@ -197,6 +198,7 @@ const SORTABLE_COLUMN_KEYS = new Set<string>([
   'status',
   'cliente',
   'responsavel',
+  'data_inicio',
   'data_vencimento',
   'descricao_tarefa',
   'solucao',
@@ -1067,6 +1069,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       status: row => row.status ?? '',
       cliente: row => row.cliente ?? '',
       responsavel: row => row.responsavel ?? '',
+      data_inicio: row => row.data_inicio ?? null,
       data_vencimento: row => row.data_vencimento ?? null,
       descricao_tarefa: row => row.descricao_tarefa ?? '',
       solucao: row => row.solucao ?? '',
@@ -1087,6 +1090,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const sortValueNormalizers = useMemo<Record<string, (value: unknown, row: TaskRow) => unknown>>(
     () => ({
       prioridade: (value: unknown) => normalizePriorityWeight(value),
+      data_inicio: (value: unknown) => {
+        if (!value) {
+          return null;
+        }
+        const date = new Date(value as string | number | Date);
+        return Number.isNaN(date.getTime()) ? null : date;
+      },
       data_vencimento: (value: unknown) => {
         if (!value) {
           return null;
@@ -1337,6 +1347,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: 'status', label: 'Status', width: '150px' },
     { key: 'cliente', label: 'Cliente', width: '150px' },
     { key: 'responsavel', label: 'Responsável', width: '150px' },
+    { key: 'data_inicio', label: 'Início', width: '120px' },
     { key: 'data_vencimento', label: 'Vencimento', width: '120px' },
     { key: 'descricao_tarefa', label: 'Descrição Tarefa', width: '240px' },
     { key: 'solucao', label: 'Atividade', width: '240px' },
@@ -1619,6 +1630,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         payload.project_id = projectId;
       }
 
+      if (row.data_inicio instanceof Date) {
+        payload.data_inicio = row.data_inicio.toISOString().slice(0, 10);
+      }
       if (row.data_vencimento instanceof Date) {
         payload.data_vencimento = row.data_vencimento.toISOString().slice(0, 10);
       }
@@ -1695,6 +1709,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     prioridade: 'Média',
     status: defaultStatusName || '',
     cliente: defaultClient || undefined,
+    data_inicio: format(new Date(), 'yyyy-MM-dd'),
     data_vencimento: format(new Date(), 'yyyy-MM-dd'),
     percentual_conclusao: 0,
     nivel: 0,
@@ -1977,6 +1992,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return String(value);
         }
       }
+      case 'data_inicio': {
+        if (isNullish || isEmptyString) {
+          return '-';
+        }
+        const date = new Date(String(value));
+        if (Number.isNaN(date.getTime())) {
+          return String(value);
+        }
+        try {
+          return format(date, 'dd/MM/yyyy');
+        } catch {
+          return String(value);
+        }
+      }
       case 'escopo':
         if (value === 'Sim' || value === 'Não') {
           return value;
@@ -2226,6 +2255,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           const percentual = parsePercentageCell(getCellValue(row, '% Conclusão'));
           if (percentual !== null) {
             payload.percentual_conclusao = percentual;
+          }
+
+          const startDateCell = getCellValue(row, 'Início') ?? getCellValue(row, 'Data Início');
+          const startDate = parseExcelDate(startDateCell);
+          if (startDate) {
+            payload.data_inicio = startDate;
           }
 
           const dueDate = parseExcelDate(getCellValue(row, 'Vencimento'));
@@ -2478,6 +2513,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           const mins = Math.floor((totalSeconds % 3600) / 60);
           return `${hours}h ${mins}m`;
         }
+        case 'data_inicio':
         case 'data_vencimento': {
           if (!value) {
             return '';
@@ -3451,7 +3487,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       );
     }
 
-    if (column.key === 'data_vencimento') {
+    if (column.key === 'data_inicio' || column.key === 'data_vencimento') {
       const normalizedValue = (() => {
         if (typeof value === 'string') {
           return value;
@@ -3645,7 +3681,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return <span className="text-muted-foreground">-</span>;
     }
 
-    if (column.key === 'data_vencimento') {
+    if (column.key === 'data_inicio' || column.key === 'data_vencimento') {
       if (isNullish || isEmptyString) {
         return <span className="text-muted-foreground">-</span>;
       }
