@@ -795,6 +795,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [groupBy]
   );
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const [startingTimerTaskIds, setStartingTimerTaskIds] = useState<Record<string, boolean>>({});
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const [isImporting, setIsImporting] = useState(false);
@@ -2586,43 +2587,73 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }, []);
 
   const startTimer = useCallback(
-    async (row: TaskRow) => {
-      if (!row.id) {
+    async (row: TaskRow): Promise<boolean> => {
+      const timerTaskId = row.id;
+
+      if (!timerTaskId) {
         toast({
           title: 'Atenção',
           description: 'Salve a tarefa antes de iniciar o apontamento de tempo.',
           variant: 'destructive',
         });
-        return;
+        return false;
       }
 
-      const tentativeStart = Date.now();
-      const startedLog = await startTimerLog(row.id, {
-        tipoInclusao: 'automatico',
-        startedAt: new Date(tentativeStart),
-        observacoes: 'Registro automático pela Gestão de Tarefas',
-      });
+      setStartingTimerTaskIds(prev => ({ ...prev, [timerTaskId]: true }));
 
-      if (!startedLog) {
-        return;
-      }
+      try {
+        const tentativeStart = Date.now();
+        const startedLog = await startTimerLog(timerTaskId, {
+          tipoInclusao: 'automatico',
+          startedAt: new Date(tentativeStart),
+          observacoes: 'Registro automático pela Gestão de Tarefas',
+        });
 
-      const normalizedStart =
-        typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
-          ? new Date(startedLog.data_inicio).getTime()
-          : tentativeStart;
-
-      applyActiveTimersUpdate(prev => {
-        if (prev[row.id!]) {
-          return prev;
+        if (!startedLog) {
+          return false;
         }
-        return { ...prev, [row.id!]: normalizedStart };
-      });
+
+        const normalizedStart =
+          typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
+            ? new Date(startedLog.data_inicio).getTime()
+            : tentativeStart;
+
+        applyActiveTimersUpdate(prev => {
+          if (prev[timerTaskId]) {
+            return prev;
+          }
+          return { ...prev, [timerTaskId]: normalizedStart };
+        });
+        setTimerTick(Date.now());
+        return true;
+      } catch (error) {
+        console.error('Erro ao iniciar cronômetro da tarefa:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível iniciar o apontamento de tempo.',
+          variant: 'destructive',
+        });
+        return false;
+      } finally {
+        setStartingTimerTaskIds(prev => {
+          if (!prev[timerTaskId]) {
+            return prev;
+          }
+
+          const next = { ...prev };
+          delete next[timerTaskId];
+          return next;
+        });
+      }
     },
     [toast, applyActiveTimersUpdate, startTimerLog],
   );
 
   const handleStartTimer = (row: TaskRow, rowIndex: number) => {
+    if (row.id && startingTimerTaskIds[row.id]) {
+      return;
+    }
+
     if (!row.id) {
       void startTimer(row);
       return;
@@ -2675,8 +2706,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
       }
 
-      await startTimer({ ...row, responsavel: trimmedResponsavel });
-      closeResponsavelDialog();
+      const started = await startTimer({ ...row, responsavel: trimmedResponsavel });
+      if (started) {
+        closeResponsavelDialog();
+      } else {
+        applyLocalResponsavelUpdate(previousResponsavel);
+      }
     } catch (error) {
       console.error('Erro ao associar responsável antes de iniciar o cronômetro:', error);
       applyLocalResponsavelUpdate(previousResponsavel);
@@ -3798,6 +3833,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const renderTaskRow = (row: TaskRow, index: number, highlightClass?: string) => {
     const isRunning = Boolean(row.id && activeTimers[row.id]);
+    const isStartingTimer = Boolean(row.id && startingTimerTaskIds[row.id]);
     const isDraftRow = !row.id || row._isNew || row.isDraft;
     const isSavingRow = savingRowIndex === index;
     const isDeletingRow = deletingRowIndex === index;
@@ -3896,7 +3932,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     onKeyDown={event => {
                       if (event.key === 'Enter' || event.key === ' ') {
                         event.preventDefault();
-                        if (isDraftRow || isSavingRow || isRunning) {
+                        if (isDraftRow || isSavingRow || isRunning || isStartingTimer) {
                           return;
                         }
                         handleStartTimer(row, index);
@@ -3904,16 +3940,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     }}
                     onClick={event => {
                       event.preventDefault();
-                      if (isDraftRow || isSavingRow || isRunning) {
+                      if (isDraftRow || isSavingRow || isRunning || isStartingTimer) {
                         return;
                       }
                       handleStartTimer(row, index);
                     }}
                     className={cn(
                       'inline-flex rounded-full transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60'
+                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60',
+                      isStartingTimer && 'pointer-events-none opacity-60'
                     )}
-                    aria-disabled={!hasAssignedResponsible(row.responsavel)}
+                    aria-disabled={!hasAssignedResponsible(row.responsavel) || isStartingTimer}
                   >
                     <Button
                       variant="ghost"
@@ -3923,10 +3960,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                         TASK_ACTION_ICON_VARIANTS.start,
                         !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
                       )}
-                      disabled={isDraftRow || isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
+                      disabled={
+                        isDraftRow ||
+                        isSavingRow ||
+                        isRunning ||
+                        !hasAssignedResponsible(row.responsavel) ||
+                        isStartingTimer
+                      }
                       aria-label="Iniciar apontamento"
                     >
-                      <Play className="h-3.5 w-3.5" />
+                      {isStartingTimer ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5" />
+                      )}
                     </Button>
                   </span>
                 </TooltipTrigger>
