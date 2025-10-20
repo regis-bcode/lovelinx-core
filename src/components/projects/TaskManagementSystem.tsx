@@ -1246,6 +1246,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       try {
         const restoredActive = readActiveTimerRecord(activeTimersStorageKey);
         applyActiveTimersUpdate(restoredActive);
+        if (Object.keys(restoredActive).length > 0) {
+          setTimerTick(Date.now());
+        } else {
+          setTimerTick(0);
+        }
       } catch (error) {
         console.error('Erro ao restaurar temporizadores ativos:', error);
         try {
@@ -1254,6 +1259,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           console.warn('Não foi possível limpar registros de temporizadores de tarefas:', error);
         }
         applyActiveTimersUpdate({});
+        setTimerTick(0);
       }
     };
 
@@ -1271,7 +1277,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate, setTimerTick]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -1281,6 +1287,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
         return {};
       });
+      setTimerTick(0);
       return;
     }
 
@@ -1300,6 +1307,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
         return {};
       });
+      setTimerTick(0);
       return;
     }
 
@@ -1333,7 +1341,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
       return { [latestRunning.task_id as string]: startMs };
     });
-  }, [timeLogs, user?.id, applyActiveTimersUpdate]);
+    setTimerTick(Date.now());
+  }, [timeLogs, user?.id, applyActiveTimersUpdate, setTimerTick]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
@@ -2820,10 +2829,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return prev;
         }
 
-        return {};
+        const { [taskId]: _removed, ...rest } = prev;
+        if (Object.keys(rest).length === 0) {
+          setTimerTick(0);
+          return {};
+        }
+
+        return rest;
       });
     },
-    [applyActiveTimersUpdate],
+    [applyActiveTimersUpdate, setTimerTick],
   );
 
   const handleStopTimer = (row: TaskRow, options?: StopTimerOptions) => {
