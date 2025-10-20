@@ -1783,9 +1783,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const approverDisplayName = getApproverDisplayName(log);
                   const isPendingApproval = log.status_aprovacao === 'pendente';
                   const isCurrentProcessing = processingApprovalId === log.id;
-                  const approvalActionsDisabled = processingApprovalId !== null;
+                  const showApprovalIcons = canManageApprovals && isPendingApproval;
+                  const approvalIconsDisabled = processingApprovalId !== null;
                   const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
-                  const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
+                  const isRejectLoading = isCurrentProcessing && approvalSubmittingType === 'reject';
+                  const isApproveButtonDisabled = !isPendingApproval || approvalIconsDisabled;
 
                   return (
                     <TableRow key={log.id}>
@@ -1862,6 +1864,38 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getStatusBadge(log)}
+                          {showApprovalIcons ? (
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenApprovalDialog(log, 'approve')}
+                                className="text-base leading-none text-green-600 transition hover:text-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Aprovar registro de tempo"
+                                aria-label="Aprovar registro de tempo"
+                                disabled={approvalIconsDisabled}
+                              >
+                                {isApproveLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  '👍'
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenApprovalDialog(log, 'reject')}
+                                className="text-base leading-none text-red-600 transition hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                title="Reprovar registro de tempo"
+                                aria-label="Reprovar registro de tempo"
+                                disabled={approvalIconsDisabled}
+                              >
+                                {isRejectLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  '👎'
+                                )}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </TableCell>
                       <TableCell>{approverDisplayName}</TableCell>
