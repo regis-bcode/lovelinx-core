@@ -119,6 +119,22 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   const extras = sanitizeExtras(params.extras);
   Object.assign(payload, extras);
 
+  const ensureSequentialIdentifier = async () => {
+    try {
+      return await generateNextTaskIdentifier(params.projectId);
+    } catch (generationError) {
+      console.error('Erro ao gerar task_id sequencial:', generationError);
+      return ensureTaskIdentifier(null, params.projectId);
+    }
+  };
+
+  const buildFallbackIdentifier = (attempt: number) => {
+    const seed = `${params.projectId}-${Date.now()}-${attempt}-${Math.random()
+      .toString(36)
+      .slice(2, 8)}`;
+    return ensureTaskIdentifier(null, seed);
+  };
+
   const trimmedTaskId =
     typeof payload.task_id === 'string' ? payload.task_id.trim() : undefined;
   if (trimmedTaskId) {
@@ -128,16 +144,17 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   }
 
   let attempts = 0;
-  while (attempts < 3) {
+  let lastError: unknown = null;
+
+  while (attempts < 5) {
     attempts += 1;
 
-    if (typeof payload.task_id !== 'string') {
-      try {
-        payload.task_id = await generateNextTaskIdentifier(params.projectId);
-      } catch (generationError) {
-        console.error('Erro ao gerar task_id sequencial:', generationError);
-        payload.task_id = ensureTaskIdentifier(null, params.projectId);
-      }
+    if (typeof payload.task_id !== 'string' || payload.task_id.trim().length === 0) {
+      payload.task_id = attempts === 1
+        ? await ensureSequentialIdentifier()
+        : buildFallbackIdentifier(attempts);
+    } else {
+      payload.task_id = payload.task_id.trim();
     }
 
     if (!('custom_fields' in payload)) {
@@ -188,14 +205,14 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
       return normalized;
     }
 
-    const isUniqueViolation = error.code === '23505';
-    if (!isUniqueViolation || attempts >= 3) {
+    const isUniqueViolation = (error as { code?: string }).code === '23505';
+    if (!isUniqueViolation) {
       throw error;
     }
 
-    // Em caso de conflito de chave, gerar um novo identificador e tentar novamente
+    lastError = error;
     delete payload.task_id;
   }
 
-  throw new Error('Não foi possível criar a tarefa com um identificador único.');
+  throw lastError ?? new Error('Não foi possível criar a tarefa com um identificador único.');
 }
