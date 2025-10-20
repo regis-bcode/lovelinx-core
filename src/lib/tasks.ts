@@ -52,6 +52,55 @@ interface CreateTaskParams {
 
 const VALID_PRIORITIES = new Set(['Baixa', 'Média', 'Alta', 'Crítica']);
 
+const shouldFallbackToNomeColumn = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+
+  const typedError = error as { code?: string; message?: string };
+  return typedError.code === 'PGRST204' && typeof typedError.message === 'string'
+    ? typedError.message.includes("'tarefa' column")
+    : false;
+};
+
+const buildInsertPayload = (
+  basePayload: Record<string, unknown>,
+  useNomeColumn: boolean,
+): Record<string, unknown> => {
+  const payload: Record<string, unknown> = { ...basePayload };
+
+  if ('tarefa' in payload) {
+    const raw = payload.tarefa;
+    if (useNomeColumn) {
+      payload.nome = raw;
+      delete payload.tarefa;
+    } else if (typeof raw === 'string') {
+      payload.tarefa = raw.trim();
+    }
+  }
+
+  return payload;
+};
+
+export const normalizeDatabaseTaskRecord = (record: Task | (Task & { nome?: string | null })): Task => {
+  const tarefaNome = typeof record.tarefa === 'string' && record.tarefa.trim().length > 0
+    ? record.tarefa.trim()
+    : typeof record.nome === 'string' && record.nome.trim().length > 0
+      ? record.nome.trim()
+      : '';
+
+  return {
+    ...record,
+    tarefa: tarefaNome,
+    custom_fields: (record.custom_fields ?? {}) as Record<string, unknown>,
+    cronograma: Boolean(record.cronograma),
+    percentual_conclusao:
+      typeof record.percentual_conclusao === 'number' ? record.percentual_conclusao : 0,
+    nivel: typeof record.nivel === 'number' ? record.nivel : 0,
+    ordem: typeof record.ordem === 'number' ? record.ordem : 0,
+  };
+};
+
 const normalizePriority = (value?: string | null): string => {
   if (!value) {
     return 'Média';
@@ -146,6 +195,8 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   let attempts = 0;
   let lastError: unknown = null;
 
+  let useNomeColumn = false;
+
   while (attempts < 5) {
     attempts += 1;
 
@@ -177,9 +228,11 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
       payload.cronograma = false;
     }
 
+    const dataToInsert = buildInsertPayload(payload, useNomeColumn);
+
     const { data, error } = await supabase
       .from('tasks')
-      .insert(payload)
+      .insert(dataToInsert)
       .select('*')
       .single();
 
@@ -189,20 +242,20 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
       }
 
       const rawTask = data as Task;
-      const normalizedTaskId = ensureTaskIdentifier(rawTask.task_id, rawTask.id);
+      const normalizedRecord = normalizeDatabaseTaskRecord(rawTask);
+      const normalizedTaskId = ensureTaskIdentifier(normalizedRecord.task_id, normalizedRecord.id);
 
       const normalized: Task = {
-        ...rawTask,
+        ...normalizedRecord,
         task_id: normalizedTaskId,
-        custom_fields: (rawTask.custom_fields ?? {}) as Record<string, unknown>,
-        cronograma: Boolean(rawTask.cronograma),
-        percentual_conclusao:
-          typeof rawTask.percentual_conclusao === 'number' ? rawTask.percentual_conclusao : 0,
-        nivel: typeof rawTask.nivel === 'number' ? rawTask.nivel : 0,
-        ordem: typeof rawTask.ordem === 'number' ? rawTask.ordem : 0,
       };
 
       return normalized;
+    }
+
+    if (shouldFallbackToNomeColumn(error)) {
+      useNomeColumn = true;
+      continue;
     }
 
     const isUniqueViolation = (error as { code?: string }).code === '23505';
