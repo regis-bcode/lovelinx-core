@@ -13,6 +13,7 @@ import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
 import ProjectOnePage from "./pages/ProjectOnePage";
 import Users from "./pages/Users";
+import AuditLogsPage from "./pages/audit-logs";
 import Clients from "./pages/Clients";
 import Products from "./pages/Products";
 import Services from "./pages/Services";
@@ -164,13 +165,21 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/documents" 
+      <Route
+        path="/documents"
         element={
           <ProtectedRoute>
             <div className="p-6">Documents page - Em desenvolvimento</div>
           </ProtectedRoute>
-        } 
+        }
+      />
+      <Route
+        path="/audit-logs"
+        element={
+          <ProtectedRoute>
+            <AuditLogsPage />
+          </ProtectedRoute>
+        }
       />
       <Route
         path="/settings"
