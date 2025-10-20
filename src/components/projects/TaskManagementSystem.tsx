@@ -2739,21 +2739,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [toast, applyActiveTimersUpdate, startTimerLog],
   );
 
-  const handleStartTimer = (row: TaskRow, rowIndex: number) => {
-    if (!row.id) {
-      void startTimer(row);
-      return;
-    }
-
-    if (!hasAssignedResponsible(row.responsavel)) {
-      setPendingResponsavelAssignment({ row, rowIndex });
-      setSelectedResponsavelForTimer(null);
-      return;
-    }
-
-    void startTimer(row);
-  };
-
   const handleConfirmResponsavelAssignment = async () => {
     if (!pendingResponsavelAssignment || !selectedResponsavelForTimer) {
       return;
@@ -2963,10 +2948,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
   }, [applyActiveTimersUpdate, deleteTask, deletingRowIndex, editableRows, timeLogs, toast]);
 
-  const handleSaveRow = useCallback(async (index: number) => {
+  interface SaveRowOptions {
+    suppressSuccessDialog?: boolean;
+  }
+
+  const handleSaveRow = useCallback(async (index: number, options: SaveRowOptions = {}) => {
     const row = editableRows[index];
     if (!row) {
-      return;
+      return null;
     }
 
     const trimmedName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
@@ -2976,11 +2965,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         description: 'Defina uma tarefa antes de salvar.',
         variant: 'destructive',
       });
-      return;
+      return null;
     }
 
     if (savingRowIndex !== null) {
-      return;
+      return null;
     }
 
     let rowToSave = row;
@@ -3027,7 +3016,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       if (!savedTask) {
-        return;
+        return null;
       }
 
       await ensureGapForTask(savedTask);
@@ -3046,8 +3035,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }),
       );
 
-      setSuccessDialogData({ task: savedTask, wasDraft });
-      setIsSuccessDialogOpen(true);
+      if (!options.suppressSuccessDialog) {
+        setSuccessDialogData({ task: savedTask, wasDraft });
+        setIsSuccessDialogOpen(true);
+        toast({
+          title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
+          description: 'Registro salvo com sucesso!',
+        });
+      }
 
       const normalizedSavedTask: TaskRow = {
         ...savedTask,
@@ -3063,6 +3058,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       });
 
       await refreshTasks();
+      return savedTask;
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
       toast({
@@ -3070,11 +3066,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         description: 'Não foi possível salvar esta tarefa. Tente novamente.',
         variant: 'destructive',
       });
+      return null;
     } finally {
       setSavingRowIndex(null);
     }
   }, [
-    createBlankRow,
     createTaskMutation,
     editableRows,
     ensureGapForTask,
@@ -3087,6 +3083,39 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     toast,
     updateTask,
   ]);
+
+  const handleStartTimer = useCallback(
+    async (row: TaskRow, rowIndex: number) => {
+      let targetRow: TaskRow = row;
+
+      if (!targetRow.id) {
+        const savedTask = await handleSaveRow(rowIndex, { suppressSuccessDialog: true });
+        if (!savedTask) {
+          return;
+        }
+
+        targetRow = {
+          ...savedTask,
+          custom_fields: savedTask.custom_fields ?? {},
+        };
+      }
+
+      if (!hasAssignedResponsible(targetRow.responsavel)) {
+        setPendingResponsavelAssignment({ row: targetRow, rowIndex });
+        setSelectedResponsavelForTimer(null);
+        return;
+      }
+
+      await startTimer(targetRow);
+    },
+    [
+      handleSaveRow,
+      hasAssignedResponsible,
+      setPendingResponsavelAssignment,
+      setSelectedResponsavelForTimer,
+      startTimer,
+    ],
+  );
 
   const handleSuccessDialogDismiss = useCallback(() => {
     setIsSuccessDialogOpen(false);
@@ -4009,45 +4038,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        if (isDraftRow || isSavingRow || isRunning) {
-                          return;
-                        }
-                        handleStartTimer(row, index);
-                      }
-                    }}
-                    onClick={event => {
-                      event.preventDefault();
-                      if (isDraftRow || isSavingRow || isRunning) {
-                        return;
-                      }
-                      handleStartTimer(row, index);
-                    }}
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className={cn(
-                      'inline-flex rounded-full transition-opacity focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
-                      !hasAssignedResponsible(row.responsavel) && 'cursor-not-allowed opacity-60'
+                      TASK_ACTION_ICON_BASE_CLASS,
+                      TASK_ACTION_ICON_VARIANTS.start,
+                      !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
                     )}
-                    aria-disabled={!hasAssignedResponsible(row.responsavel)}
+                    onClick={() => void handleStartTimer(row, index)}
+                    disabled={isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
+                    aria-label="Iniciar apontamento"
                   >
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
-                        TASK_ACTION_ICON_BASE_CLASS,
-                        TASK_ACTION_ICON_VARIANTS.start,
-                        !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
-                      )}
-                      disabled={isDraftRow || isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
-                      aria-label="Iniciar apontamento"
-                    >
-                      <Play className="h-3.5 w-3.5" />
-                    </Button>
-                  </span>
+                    <Play className="h-3.5 w-3.5" />
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent>
                   {hasAssignedResponsible(row.responsavel)
