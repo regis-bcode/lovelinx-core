@@ -4630,15 +4630,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                   </Table>
                 </div>
               </div>
-              </>
-            ) : (
-              <TaskGanttView
-                tasks={editableRows}
-                isLoading={loading}
-                onTaskClick={(_, index) => handleOpenTaskFromGantt(index)}
-              />
-            )}
-        </CardContent>
+            </div>
+          </>
+        ) : (
+          <TaskGanttView
+            tasks={editableRows}
+            isLoading={loading}
+            onTaskClick={(_, index) => handleOpenTaskFromGantt(index)}
+          />
+        )}
+      </CardContent>
       </Card>
       <Dialog
         open={isResponsavelDialogOpen}
