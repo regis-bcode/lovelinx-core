@@ -117,6 +117,11 @@ type ColumnDefinition =
       field: CustomField;
     };
 
+interface StopTimerOptions {
+  rowIndex?: number;
+  statusAfterStop?: string | null;
+}
+
 type GroupByKey =
   | ''
   | 'responsavel'
@@ -776,6 +781,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   } | null>(null);
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
+  const [pendingStopTimer, setPendingStopTimer] = useState<{ row: TaskRow; options?: StopTimerOptions } | null>(null);
+  const [activityDescription, setActivityDescription] = useState('');
+  const [isSavingActivity, setIsSavingActivity] = useState(false);
   const [editingFieldId, setEditingFieldId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState('');
   const [updatingFieldId, setUpdatingFieldId] = useState<string | null>(null);
@@ -2682,12 +2690,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
   };
 
-  interface StopTimerOptions {
-    rowIndex?: number;
-    statusAfterStop?: string | null;
-  }
+  const removeActiveTimerForRow = useCallback(
+    (taskId: string) => {
+      if (!taskId) {
+        return;
+      }
 
-  const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
+      applyActiveTimersUpdate(prev => {
+        if (!prev[taskId]) {
+          return prev;
+        }
+
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+    },
+    [applyActiveTimersUpdate],
+  );
+
+  const handleStopTimer = (row: TaskRow, options?: StopTimerOptions) => {
     if (!row.id) {
       toast({
         title: 'Atenção',
@@ -2701,32 +2723,62 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return;
     }
 
-    const removeActiveTimer = () => {
-      applyActiveTimersUpdate(prev => {
-        if (!prev[row.id!]) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[row.id!];
-        return next;
-      });
-    };
-
-    const result = await stopTimerLog(row.id);
-    removeActiveTimer();
-
-    if (result) {
-      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-        updateCell(options.rowIndex, 'status', options.statusAfterStop);
-      }
-      return true;
-    }
-
-    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-      updateCell(options.rowIndex, 'status', options.statusAfterStop);
-    }
-    return false;
+    setPendingStopTimer({ row, options });
+    setActivityDescription('');
   };
+
+  const handleCancelActivityDialog = useCallback(() => {
+    if (isSavingActivity) {
+      return;
+    }
+    setPendingStopTimer(null);
+    setActivityDescription('');
+  }, [isSavingActivity]);
+
+  const handleConfirmStopTimerActivity = useCallback(async () => {
+    const currentPending = pendingStopTimer;
+
+    if (!currentPending?.row?.id) {
+      return;
+    }
+
+    const trimmedActivity = activityDescription.trim();
+
+    if (!trimmedActivity) {
+      toast({
+        title: 'Informe a atividade realizada',
+        description: 'Descreva rapidamente o que foi feito antes de finalizar o apontamento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingActivity(true);
+
+    try {
+      const result = await stopTimerLog(currentPending.row.id, { atividade: trimmedActivity });
+
+      if (!result) {
+        return;
+      }
+
+      removeActiveTimerForRow(currentPending.row.id);
+
+      if (
+        currentPending.options?.statusAfterStop &&
+        typeof currentPending.options.rowIndex === 'number'
+      ) {
+        updateCell(currentPending.options.rowIndex, 'status', currentPending.options.statusAfterStop);
+      }
+
+      setPendingStopTimer(null);
+      setActivityDescription('');
+    } catch (error) {
+      console.error('Erro ao finalizar apontamento com atividade:', error);
+    } finally {
+      setIsSavingActivity(false);
+    }
+  }, [activityDescription, pendingStopTimer, removeActiveTimerForRow, stopTimerLog, toast, updateCell]);
 
   const navigateToGaps = (taskId?: string) => {
     if (!taskId) {
@@ -3947,6 +3999,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     : null;
   const isResponsavelDialogOpen = Boolean(pendingResponsavelAssignment);
   const pendingResponsavelRow = pendingResponsavelAssignment?.row ?? null;
+  const isActivityDialogOpen = Boolean(pendingStopTimer);
+  const pendingActivityRow = pendingStopTimer?.row ?? null;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-4 overflow-hidden">
@@ -3968,6 +4022,50 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         onClearAll={clearAll}
         pendingColumn={pendingSortColumn}
       />
+      <Dialog
+        open={isActivityDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelActivityDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar atividade</DialogTitle>
+            <DialogDescription>
+              Informe a atividade realizada antes de encerrar o apontamento desta tarefa.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {pendingActivityRow?.tarefa ? (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Tarefa:</span> {pendingActivityRow.tarefa}
+              </p>
+            ) : null}
+            <div className="grid gap-2">
+              <Label htmlFor="time-log-activity">Atividade realizada</Label>
+              <Textarea
+                id="time-log-activity"
+                value={activityDescription}
+                onChange={event => setActivityDescription(event.target.value)}
+                rows={4}
+                maxLength={1000}
+                placeholder="Descreva em poucas palavras o que foi realizado durante este apontamento."
+                disabled={isSavingActivity}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelActivityDialog} disabled={isSavingActivity}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmStopTimerActivity} disabled={isSavingActivity}>
+              {isSavingActivity ? 'Salvando...' : 'Confirmar atividade'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Card className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden rounded-3xl">
         <CardHeader className="sticky top-0 z-40 flex flex-col gap-4 border-b border-border/60 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/75 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between rounded-t-3xl">
           <div className="space-y-2">

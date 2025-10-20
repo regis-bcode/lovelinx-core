@@ -12,6 +12,7 @@ export interface TimeLog {
   tempo_formatado?: string | null;
   data_inicio?: string;
   data_fim?: string;
+  atividade?: string | null;
   status_aprovacao: ApprovalStatus;
   aprovador_id?: string | null;
   aprovador_nome?: string | null;
@@ -22,6 +23,14 @@ export interface TimeLog {
   justificativa_reprovacao?: string | null;
   created_at: string;
   updated_at: string;
+  task?: {
+    id: string;
+    task_id?: string | null;
+    tarefa?: string | null;
+    solucao?: string | null;
+    responsavel?: string | null;
+    status?: string | null;
+  } | null;
 }
 
 export interface UserRole {
@@ -34,7 +43,7 @@ export interface UserRole {
 
 export type TimeLogFormData = Omit<
   TimeLog,
-  'id' | 'created_at' | 'updated_at' | 'tempo_trabalhado' | 'tempo_formatado'
+  'id' | 'created_at' | 'updated_at' | 'tempo_trabalhado' | 'tempo_formatado' | 'task'
 > & {
   tempo_trabalhado?: number;
 };

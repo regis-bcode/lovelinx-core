@@ -1388,6 +1388,7 @@ export type Database = {
       }
       time_logs: {
         Row: {
+          atividade: string | null
           aprovacao_data: string | null
           aprovacao_hora: string | null
           aprovador_id: string | null
@@ -1408,6 +1409,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          atividade?: string | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null
@@ -1428,6 +1430,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          atividade?: string | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null

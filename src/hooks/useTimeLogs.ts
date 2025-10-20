@@ -5,6 +5,16 @@ import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
+type TimeLogRowWithTask = TimeLogRow & {
+  task?: {
+    id: string;
+    task_id?: string | null;
+    tarefa?: string | null;
+    solucao?: string | null;
+    responsavel?: string | null;
+    status?: string | null;
+  } | null;
+};
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
 type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
 
@@ -15,6 +25,7 @@ const TIME_LOG_COLUMNS = new Set([
   'tipo_inclusao',
   'data_inicio',
   'data_fim',
+  'atividade',
   'status_aprovacao',
   'aprovador_id',
   'aprovador_nome',
@@ -65,7 +76,7 @@ function sanitizeTimeLogPayload(obj: Record<string, unknown>) {
   return out;
 }
 
-const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
+const normalizeTimeLogRecord = (log: TimeLogRowWithTask): TimeLog => {
   const startTimestamp = typeof log.data_inicio === 'string' ? Date.parse(log.data_inicio) : NaN;
   const endTimestamp = typeof log.data_fim === 'string' ? Date.parse(log.data_fim) : NaN;
   const hasValidRange =
@@ -83,6 +94,7 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   return {
     ...log,
+    atividade: log.atividade ?? null,
     aprovador_nome: log.aprovador_nome ?? null,
     aprovacao_data: log.aprovacao_data ?? null,
     aprovacao_hora: log.aprovacao_hora ?? null,
@@ -90,6 +102,16 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
+    task: log.task
+      ? {
+          id: log.task.id,
+          task_id: log.task.task_id ?? null,
+          tarefa: log.task.tarefa ?? null,
+          solucao: log.task.solucao ?? null,
+          responsavel: log.task.responsavel ?? null,
+          status: log.task.status ?? null,
+        }
+      : null,
   } satisfies TimeLog;
 };
 
@@ -153,12 +175,22 @@ export function useTimeLogs(projectId?: string) {
 
       const { data, error } = await supabase
         .from('time_logs')
-        .select('*')
+        .select(`
+          *,
+          task:tasks (
+            id,
+            task_id,
+            tarefa,
+            solucao,
+            responsavel,
+            status
+          )
+        `)
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const normalized = (data as TimeLogRow[] | null)?.map(normalizeTimeLogRecord) ?? [];
+      const normalized = (data as TimeLogRowWithTask[] | null)?.map(normalizeTimeLogRecord) ?? [];
 
       setTimeLogs(normalized);
     } catch (error) {
@@ -222,7 +254,7 @@ export function useTimeLogs(projectId?: string) {
         description: 'Tempo registrado com sucesso',
       });
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRowWithTask);
 
       setTimeLogs(prev => {
         const next = prev.filter(log => log.id !== normalized.id);
@@ -259,7 +291,7 @@ export function useTimeLogs(projectId?: string) {
         description: 'Log de tempo atualizado',
       });
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRowWithTask);
 
       setTimeLogs(prev => prev.map(log => (log.id === normalized.id ? normalized : log)));
 
@@ -438,7 +470,7 @@ export function useTimeLogs(projectId?: string) {
       if (selectError) throw selectError;
 
       if (existingLog) {
-        const normalizedExisting = normalizeTimeLogRecord(existingLog as TimeLogRow);
+        const normalizedExisting = normalizeTimeLogRecord(existingLog as TimeLogRowWithTask);
         setTimeLogs(prev => {
           const next = prev.filter(log => log.id !== normalizedExisting.id);
           return [normalizedExisting, ...next];
@@ -458,6 +490,7 @@ export function useTimeLogs(projectId?: string) {
         data_fim: null,
         status_aprovacao: 'pendente',
         observacoes: options?.observacoes ?? null,
+        atividade: null,
         aprovador_id: null,
         data_aprovacao: null,
       };
@@ -470,7 +503,7 @@ export function useTimeLogs(projectId?: string) {
 
       if (error) throw error;
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRowWithTask);
 
       setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
@@ -486,7 +519,12 @@ export function useTimeLogs(projectId?: string) {
     }
   };
 
-  const stopTimerLog = async (taskId: string): Promise<TimeLog | null> => {
+  const stopTimerLog = async (
+    taskId: string,
+    options?: {
+      atividade?: string | null;
+    },
+  ): Promise<TimeLog | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -522,8 +560,9 @@ export function useTimeLogs(projectId?: string) {
       const nowMs = Date.now();
       const isoNow = new Date(nowMs).toISOString();
 
-      const updatePayload = {
+      const updatePayload: Partial<TimeLogFormData> = {
         data_fim: isoNow,
+        atividade: options?.atividade ?? null,
       };
 
       const { data, error: updateError } = await supabase
@@ -535,7 +574,7 @@ export function useTimeLogs(projectId?: string) {
 
       if (updateError) throw updateError;
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRowWithTask);
 
       setTimeLogs(prev => {
         const hasLog = prev.some(log => log.id === normalized.id);
