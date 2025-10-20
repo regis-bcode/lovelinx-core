@@ -97,6 +97,7 @@ import {
   sanitizeActiveTimerRecord,
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
+import { supabase } from '@/integrations/supabase/client';
 
 interface TaskManagementSystemProps {
   projectId: string;
@@ -1696,6 +1697,62 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [sanitizeTaskForSave, tasks],
   );
 
+  const logTaskChange = useCallback(
+    async ({
+      operation,
+      task,
+      before,
+      after,
+    }: {
+      operation: 'INSERT' | 'UPDATE';
+      task: Task;
+      before: Partial<TaskFormData> | null;
+      after: Partial<TaskFormData>;
+    }) => {
+      const serializeForJson = (value: unknown) => {
+        if (value === undefined) {
+          return null;
+        }
+
+        try {
+          const json = JSON.stringify(value ?? null);
+          if (typeof json !== 'string') {
+            return null;
+          }
+          return JSON.parse(json);
+        } catch (error) {
+          console.error('Erro ao serializar dados de auditoria de tarefa:', error);
+          return null;
+        }
+      };
+
+      if (!task.id) {
+        return;
+      }
+
+      try {
+        const { error } = await supabase.from('log_audit_tasks').insert({
+          task_id: task.id,
+          audit_operation: operation,
+          audit_user: user?.email ?? user?.name ?? user?.id ?? null,
+          de: before ? serializeForJson(before) : null,
+          para: serializeForJson(after),
+          task_snapshot: serializeForJson({
+            ...task,
+            custom_fields: task.custom_fields ?? {},
+          }),
+        });
+
+        if (error) {
+          console.error('Erro ao registrar auditoria de tarefa:', error);
+        }
+      } catch (error) {
+        console.error('Erro inesperado ao registrar auditoria de tarefa:', error);
+      }
+    },
+    [user],
+  );
+
   // Inicializar rows com as tasks existentes
   const createBlankRow = useCallback((order: number, taskIdentifier?: string): TaskRow => ({
     _isNew: true,
@@ -2927,6 +2984,21 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     let rowToSave = row;
     const wasDraft = !rowToSave.id || rowToSave._isNew || rowToSave.isDraft;
+    const normalizedOriginal: TaskRow | null = rowToSave.id
+      ? (() => {
+          const existing = tasks.find(taskItem => taskItem.id === rowToSave.id);
+          if (!existing) {
+            return null;
+          }
+          return {
+            ...existing,
+            custom_fields: existing.custom_fields ?? {},
+          };
+        })()
+      : null;
+
+    const sanitizedOriginal = normalizedOriginal ? sanitizeTaskForSave(normalizedOriginal) : null;
+    const auditOperation: 'INSERT' | 'UPDATE' = wasDraft ? 'INSERT' : 'UPDATE';
 
     if (!row.task_id || row.task_id.trim().length === 0) {
       const generatedId = getNextTaskIdentifier();
@@ -2975,6 +3047,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       setSuccessDialogData({ task: savedTask, wasDraft });
 
+      const normalizedSavedTask: TaskRow = {
+        ...savedTask,
+        custom_fields: savedTask.custom_fields ?? {},
+      };
+      const sanitizedAfter = sanitizeTaskForSave(normalizedSavedTask);
+
+      await logTaskChange({
+        operation: auditOperation,
+        task: savedTask,
+        before: sanitizedOriginal,
+        after: sanitizedAfter,
+      });
+
       await refreshTasks();
     } catch (error) {
       console.error('Erro ao salvar tarefa individual:', error);
@@ -2992,9 +3077,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     editableRows,
     ensureGapForTask,
     getNextTaskIdentifier,
+    logTaskChange,
     refreshTasks,
     sanitizeTaskForSave,
     savingRowIndex,
+    tasks,
     toast,
     updateTask,
   ]);
