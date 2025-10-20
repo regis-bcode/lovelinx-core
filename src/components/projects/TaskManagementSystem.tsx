@@ -733,6 +733,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
   const { timeLogs, getTaskTotalTime, getResponsibleTotalTime, startTimerLog, stopTimerLog } = useTimeLogs(projectId);
+  const tasksWithTimeLogs = useMemo(() => {
+    const set = new Set<string>();
+    timeLogs.forEach(log => {
+      if (typeof log.task_id === 'string' && log.task_id.length > 0) {
+        set.add(log.task_id);
+      }
+    });
+    return set;
+  }, [timeLogs]);
   const { allocations: projectAllocations } = useProjectAllocations(projectId);
   const { isGestor } = useUserRoles();
   const { toast } = useToast();
@@ -1015,21 +1024,38 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
   }, []);
 
+  const getStoredTempoTotalSeconds = useCallback((row: TaskRow): number => {
+    const value = (row as TaskRow & { tempo_total?: unknown }).tempo_total;
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.round(value));
+    }
+    return 0;
+  }, []);
+
   const getRowAccumulatedSeconds = useCallback(
     (row: TaskRow): number => {
+      const storedSeconds = getStoredTempoTotalSeconds(row);
+
       if (!row.id) {
-        return 0;
+        return storedSeconds;
       }
 
+      const hasLoggedTime = tasksWithTimeLogs.has(row.id);
       const minutes = getTaskTotalTime(row.id);
       const runningStart = activeTimers[row.id];
       const referenceNow = timerTick || Date.now();
 
-      const baseSeconds = Number.isFinite(minutes) ? Math.max(0, Math.round(minutes * 60)) : 0;
+      const numericMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
+      const baseSeconds = hasLoggedTime ? Math.max(0, Math.round(numericMinutes * 60)) : null;
       const runningSeconds = runningStart ? Math.max(0, Math.round((referenceNow - runningStart) / 1000)) : 0;
-      return baseSeconds + runningSeconds;
+
+      if (baseSeconds !== null) {
+        return baseSeconds + runningSeconds;
+      }
+
+      return storedSeconds + runningSeconds;
     },
-    [activeTimers, getTaskTotalTime, timerTick],
+    [activeTimers, getStoredTempoTotalSeconds, getTaskTotalTime, tasksWithTimeLogs, timerTick],
   );
 
   const sortAccessors = useMemo<Record<string, (row: TaskRow) => unknown>>(
@@ -1674,6 +1700,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     nivel: 0,
     ordem: order,
     custom_fields: {},
+    tempo_total: 0,
     cronograma: false,
   }), [projectId, defaultClient, defaultStatusName]);
 
@@ -1911,8 +1938,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return row.isDraft || row._isNew ? 'Novo' : '-';
       }
       case 'tempo_total': {
+        const storedSeconds = getStoredTempoTotalSeconds(row);
         if (!row.id) {
-          return '-';
+          return formatDuration(storedSeconds);
         }
         const totalSeconds = getRowAccumulatedSeconds(row);
         const formattedDuration = formatDuration(totalSeconds);
@@ -1972,6 +2000,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     activeTimers,
     formatCustomFieldValueForExport,
     formatDuration,
+    getStoredTempoTotalSeconds,
     getRowAccumulatedSeconds,
     stageNameById,
     subStageNameById,
@@ -2443,10 +2472,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         case 'percentual_conclusao':
           return typeof value === 'number' ? `${value}%` : '';
         case 'tempo_total': {
-          if (!row.id) {
-            return '0h 0m';
-          }
-          const totalSeconds = getRowAccumulatedSeconds(row);
+          const storedSeconds = getStoredTempoTotalSeconds(row);
+          const totalSeconds = row.id ? getRowAccumulatedSeconds(row) : storedSeconds;
           const hours = Math.floor(totalSeconds / 3600);
           const mins = Math.floor((totalSeconds % 3600) / 60);
           return `${hours}h ${mins}m`;
@@ -3149,10 +3176,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
 
     if (column.key === 'tempo_total') {
-      if (!row.id) return <span className="text-xs text-muted-foreground">-</span>;
-
-      const totalSeconds = getRowAccumulatedSeconds(row);
-      const isRunning = Boolean(activeTimers[row.id]);
+      const storedSeconds = getStoredTempoTotalSeconds(row);
+      const totalSeconds = row.id ? getRowAccumulatedSeconds(row) : storedSeconds;
+      const isRunning = Boolean(row.id && activeTimers[row.id]);
 
       return (
         <div className="flex flex-col text-xs">

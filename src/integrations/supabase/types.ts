@@ -1192,6 +1192,7 @@ export type Database = {
           ordem: number | null
           parent_task_id: string | null
           percentual_conclusao: number | null
+          tempo_total: number
           prioridade: string
           project_id: string
           responsavel: string | null
@@ -1238,6 +1239,7 @@ export type Database = {
           ordem?: number | null
           parent_task_id?: string | null
           percentual_conclusao?: number | null
+          tempo_total?: number | null
           prioridade?: string
           project_id: string
           responsavel?: string | null
@@ -1284,6 +1286,7 @@ export type Database = {
           ordem?: number | null
           parent_task_id?: string | null
           percentual_conclusao?: number | null
+          tempo_total?: number | null
           prioridade?: string
           project_id?: string
           responsavel?: string | null

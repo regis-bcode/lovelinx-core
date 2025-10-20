@@ -44,7 +44,8 @@ export interface Task {
   dias_para_concluir?: number;
   percentual_conclusao?: number;
   link_drive?: string;
-  
+  tempo_total?: number;
+
   // Campos para subtarefas
   parent_task_id?: string;
   nivel: number;
