@@ -2807,7 +2807,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const existingDescription =
         typeof runningLog?.atividade === 'string' && runningLog.atividade.trim().length > 0
           ? runningLog.atividade
-          : runningLog?.observacoes ?? '';
+          : '';
       setStopTimerActivityDescription(existingDescription ?? '');
       setStopTimerError(null);
     },
