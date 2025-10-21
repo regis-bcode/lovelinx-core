@@ -451,22 +451,21 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return '-';
   }, [approverNameMap]);
 
-  const getLogObservation = useCallback((log: TimeLog) => {
-    const rejection = typeof log.justificativa_reprovacao === 'string'
-      ? log.justificativa_reprovacao.trim()
-      : '';
-
-    if (rejection.length > 0) {
-      return rejection;
-    }
-
+  const getLogActivity = useCallback((log: TimeLog) => {
     const activity = typeof log.atividade === 'string' ? log.atividade.trim() : '';
     if (activity.length > 0) {
       return activity;
     }
 
-    const observation = typeof log.observacoes === 'string' ? log.observacoes.trim() : '';
-    return observation;
+    const fallbackActivity = (log as { activity?: string | null | undefined }).activity;
+    if (typeof fallbackActivity === 'string') {
+      const trimmedFallback = fallbackActivity.trim();
+      if (trimmedFallback.length > 0) {
+        return trimmedFallback;
+      }
+    }
+
+    return '';
   }, []);
 
   const selectableLogs = useMemo(() => {
@@ -1705,14 +1704,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Data da Aprovação</TableHead>
                 <TableHead>Hora da Aprovação</TableHead>
                 {canManageApprovals ? <TableHead>Ação</TableHead> : null}
-                <TableHead>Observações</TableHead>
+                <TableHead>Atividades</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
               {timeLogs.length > 0 ? (
                 timeLogs.map((log) => {
                   const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
-                  const observationText = getLogObservation(log);
+                  const activityText = getLogActivity(log);
                   const approverDisplayName = getApproverDisplayName(log);
                   const isPendingApproval = log.status_aprovacao === 'pendente';
                   const isCurrentProcessing = processingApprovalId === log.id;
@@ -1755,12 +1754,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleOpenLogEditDialog(log)}
-                                aria-label="Editar observações do registro"
+                                aria-label="Editar atividades do registro"
                               >
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Editar observações</TooltipContent>
+                            <TooltipContent>Editar atividades</TooltipContent>
                           </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1828,8 +1827,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         </TableCell>
                       ) : null}
                       <TableCell>
-                        {observationText ? (
-                          <span className="block max-w-[220px] break-words text-xs">{observationText}</span>
+                        {activityText ? (
+                          <span className="block max-w-[220px] break-words text-xs">{activityText}</span>
                         ) : (
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
@@ -2097,7 +2096,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           <DialogHeader>
             <DialogTitle>Editar registro de tempo</DialogTitle>
             <DialogDescription>
-              Atualize as observações registradas para este apontamento de horas.
+              Atualize as atividades registradas para este apontamento de horas.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2 text-sm">
@@ -2117,7 +2116,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="log-observations" className="text-sm font-medium">
-                Observações
+                Atividades
               </Label>
               <Textarea
                 id="log-observations"
@@ -2128,7 +2127,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 disabled={isUpdatingLogObservation}
               />
               <p className="text-xs text-muted-foreground">
-                Esta observação ficará disponível no histórico do registro.
+                Esta atividade ficará disponível no histórico do registro.
               </p>
             </div>
           </div>
