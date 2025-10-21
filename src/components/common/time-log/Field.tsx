@@ -46,10 +46,11 @@ export function Field({
       <div className="flex items-start gap-3 text-sm text-slate-700 md:text-base">
         {icon ? <span className="mt-0.5 text-slate-500">{icon}</span> : null}
         <div className="space-y-1">
-          <div className="font-semibold text-slate-600">
-            {label}:
+          <div className="font-bold text-slate-600">
+            {label}
+            {": "}
             {isPrimitive ? (
-              <span className="ml-1 font-semibold text-slate-900">{resolved as Primitive}</span>
+              <span className="font-semibold text-slate-900">{resolved as Primitive}</span>
             ) : null}
           </div>
           {valueContent}
