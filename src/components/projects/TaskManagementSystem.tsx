@@ -2810,6 +2810,62 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [activeTimers, timeLogs, toast],
   );
 
+  interface StopTimerOptions {
+    rowIndex?: number;
+    statusAfterStop?: string | null;
+    activityDescription?: string | null;
+  }
+
+  const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
+    if (!row.id) {
+      toast({
+        title: 'Atenção',
+        description: 'Salve a tarefa antes de finalizar o apontamento.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (!activeTimers[row.id]) {
+      return;
+    }
+
+    const removeActiveTimer = () => {
+      applyActiveTimersUpdate(prev => {
+        if (!prev[row.id!]) {
+          return prev;
+        }
+        const next = { ...prev };
+        delete next[row.id!];
+        return next;
+      });
+    };
+
+    const taskName = typeof row.tarefa === 'string' ? row.tarefa : null;
+    const description =
+      typeof options?.activityDescription === 'string' && options.activityDescription.trim().length > 0
+        ? options.activityDescription.trim()
+        : undefined;
+
+    const result = await stopTimerLog(row.id, {
+      activityDescription: description,
+      taskName,
+    });
+    removeActiveTimer();
+
+    if (result) {
+      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+        updateCell(options.rowIndex, 'status', options.statusAfterStop);
+      }
+      return true;
+    }
+
+    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+      updateCell(options.rowIndex, 'status', options.statusAfterStop);
+    }
+    return false;
+  };
+
   const handleConfirmStopTimerDialog = useCallback(async () => {
     if (!pendingStopTimer) {
       return;
@@ -2971,62 +3027,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     } finally {
       setIsSavingResponsavelForTimer(false);
     }
-  };
-
-  interface StopTimerOptions {
-    rowIndex?: number;
-    statusAfterStop?: string | null;
-    activityDescription?: string | null;
-  }
-
-  const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
-    if (!row.id) {
-      toast({
-        title: 'Atenção',
-        description: 'Salve a tarefa antes de finalizar o apontamento.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!activeTimers[row.id]) {
-      return;
-    }
-
-    const removeActiveTimer = () => {
-      applyActiveTimersUpdate(prev => {
-        if (!prev[row.id!]) {
-          return prev;
-        }
-        const next = { ...prev };
-        delete next[row.id!];
-        return next;
-      });
-    };
-
-    const taskName = typeof row.tarefa === 'string' ? row.tarefa : null;
-    const description =
-      typeof options?.activityDescription === 'string' && options.activityDescription.trim().length > 0
-        ? options.activityDescription.trim()
-        : undefined;
-
-    const result = await stopTimerLog(row.id, {
-      activityDescription: description,
-      taskName,
-    });
-    removeActiveTimer();
-
-    if (result) {
-      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-        updateCell(options.rowIndex, 'status', options.statusAfterStop);
-      }
-      return true;
-    }
-
-    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-      updateCell(options.rowIndex, 'status', options.statusAfterStop);
-    }
-    return false;
   };
 
   const navigateToGaps = (taskId?: string) => {
