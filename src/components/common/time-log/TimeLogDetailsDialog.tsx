@@ -332,9 +332,9 @@ export function TimeLogDetailsDialog({
                           }
                         />
                         <Field
-                          label="Observações"
+                          label="ATIVIDADES"
                           value={log?.observacoes}
-                          placeholder="Nenhuma observação registrada."
+                          placeholder="Nenhuma atividade registrada."
                         />
                       </>
                     )}
@@ -371,13 +371,19 @@ export function TimeLogDetailsDialog({
                       )}
                     </div>
                     <Separator />
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                        <BoltIcon className="h-4 w-4" aria-hidden />
-                        Atividade registrada
+                    {(isLoading || (log?.atividade && log.atividade.length > 0)) && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                          <BoltIcon className="h-4 w-4" aria-hidden />
+                          Atividade registrada
+                        </div>
+                        {isLoading ? (
+                          <Skeleton className="h-24 w-full rounded-xl" />
+                        ) : (
+                          <Timeline items={log?.atividade} />
+                        )}
                       </div>
-                      {isLoading ? <Skeleton className="h-24 w-full rounded-xl" /> : <Timeline items={log?.atividade} />}
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
