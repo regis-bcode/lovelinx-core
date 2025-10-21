@@ -26,7 +26,7 @@ import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { Task } from '@/types/task';
-import { TimeLog } from '@/types/time-log';
+import { TimeLog, TimeLogFormData } from '@/types/time-log';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
@@ -124,6 +124,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [selectedLogForEdit, setSelectedLogForEdit] = useState<TimeLog | null>(null);
   const [isLogEditDialogOpen, setIsLogEditDialogOpen] = useState(false);
   const [logEditObservation, setLogEditObservation] = useState('');
+  const [logEditTargetField, setLogEditTargetField] = useState<'atividade' | 'observacoes'>('observacoes');
   const [isUpdatingLogObservation, setIsUpdatingLogObservation] = useState(false);
   const [logPendingDeletion, setLogPendingDeletion] = useState<TimeLog | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -454,6 +455,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     if (rejection.length > 0) {
       return rejection;
+    }
+
+    const activity = typeof log.atividade === 'string' ? log.atividade.trim() : '';
+    if (activity.length > 0) {
+      return activity;
     }
 
     const observation = typeof log.observacoes === 'string' ? log.observacoes.trim() : '';
@@ -839,7 +845,18 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const handleOpenLogEditDialog = (log: TimeLog) => {
     setSelectedLogForEdit(log);
-    setLogEditObservation(log.observacoes ?? '');
+    const activity = typeof log.atividade === 'string' ? log.atividade.trim() : '';
+    const observation = typeof log.observacoes === 'string' ? log.observacoes.trim() : '';
+    const shouldEditActivity = log.tipo_inclusao === 'timer' || activity.length > 0;
+
+    if (shouldEditActivity) {
+      setLogEditTargetField('atividade');
+      setLogEditObservation(activity.length > 0 ? activity : observation);
+    } else {
+      setLogEditTargetField('observacoes');
+      setLogEditObservation(observation);
+    }
+
     setIsLogEditDialogOpen(true);
   };
 
@@ -852,6 +869,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       setIsLogEditDialogOpen(false);
       setSelectedLogForEdit(null);
       setLogEditObservation('');
+      setLogEditTargetField('observacoes');
       return;
     }
 
@@ -865,9 +883,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     setIsUpdatingLogObservation(true);
     const trimmedObservation = logEditObservation.trim();
-    const result = await updateTimeLog(selectedLogForEdit.id, {
-      observacoes: trimmedObservation.length > 0 ? trimmedObservation : null,
-    });
+    const payload: Partial<TimeLogFormData> =
+      logEditTargetField === 'atividade'
+        ? { atividade: trimmedObservation.length > 0 ? trimmedObservation : null }
+        : { observacoes: trimmedObservation.length > 0 ? trimmedObservation : null };
+    const result = await updateTimeLog(selectedLogForEdit.id, payload);
     setIsUpdatingLogObservation(false);
 
     if (!result) {
@@ -877,6 +897,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setIsLogEditDialogOpen(false);
     setSelectedLogForEdit(null);
     setLogEditObservation('');
+    setLogEditTargetField('observacoes');
   };
 
   const handleOpenDeleteDialog = (log: TimeLog) => {

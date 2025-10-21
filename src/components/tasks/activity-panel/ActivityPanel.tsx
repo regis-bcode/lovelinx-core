@@ -91,6 +91,7 @@ function TimeLogDetails({ payload }: { payload: TaskActivity['payload'] }) {
     data_inicio?: string | null;
     data_fim?: string | null;
     observacoes?: string | null;
+    atividade?: string | null;
   };
 
   const rows: Array<{ label: string; value: string }> = [];
@@ -120,8 +121,20 @@ function TimeLogDetails({ payload }: { payload: TaskActivity['payload'] }) {
     rows.push({ label: 'Finalizado em', value: finishedAt });
   }
 
-  if (typeof data.observacoes === 'string' && data.observacoes.trim().length > 0) {
-    rows.push({ label: 'Atividade', value: data.observacoes.trim() });
+  const activityDescription = (() => {
+    if (typeof data.atividade === 'string' && data.atividade.trim().length > 0) {
+      return data.atividade.trim();
+    }
+
+    if (typeof data.observacoes === 'string' && data.observacoes.trim().length > 0) {
+      return data.observacoes.trim();
+    }
+
+    return null;
+  })();
+
+  if (activityDescription) {
+    rows.push({ label: 'Atividade', value: activityDescription });
   }
 
   if (rows.length === 0) {

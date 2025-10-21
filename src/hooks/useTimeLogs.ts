@@ -23,6 +23,7 @@ const TIME_LOG_COLUMNS = new Set([
   'aprovacao_data',
   'aprovacao_hora',
   'observacoes',
+  'atividade',
   'justificativa_reprovacao',
   'created_at',
   'updated_at',
@@ -533,14 +534,14 @@ export function useTimeLogs(projectId?: string) {
         typeof options?.activityDescription === 'string'
           ? options.activityDescription.trim()
           : '';
-      const observacoes =
+      const atividade =
         normalizedDescription.length > 0
           ? normalizedDescription
-          : (typeof openLog.observacoes === 'string' ? openLog.observacoes : null);
+          : (typeof openLog.atividade === 'string' ? openLog.atividade : null);
 
-      const updatePayload = {
+      const updatePayload: Partial<TimeLogFormData> = {
         data_fim: isoNow,
-        observacoes,
+        atividade,
       };
 
       const { data, error: updateError } = await supabase
@@ -567,8 +568,8 @@ export function useTimeLogs(projectId?: string) {
         if (normalized.tempo_formatado) {
           summaryParts.push(`Tempo registrado: ${normalized.tempo_formatado}`);
         }
-        if (normalizedDescription.length > 0) {
-          summaryParts.push(`Atividade: ${normalizedDescription}`);
+        if ((atividade ?? '').toString().trim().length > 0) {
+          summaryParts.push(`Atividade: ${(atividade ?? '').toString().trim()}`);
         }
 
         const activityPayload: TaskActivityInsert = {
@@ -588,7 +589,8 @@ export function useTimeLogs(projectId?: string) {
             tempo_formatado: normalized.tempo_formatado ?? null,
             data_inicio: normalized.data_inicio ?? null,
             data_fim: normalized.data_fim ?? null,
-            observacoes: observacoes ?? null,
+            atividade: atividade ?? null,
+            observacoes: normalized.observacoes ?? null,
           } as TaskActivityInsert['payload'],
         };
 

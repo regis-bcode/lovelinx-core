@@ -19,6 +19,7 @@ export interface TimeLog {
   aprovacao_data?: string | null;
   aprovacao_hora?: string | null;
   observacoes?: string | null;
+  atividade?: string | null;
   justificativa_reprovacao?: string | null;
   created_at: string;
   updated_at: string;
