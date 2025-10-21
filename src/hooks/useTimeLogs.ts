@@ -109,6 +109,10 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
       }
     }
 
+    return null;
+  })();
+
+  const normalizedObservacoes = (() => {
     if (typeof log.observacoes === 'string') {
       const trimmed = log.observacoes.trim();
       if (trimmed.length > 0) {
@@ -128,6 +132,7 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
+    observacoes: normalizedObservacoes,
     atividade: normalizedActivity,
   } satisfies TimeLog;
 };
@@ -574,13 +579,6 @@ export function useTimeLogs(projectId?: string) {
       const existingActivity = (() => {
         if (typeof openLog.atividade === 'string') {
           const trimmed = openLog.atividade.trim();
-          if (trimmed.length > 0) {
-            return trimmed;
-          }
-        }
-
-        if (typeof openLog.observacoes === 'string') {
-          const trimmed = openLog.observacoes.trim();
           if (trimmed.length > 0) {
             return trimmed;
           }
