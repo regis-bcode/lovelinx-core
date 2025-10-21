@@ -2804,7 +2804,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const runningLog = timeLogs.find(log => log.task_id === row.id && !log.data_fim);
 
       setPendingStopTimer({ rowIndex, row });
-      setStopTimerActivityDescription(runningLog?.observacoes ?? '');
+      const existingDescription =
+        typeof runningLog?.atividade === 'string' && runningLog.atividade.trim().length > 0
+          ? runningLog.atividade
+          : runningLog?.observacoes ?? '';
+      setStopTimerActivityDescription(existingDescription ?? '');
       setStopTimerError(null);
     },
     [activeTimers, timeLogs, toast],

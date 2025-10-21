@@ -1483,6 +1483,7 @@ export type Database = {
           aprovacao_hora: string | null
           aprovador_id: string | null
           aprovador_nome: string | null
+          atividade: string | null
           created_at: string
           data_aprovacao: string | null
           data_fim: string | null
@@ -1503,6 +1504,7 @@ export type Database = {
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
+          atividade?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
@@ -1523,6 +1525,7 @@ export type Database = {
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
+          atividade?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
