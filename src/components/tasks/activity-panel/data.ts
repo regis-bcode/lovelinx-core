@@ -16,13 +16,7 @@ export async function listTaskActivities(taskId: string, limit = 200): Promise<T
   return (data ?? []) as TaskActivity[];
 }
 
-export async function addTaskComment(taskId: string, body: string): Promise<TaskActivity> {
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError) {
-    throw authError;
-  }
-
-  const actorId = authData.user?.id;
+export async function addTaskComment(taskId: string, body: string, actorId: string): Promise<TaskActivity> {
   if (!actorId) {
     throw new Error('Usuário não autenticado. Faça login para comentar.');
   }

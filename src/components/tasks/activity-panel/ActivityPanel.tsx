@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Props {
   taskId: string;
@@ -166,8 +167,17 @@ export default function ActivityPanel({ taskId }: Props) {
   const [comment, setComment] = useState('');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  const canSend = useMemo(() => comment.trim().length > 0, [comment]);
+  const isAuthenticated = Boolean(user?.id);
+
+  const canSend = useMemo(() => comment.trim().length > 0 && isAuthenticated, [comment, isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setSubmitError(null);
+    }
+  }, [isAuthenticated]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -188,18 +198,27 @@ export default function ActivityPanel({ taskId }: Props) {
   }, [refresh]);
 
   async function handleSend() {
-    if (!canSend) {
+    if (!canSend || !user?.id) {
+      if (!isAuthenticated) {
+        setSubmitError('Faça login para comentar nesta tarefa.');
+      }
       return;
     }
 
     setSubmitError(null);
     try {
-      await addTaskComment(taskId, comment.trim());
+      await addTaskComment(taskId, comment.trim(), user.id);
       setComment('');
       await refresh();
     } catch (err) {
       console.error(err);
-      setSubmitError('Não foi possível enviar o comentário.');
+      const message =
+        typeof err === 'object' && err !== null && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+          ? (err as { message?: string }).message?.trim()
+          : null;
+      setSubmitError(
+        message && message.length > 0 ? message : 'Não foi possível enviar o comentário.',
+      );
     }
   }
 
@@ -211,10 +230,19 @@ export default function ActivityPanel({ taskId }: Props) {
       <CardContent className="space-y-4">
         <div className="space-y-2">
           <Textarea
-            placeholder="Escreva um comentário..."
+            placeholder={isAuthenticated ? 'Escreva um comentário...' : 'Faça login para comentar.'}
             value={comment}
-            onChange={(event) => setComment(event.target.value)}
+            onChange={(event) => {
+              setComment(event.target.value);
+              if (submitError) {
+                setSubmitError(null);
+              }
+            }}
+            disabled={!isAuthenticated}
           />
+          {!isAuthenticated ? (
+            <div className="text-xs text-muted-foreground">Faça login para comentar nesta tarefa.</div>
+          ) : null}
           <div className="flex items-center justify-end gap-2">
             <Button onClick={handleSend} disabled={!canSend}>
               Comentar
