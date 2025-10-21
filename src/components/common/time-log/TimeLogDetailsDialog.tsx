@@ -11,18 +11,11 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  CalendarIcon,
-  UserIcon,
-  DocumentTextIcon,
-  BoltIcon
-} from "@heroicons/react/24/outline";
+import { CheckCircleIcon, XCircleIcon, CalendarIcon, UserIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
 import { StatusChip } from "./StatusChip";
 import { Field } from "./Field";
 import { Timeline } from "./Timeline";
+import { cn } from "@/lib/utils";
 import { formatDateBr, formatDateTimeBr, formatDuration } from "./formatters";
 
 export type LogStatus = "Pendente" | "Aprovado" | "Reprovado";
@@ -90,138 +83,117 @@ export function TimeLogDetailsDialog({
     void onReprovar(log.id);
   }, [log, onReprovar]);
 
-  const summaryCards = useMemo(() => {
+  const isLoading = !log;
+
+  const renderFieldSkeleton = (rows = 3) =>
+    Array.from({ length: rows }).map((_, index) => (
+      <div key={index} className="space-y-2">
+        <Skeleton className="h-2 w-24" />
+        <Skeleton className="h-9 w-full rounded-xl" />
+      </div>
+    ));
+
+  const InfoItem = ({
+    label,
+    value,
+    placeholder = "—",
+    className
+  }: {
+    label: string;
+    value?: ReactNode;
+    placeholder?: string;
+    className?: string;
+  }) => {
+    const resolved = value ?? placeholder;
+
+    return (
+      <div className={cn("space-y-2", className)}>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</p>
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm">
+          {resolved}
+        </div>
+      </div>
+    );
+  };
+
+  const generalInfo = useMemo(() => {
     if (!log) {
-      return [] as Array<{ key: string }>; // placeholder for typing
+      return [] as Array<{ key: string; label: string; value?: ReactNode }>;
     }
 
     return [
       {
         key: "task",
         label: "Tarefa",
-        icon: <DocumentTextIcon className="h-5 w-5" aria-hidden />,
-        content: (
+        value: (
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-slate-900 md:text-base">{log.taskId ?? "—"}</p>
-            <p className="text-xs text-slate-500 md:text-sm">{log.taskTitle || "Sem título"}</p>
+            <p className="text-base font-semibold text-slate-900">{log.taskTitle || "Sem título"}</p>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">#{log.taskId ?? "—"}</p>
           </div>
         )
       },
       {
         key: "owner",
         label: "Responsável",
-        icon: <UserIcon className="h-5 w-5" aria-hidden />,
-        content: <span className="font-semibold text-slate-900">{log.responsavel || "—"}</span>
+        value: log.responsavel || "—"
+      },
+      {
+        key: "type",
+        label: "Tipo de registro",
+        value: log.tipo || "—"
       },
       {
         key: "duration",
         label: "Tempo registrado",
-        icon: <ClockIcon className="h-5 w-5" aria-hidden />,
-        content: (
-          <span className="font-mono text-lg font-semibold text-slate-900">
-            {log.tempoHHMMSS || "—"}
-          </span>
-        )
+        value: <span className="font-mono text-lg">{log.tempoHHMMSS || "—"}</span>
       },
       {
-        key: "type",
-        label: "Tipo",
-        icon: <BoltIcon className="h-5 w-5" aria-hidden />,
-        content: <span className="font-semibold text-slate-900">{log.tipo || "—"}</span>
+        key: "date",
+        label: "Data do registro",
+        value: formatDateBr(log.periodoInicioISO)
+      },
+      {
+        key: "status",
+        label: "Status",
+        value: <StatusChip status={status} />
       }
     ];
-  }, [log]);
-
-  const isLoading = !log;
-
-  const renderSummary = () => {
-    if (isLoading) {
-      return (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <Card key={index} className="rounded-2xl border border-slate-200/60 bg-white/60">
-              <CardContent className="flex items-start gap-3 p-5">
-                <Skeleton className="h-11 w-11 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-2.5 w-20" />
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-24" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => (
-          <Card
-            key={card.key}
-            className="rounded-2xl border border-slate-200/70 bg-white/95 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-          >
-            <CardContent className="flex items-start gap-3 p-5">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                {card.icon}
-              </span>
-              <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {card.label}
-                </p>
-                <div className="text-sm text-slate-700 md:text-base">{card.content}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  };
-
-  const renderFieldSkeleton = (rows = 3) =>
-    Array.from({ length: rows }).map((_, index) => (
-      <div
-        key={index}
-        className="rounded-2xl border border-slate-200/70 bg-white/70 p-4 shadow-sm"
-      >
-        <Skeleton className="mb-2 h-2.5 w-28" />
-        <Skeleton className="h-4 w-40" />
-      </div>
-    ));
+  }, [log, status]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="max-w-5xl gap-0 p-0"
+        className="max-w-4xl gap-0 overflow-hidden border border-slate-200 p-0"
         aria-labelledby="time-log-dialog-title"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           requestAnimationFrame(() => titleRef.current?.focus());
         }}
       >
-        <div className="flex max-h-[90vh] flex-col">
+        <div className="flex max-h-[90vh] flex-col bg-slate-50">
           <div className="flex-1 overflow-y-auto">
             <div className="space-y-8 p-6 md:p-8">
               <DialogHeader className="space-y-6 text-left">
-                <div className="flex flex-col gap-6 rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-50 via-white to-slate-100 p-6 shadow-lg md:flex-row md:items-start md:justify-between md:p-8">
-                  <div className="flex flex-1 flex-col gap-4 md:flex-row md:items-start">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
-                      <DocumentTextIcon className="h-9 w-9" aria-hidden />
+                <div className="flex flex-col gap-6 rounded-3xl bg-white p-6 shadow-sm md:flex-row md:items-start md:justify-between md:p-8">
+                  <div className="flex flex-1 flex-col gap-4">
+                    <div className="flex items-center gap-3 text-slate-500">
+                      <DocumentTextIcon className="h-8 w-8" aria-hidden />
+                      <span className="text-xs font-semibold uppercase tracking-[0.2em]">Registro de tempo</span>
                     </div>
                     <div className="space-y-3">
                       <DialogTitle
                         id="time-log-dialog-title"
                         ref={titleRef}
                         tabIndex={-1}
-                        className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl"
+                        className="text-2xl font-semibold tracking-tight text-slate-900 md:text-[28px]"
                       >
                         Detalhes do registro de tempo
                       </DialogTitle>
                       <DialogDescription className="max-w-2xl text-sm leading-relaxed text-slate-600 md:text-base">
                         {log ? (
                           <>
-                            Consulte as informações registradas para o apontamento <strong>#{log.id}</strong> da tarefa
-                            <strong> {log.taskId}</strong> com tempo registrado de <strong>{log.tempoHHMMSS}</strong>.
+                            Consulte as informações registradas para o apontamento <strong>#{log.id}</strong> vinculado à tarefa
+                            <strong> {log.taskId}</strong>.
                           </>
                         ) : (
                           "Carregando dados do registro selecionado."
@@ -230,169 +202,104 @@ export function TimeLogDetailsDialog({
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-3">
-                    {log ? <StatusChip status={status} /> : <Skeleton className="h-7 w-28 rounded-full" />}
-                    {viewTaskButton ? viewTaskButton : null}
+                    {viewTaskButton ? (
+                      <div className="w-full md:w-auto">{viewTaskButton}</div>
+                    ) : null}
                   </div>
                 </div>
               </DialogHeader>
 
-              {renderSummary()}
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+                <div className="grid gap-6 md:grid-cols-2">
+                  {isLoading
+                    ? renderFieldSkeleton(6)
+                    : generalInfo.map((item) => (
+                        <InfoItem key={item.key} label={item.label} value={item.value} />
+                      ))}
+                </div>
+              </section>
 
               <div className="grid gap-6 md:grid-cols-2">
-                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm">
-                  <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <CalendarIcon className="h-5 w-5" aria-hidden />
-                    </div>
+                <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
-                      <CardTitle className="text-base font-semibold text-slate-900">Período</CardTitle>
-                      <p className="text-xs text-muted-foreground">Início, fim e duração calculada</p>
+                      <CardTitle className="text-base font-semibold text-slate-900">Período registrado</CardTitle>
+                      <p className="text-xs text-slate-500">Início, fim e duração calculada</p>
                     </div>
-                  </CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    {isLoading ? (
-                      <>{renderFieldSkeleton(3)}</>
-                    ) : (
-                      <>
-                        <Field label="Início" value={formatDateTimeBr(start)} />
-                        <Field label="Fim" value={formatDateTimeBr(end)} />
-                        <Field label="Duração" value={duration} />
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm">
-                  <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <CheckCircleIcon className="h-5 w-5" aria-hidden />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-semibold text-slate-900">Aprovação</CardTitle>
-                      <p className="text-xs text-muted-foreground">Responsável, datas e origem</p>
-                    </div>
+                    <CalendarIcon className="h-5 w-5 text-slate-400" aria-hidden />
                   </CardHeader>
                   <CardContent className="grid gap-4">
                     {isLoading ? (
-                      <>{renderFieldSkeleton(4)}</>
+                      renderFieldSkeleton(3)
                     ) : (
                       <>
-                        <Field label="Aprovador" value={log?.aprovador} />
-                        <Field label="Data" value={formatDateBr(log?.dataAprovacaoISO)} />
-                        <Field label="Hora" value={log?.horaAprovacao} />
-                        <Field label="Origem" value={log?.tipo} />
+                        <Field label="Início" value={formatDateTimeBr(start)} className="border-none bg-slate-50" />
+                        <Field label="Fim" value={formatDateTimeBr(end)} className="border-none bg-slate-50" />
+                        <Field label="Duração" value={duration} className="border-none bg-slate-50" />
                       </>
                     )}
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm md:col-span-2">
-                  <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <UserIcon className="h-5 w-5" aria-hidden />
-                    </div>
+                <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                  <CardHeader className="flex flex-row items-center justify-between pb-4">
                     <div>
-                      <CardTitle className="text-base font-semibold text-slate-900">Informações da tarefa</CardTitle>
-                      <p className="text-xs text-muted-foreground">Contexto adicional do apontamento</p>
+                      <CardTitle className="text-base font-semibold text-slate-900">Aprovação</CardTitle>
+                      <p className="text-xs text-slate-500">Responsável, datas e origem</p>
                     </div>
+                    <UserIcon className="h-5 w-5 text-slate-400" aria-hidden />
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <CardContent className="grid gap-4">
                     {isLoading ? (
-                      <>{renderFieldSkeleton(8)}</>
+                      renderFieldSkeleton(4)
                     ) : (
                       <>
-                        <Field label="Cliente" value={log?.cliente} />
-                        <Field label="Status" value={log?.statusTarefa} />
-                        <Field label="Prioridade" value={log?.prioridade} />
-                        <Field
-                          label="% Conclusão"
-                          value={
-                            log?.conclusaoPct === null || log?.conclusaoPct === undefined
-                              ? undefined
-                              : `${log.conclusaoPct}%`
-                          }
-                        />
-                        <Field
-                          label="Cronograma"
-                          value={
-                            log?.cronograma === null || log?.cronograma === undefined
-                              ? undefined
-                              : log.cronograma
-                              ? "No prazo"
-                              : "Fora do prazo"
-                          }
-                        />
-                        <Field label="Vencimento" value={formatDateBr(log?.vencimentoISO)} />
-                        <Field
-                          label="Ordem"
-                          value={
-                            log?.ordem === null || log?.ordem === undefined
-                              ? undefined
-                              : `#${log.ordem.toString().padStart(2, "0")}`
-                          }
-                        />
-                        <Field
-                          label="ATIVIDADES"
-                          value={log?.observacoes}
-                          placeholder="Nenhuma atividade registrada."
-                        />
+                        <Field label="Aprovador" value={log?.aprovador} className="border-none bg-slate-50" />
+                        <Field label="Data" value={formatDateBr(log?.dataAprovacaoISO)} className="border-none bg-slate-50" />
+                        <Field label="Hora" value={log?.horaAprovacao} className="border-none bg-slate-50" />
+                        <Field label="Origem" value={log?.tipo} className="border-none bg-slate-50" />
                       </>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="rounded-3xl border border-slate-200/70 bg-white/95 shadow-sm md:col-span-2">
-                  <CardHeader className="flex flex-row items-center gap-3 pb-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                      <DocumentTextIcon className="h-5 w-5" aria-hidden />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-semibold text-slate-900">Descrição e atividade</CardTitle>
-                      <p className="text-xs text-muted-foreground">Narrativa do trabalho realizado</p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                        <DocumentTextIcon className="h-4 w-4" aria-hidden />
-                        Descrição da tarefa
-                      </div>
-                      {isLoading ? (
-                        <Skeleton className="h-32 w-full rounded-2xl" />
-                      ) : (
-                        <ScrollArea className="max-h-48 rounded-2xl border border-slate-200/70 bg-slate-50 p-4">
-                          <p className="text-sm leading-relaxed text-slate-700">
-                            <span className="font-semibold text-slate-600">Descrição da tarefa:</span>{" "}
-                            <span className="font-medium text-slate-900">
-                              {log?.descricao?.trim() ? log.descricao : "Nenhuma descrição registrada."}
-                            </span>
-                          </p>
-                        </ScrollArea>
-                      )}
-                    </div>
-                    <Separator />
-                    {(isLoading || (log?.atividade && log.atividade.length > 0)) && (
-                      <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-600">
-                          <BoltIcon className="h-4 w-4" aria-hidden />
-                          Atividade registrada
-                        </div>
-                        {isLoading ? (
-                          <Skeleton className="h-24 w-full rounded-xl" />
-                        ) : (
-                          <Timeline items={log?.atividade} />
-                        )}
-                      </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
+
+              <Card className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <CardHeader className="flex flex-col gap-2 pb-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <DocumentTextIcon className="h-4 w-4" aria-hidden />
+                    Atividade realizada
+                  </div>
+                  <CardTitle className="text-base font-semibold text-slate-900">Descrição do trabalho</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {isLoading ? (
+                    <Skeleton className="h-24 w-full rounded-2xl" />
+                  ) : (
+                    <ScrollArea className="max-h-56 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm leading-relaxed text-slate-700">
+                        {log?.observacoes?.trim() ? log.observacoes : "Nenhuma atividade registrada."}
+                      </p>
+                    </ScrollArea>
+                  )}
+                  {(isLoading || (log?.atividade && log.atividade.length > 0)) && (
+                    <div className="space-y-3">
+                      <Separator />
+                      {isLoading ? (
+                        <Skeleton className="h-24 w-full rounded-xl" />
+                      ) : (
+                        <Timeline items={log?.atividade} />
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 w-full border-t bg-background/95 p-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:p-6">
+          <div className="sticky bottom-0 z-10 w-full border-t bg-white/90 p-4 backdrop-blur supports-[backdrop-filter]:bg-white/70 md:p-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="text-center text-sm text-muted-foreground md:text-left">
+              <div className="text-center text-sm text-slate-500 md:text-left">
                 {isLoading
                   ? "Carregando ações..."
                   : status === "Pendente" && log
@@ -403,7 +310,7 @@ export function TimeLogDetailsDialog({
                 <Button
                   onClick={handleAprovar}
                   disabled={!log || status !== "Pendente"}
-                  className="h-12 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70"
+                  className="h-11 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70"
                 >
                   <CheckCircleIcon className="mr-2 h-5 w-5" aria-hidden />
                   Aprovar
@@ -411,7 +318,7 @@ export function TimeLogDetailsDialog({
                 <Button
                   onClick={handleReprovar}
                   disabled={!log || status !== "Pendente"}
-                  className="h-12 rounded-xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 disabled:text-white/70"
+                  className="h-11 rounded-xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 disabled:text-white/70"
                 >
                   <XCircleIcon className="mr-2 h-5 w-5" aria-hidden />
                   Reprovar
@@ -419,7 +326,7 @@ export function TimeLogDetailsDialog({
                 <Button
                   variant="secondary"
                   onClick={handleClose}
-                  className="h-12 rounded-xl px-6 text-sm font-semibold uppercase tracking-wide"
+                  className="h-11 rounded-xl px-6 text-sm font-semibold uppercase tracking-wide"
                 >
                   Fechar
                 </Button>
