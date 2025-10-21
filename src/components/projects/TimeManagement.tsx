@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { Check, CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, X, XCircle } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -32,6 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+// import { useAuth } from '@/hooks/useAuth';
 import {
   areActiveTimerRecordsEqual,
   persistActiveTimerRecord,
@@ -56,6 +57,8 @@ type TaskDetailEntry = {
   fullWidth?: boolean;
   isLongText?: boolean;
 };
+
+type ApprovalStatus = 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado';
 
 const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
   { key: 'task_id', label: 'ID da tarefa' },
@@ -1130,17 +1133,118 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   };
 
   const totalProjectTime = getProjectTotalTime();
-  const detailTask = selectedLogForDetails?.task_id
-    ? detailTaskData ?? taskById.get(selectedLogForDetails.task_id) ?? null
+  const timeLog = selectedLogForDetails;
+  const detailTask = timeLog?.task_id
+    ? detailTaskData ?? taskById.get(timeLog.task_id) ?? null
     : null;
   const detailApproverName = selectedLogForDetails ? getApproverDisplayName(selectedLogForDetails) : '-';
-  const detailObservation = selectedLogForDetails ? getLogObservation(selectedLogForDetails) : '';
   const detailDuration = selectedLogForDetails ? getFormattedLogDuration(selectedLogForDetails) : '-';
   const detailPeriod = selectedLogForDetails
     ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
     : '-';
   const detailTaskDescription = detailTask?.descricao_tarefa?.trim() ?? '';
-  const detailTaskActivity = detailTask?.solucao?.trim() ?? '';
+  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(
+    timeLog?.approval_status ?? 'Aguarda Aprovação',
+  );
+  const [isBillable, setIsBillable] = useState<boolean>(Boolean(timeLog?.is_billable));
+  const [isSaving, setIsSaving] = useState(false);
+  // const { user } = useAuth();
+  const currentUserId = /* user?.id || */ null;
+
+  useEffect(() => {
+    setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
+    setIsBillable(Boolean(timeLog?.is_billable));
+  }, [timeLog?.id, timeLog?.approval_status, timeLog?.is_billable]);
+
+  const timeLogActivity = useMemo(() => {
+    if (!timeLog) {
+      return '';
+    }
+
+    if (typeof timeLog.atividade === 'string') {
+      const trimmed = timeLog.atividade.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+
+    const fallbackActivity = (timeLog as { activity?: string | null | undefined }).activity;
+    if (typeof fallbackActivity === 'string') {
+      const trimmedFallback = fallbackActivity.trim();
+      if (trimmedFallback.length > 0) {
+        return trimmedFallback;
+      }
+    }
+
+    return '';
+  }, [timeLog]);
+
+  async function saveApproval(nextStatus: ApprovalStatus, nextIsBillable: boolean) {
+    if (!timeLog) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        approval_status: nextStatus,
+        is_billable: nextStatus === 'Aprovado' ? nextIsBillable : false,
+      };
+
+      let approvedAt: string | null = null;
+      if (nextStatus === 'Aprovado') {
+        approvedAt = new Date().toISOString();
+        payload.approved_at = approvedAt;
+        payload.approved_by = currentUserId;
+      } else {
+        payload.approved_at = null;
+        payload.approved_by = null;
+      }
+
+      const { error } = await supabase
+        .from('time_logs')
+        .update(payload)
+        .eq('id', timeLog.id);
+
+      if (error) throw error;
+
+      setApprovalStatus(nextStatus);
+      setIsBillable(nextStatus === 'Aprovado' ? nextIsBillable : false);
+      setSelectedLogForDetails(prev => {
+        if (!prev || prev.id !== timeLog.id) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          approval_status: nextStatus,
+          is_billable: nextStatus === 'Aprovado' ? nextIsBillable : false,
+          approved_at: nextStatus === 'Aprovado' ? approvedAt : null,
+          approved_by: nextStatus === 'Aprovado' ? currentUserId : null,
+        };
+      });
+    } catch (e) {
+      console.error('Erro ao salvar aprovação:', e);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleApprove() {
+    if (!timeLog) {
+      return;
+    }
+
+    void saveApproval('Aprovado', isBillable);
+  }
+
+  function handleReject() {
+    if (!timeLog) {
+      return;
+    }
+
+    void saveApproval('Reprovado', false);
+  }
 
   const getTaskFieldDisplayValue = useCallback(
     (value: Task[keyof Task], definition: TaskFieldDefinition): string | null => {
@@ -1849,14 +1953,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   <span className="text-muted-foreground">Nenhuma descrição registrada.</span>
                 )}
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Atividade</span>
-                {detailTaskActivity ? (
-                  <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailTaskActivity}</p>
-                ) : (
-                  <span className="text-muted-foreground">Nenhuma atividade registrada.</span>
-                )}
-              </div>
             </div>
             {isTaskDetailsVisible ? (
               <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-4">
@@ -1934,23 +2030,64 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 )}
               </div>
             ) : null}
-            <div className="space-y-1">
-              <span className="text-xs font-medium uppercase text-muted-foreground">Observações</span>
-              {detailObservation ? (
-                <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailObservation}</p>
-              ) : (
-                <span className="text-muted-foreground">Nenhuma observação registrada.</span>
-              )}
-            </div>
+            <Card className="mt-2 border rounded-2xl shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-base font-semibold tracking-wide">
+                  ATIVIDADE REALIZADA
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm leading-6">
+                {timeLogActivity.length > 0 ? (
+                  <span>{timeLogActivity}</span>
+                ) : (
+                  <span className="text-muted-foreground">—</span>
+                )}
+              </CardContent>
+            </Card>
           </div>
-          <DialogFooter className="justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleLogDetailsDialogOpenChange(false)}
-            >
-              Fechar
-            </Button>
+          <DialogFooter className="w-full">
+            <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:justify-between">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="isBillable"
+                  checked={isBillable}
+                  onCheckedChange={value => {
+                    const nextValue = Boolean(value);
+                    setIsBillable(nextValue);
+                    if (approvalStatus === 'Aprovado') {
+                      void saveApproval('Aprovado', nextValue);
+                    }
+                  }}
+                  disabled={approvalStatus !== 'Aprovado' || isSaving}
+                />
+                <Label htmlFor="isBillable" className="text-sm">
+                  Faturável
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  aria-label="Marcar como aprovado"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  disabled={isSaving || !timeLog}
+                  onClick={handleApprove}
+                >
+                  <Check className="mr-2 h-4 w-4" /> APROVADO
+                </Button>
+                <Button
+                  type="button"
+                  aria-label="Marcar como reprovado"
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  disabled={isSaving || !timeLog}
+                  onClick={handleReject}
+                >
+                  <X className="mr-2 h-4 w-4" /> REPROVADO
+                </Button>
+                <Button type="button" variant="outline" onClick={() => handleLogDetailsDialogOpenChange(false)}>
+                  Fechar
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
