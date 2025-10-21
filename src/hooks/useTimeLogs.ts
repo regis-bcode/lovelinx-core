@@ -3,7 +3,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
-import type { PostgrestError } from '@supabase/supabase-js';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
@@ -29,23 +28,6 @@ const TIME_LOG_COLUMNS = new Set([
   'created_at',
   'updated_at',
 ]);
-
-const isMissingAtividadeColumnError = (error: unknown): error is PostgrestError => {
-  const parsed = error as PostgrestError | undefined;
-  if (!parsed) {
-    return false;
-  }
-
-  if (parsed.code !== 'PGRST204') {
-    return false;
-  }
-
-  const normalizedMessage = parsed.message?.toLowerCase() ?? '';
-  return (
-    normalizedMessage.includes("'atividade' column") &&
-    normalizedMessage.includes("'time_logs'")
-  );
-};
 
 const parseNumericValue = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -606,29 +588,10 @@ export function useTimeLogs(projectId?: string) {
       let updatedRecord: TimeLogRow;
 
       if (updateError) {
-        if (isMissingAtividadeColumnError(updateError)) {
-          console.warn('Coluna atividade ausente em time_logs. Fazendo fallback para observacoes.');
-
-          const fallbackPayload: Partial<TimeLogFormData> = {
-            data_fim: isoNow,
-            observacoes: normalizedActivityValue,
-          };
-
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('time_logs')
-            .update(buildSupabasePayload(fallbackPayload) as TimeLogUpdate)
-            .eq('id', openLog.id)
-            .select()
-            .single();
-
-          if (fallbackError) throw fallbackError;
-          updatedRecord = fallbackData as TimeLogRow;
-        } else {
-          throw updateError;
-        }
-      } else {
-        updatedRecord = data as TimeLogRow;
+        throw updateError;
       }
+
+      updatedRecord = data as TimeLogRow;
 
       const normalized = normalizeTimeLogRecord(updatedRecord);
 
