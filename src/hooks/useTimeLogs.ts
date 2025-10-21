@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
@@ -28,6 +29,23 @@ const TIME_LOG_COLUMNS = new Set([
   'created_at',
   'updated_at',
 ]);
+
+const isMissingAtividadeColumnError = (error: unknown): error is PostgrestError => {
+  const parsed = error as PostgrestError | undefined;
+  if (!parsed) {
+    return false;
+  }
+
+  if (parsed.code !== 'PGRST204') {
+    return false;
+  }
+
+  const normalizedMessage = parsed.message?.toLowerCase() ?? '';
+  return (
+    normalizedMessage.includes("'atividade' column") &&
+    normalizedMessage.includes("'time_logs'")
+  );
+};
 
 const parseNumericValue = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -83,6 +101,24 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
       ? log.data_aprovacao
       : null;
 
+  const normalizedActivity = (() => {
+    if (typeof log.atividade === 'string') {
+      const trimmed = log.atividade.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+
+    if (typeof log.observacoes === 'string') {
+      const trimmed = log.observacoes.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+
+    return null;
+  })();
+
   return {
     ...log,
     aprovador_nome: log.aprovador_nome ?? null,
@@ -92,6 +128,7 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
+    atividade: normalizedActivity,
   } satisfies TimeLog;
 };
 
@@ -534,14 +571,31 @@ export function useTimeLogs(projectId?: string) {
         typeof options?.activityDescription === 'string'
           ? options.activityDescription.trim()
           : '';
-      const atividade =
-        normalizedDescription.length > 0
-          ? normalizedDescription
-          : (typeof openLog.atividade === 'string' ? openLog.atividade : null);
+      const existingActivity = (() => {
+        if (typeof openLog.atividade === 'string') {
+          const trimmed = openLog.atividade.trim();
+          if (trimmed.length > 0) {
+            return trimmed;
+          }
+        }
+
+        if (typeof openLog.observacoes === 'string') {
+          const trimmed = openLog.observacoes.trim();
+          if (trimmed.length > 0) {
+            return trimmed;
+          }
+        }
+
+        return null;
+      })();
+
+      const activity = normalizedDescription.length > 0 ? normalizedDescription : existingActivity;
+      const normalizedActivityValue =
+        typeof activity === 'string' && activity.trim().length > 0 ? activity.trim() : null;
 
       const updatePayload: Partial<TimeLogFormData> = {
         data_fim: isoNow,
-        atividade,
+        atividade: normalizedActivityValue,
       };
 
       const { data, error: updateError } = await supabase
@@ -551,9 +605,34 @@ export function useTimeLogs(projectId?: string) {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      let updatedRecord: TimeLogRow;
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      if (updateError) {
+        if (isMissingAtividadeColumnError(updateError)) {
+          console.warn('Coluna atividade ausente em time_logs. Fazendo fallback para observacoes.');
+
+          const fallbackPayload: Partial<TimeLogFormData> = {
+            data_fim: isoNow,
+            observacoes: normalizedActivityValue,
+          };
+
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('time_logs')
+            .update(buildSupabasePayload(fallbackPayload) as TimeLogUpdate)
+            .eq('id', openLog.id)
+            .select()
+            .single();
+
+          if (fallbackError) throw fallbackError;
+          updatedRecord = fallbackData as TimeLogRow;
+        } else {
+          throw updateError;
+        }
+      } else {
+        updatedRecord = data as TimeLogRow;
+      }
+
+      const normalized = normalizeTimeLogRecord(updatedRecord);
 
       setTimeLogs(prev => {
         const hasLog = prev.some(log => log.id === normalized.id);
@@ -568,8 +647,9 @@ export function useTimeLogs(projectId?: string) {
         if (normalized.tempo_formatado) {
           summaryParts.push(`Tempo registrado: ${normalized.tempo_formatado}`);
         }
-        if ((atividade ?? '').toString().trim().length > 0) {
-          summaryParts.push(`Atividade: ${(atividade ?? '').toString().trim()}`);
+        const activitySummary = normalizedActivityValue ?? '';
+        if (activitySummary.length > 0) {
+          summaryParts.push(`Atividade: ${activitySummary}`);
         }
 
         const activityPayload: TaskActivityInsert = {
@@ -589,7 +669,7 @@ export function useTimeLogs(projectId?: string) {
             tempo_formatado: normalized.tempo_formatado ?? null,
             data_inicio: normalized.data_inicio ?? null,
             data_fim: normalized.data_fim ?? null,
-            atividade: atividade ?? null,
+            atividade: normalizedActivityValue,
             observacoes: normalized.observacoes ?? null,
           } as TaskActivityInsert['payload'],
         };
