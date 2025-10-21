@@ -2855,18 +2855,15 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       activityDescription: description,
       taskName,
     });
-    removeActiveTimer();
 
     if (result) {
+      removeActiveTimer();
       if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
         updateCell(options.rowIndex, 'status', options.statusAfterStop);
       }
       return true;
     }
 
-    if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-      updateCell(options.rowIndex, 'status', options.statusAfterStop);
-    }
     return false;
   };
 
