@@ -2037,7 +2037,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </CardHeader>
               <CardContent className="text-sm leading-6">
                 {timeLogActivity.length > 0 ? (
-                  <span>{timeLogActivity}</span>
+                  <div className="whitespace-pre-wrap break-words">{timeLogActivity}</div>
                 ) : (
                   <span className="text-muted-foreground">—</span>
                 )}
