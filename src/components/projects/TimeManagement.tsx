@@ -1145,15 +1145,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(
     timeLog?.approval_status ?? 'Aguarda Aprovação',
   );
-  const [isBillable, setIsBillable] = useState<boolean>(Boolean(timeLog?.is_billable));
+  const [isBillable, setIsBillable] = useState<boolean>(Boolean(timeLog?.is_billable ?? timeLog?.faturavel));
   const [isSaving, setIsSaving] = useState(false);
   // const { user } = useAuth();
   const currentUserId = /* user?.id || */ null;
 
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
-    setIsBillable(Boolean(timeLog?.is_billable));
-  }, [timeLog?.id, timeLog?.approval_status, timeLog?.is_billable]);
+    setIsBillable(Boolean(timeLog?.is_billable ?? timeLog?.faturavel));
+  }, [timeLog?.id, timeLog?.approval_status, timeLog?.is_billable, timeLog?.faturavel]);
 
   const timeLogActivity = useMemo(() => {
     if (!timeLog) {
@@ -1185,9 +1185,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     setIsSaving(true);
     try {
+      const isApprovedAndBillable = nextStatus === 'Aprovado' ? nextIsBillable : false;
       const payload: Record<string, unknown> = {
         approval_status: nextStatus,
-        is_billable: nextStatus === 'Aprovado' ? nextIsBillable : false,
+        is_billable: isApprovedAndBillable,
+        faturavel: isApprovedAndBillable,
       };
 
       let approvedAt: string | null = null;
@@ -1208,7 +1210,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       if (error) throw error;
 
       setApprovalStatus(nextStatus);
-      setIsBillable(nextStatus === 'Aprovado' ? nextIsBillable : false);
+      setIsBillable(isApprovedAndBillable);
       setSelectedLogForDetails(prev => {
         if (!prev || prev.id !== timeLog.id) {
           return prev;
@@ -1217,7 +1219,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return {
           ...prev,
           approval_status: nextStatus,
-          is_billable: nextStatus === 'Aprovado' ? nextIsBillable : false,
+          is_billable: isApprovedAndBillable,
+          faturavel: isApprovedAndBillable,
           approved_at: nextStatus === 'Aprovado' ? approvedAt : null,
           approved_by: nextStatus === 'Aprovado' ? currentUserId : null,
         };

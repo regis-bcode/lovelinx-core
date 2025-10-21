@@ -1488,6 +1488,7 @@ export type Database = {
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
+          faturavel: boolean
           id: string
           justificativa_reprovacao: string | null
           observacoes: string | null
@@ -1509,6 +1510,7 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          faturavel?: boolean
           id?: string
           justificativa_reprovacao?: string | null
           observacoes?: string | null
@@ -1530,6 +1532,7 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          faturavel?: boolean
           id?: string
           justificativa_reprovacao?: string | null
           observacoes?: string | null

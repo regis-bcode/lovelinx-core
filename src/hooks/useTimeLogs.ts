@@ -25,6 +25,7 @@ const TIME_LOG_COLUMNS = new Set([
   'observacoes',
   'atividade',
   'justificativa_reprovacao',
+  'faturavel',
   'created_at',
   'updated_at',
 ]);
@@ -77,6 +78,9 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   const secondsFromRange = hasValidRange ? Math.max(0, Math.round((endTimestamp - startTimestamp) / 1000)) : null;
   const safeSeconds = secondsFromRange ?? secondsFromColumn;
   const safeMinutes = safeSeconds / 60;
+  const faturavel = typeof log.faturavel === 'boolean' ? log.faturavel : false;
+  const legacyBillable = (log as { is_billable?: boolean | null }).is_billable;
+  const normalizedBillable = typeof legacyBillable === 'boolean' ? legacyBillable : faturavel;
 
   const approvalIso =
     typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
@@ -107,6 +111,8 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   return {
     ...log,
+    faturavel,
+    is_billable: normalizedBillable,
     aprovador_nome: log.aprovador_nome ?? null,
     aprovacao_data: log.aprovacao_data ?? null,
     aprovacao_hora: log.aprovacao_hora ?? null,
