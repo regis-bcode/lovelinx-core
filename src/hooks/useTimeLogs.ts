@@ -335,7 +335,7 @@ export function useTimeLogs(projectId?: string) {
   const approveTimeLog = async (
     id: string,
     status: ApprovalStatus,
-    _options?: { justificativa?: string | null },
+    options?: { justificativa?: string | null; commissioned?: boolean },
   ): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -350,6 +350,26 @@ export function useTimeLogs(projectId?: string) {
       }
 
       const isoString = new Date().toISOString();
+
+      const existingLog = timeLogs.find(log => log.id === id) ?? null;
+      const existingCommissioned = (() => {
+        if (!existingLog) {
+          return false;
+        }
+
+        if (typeof existingLog.comissionado === 'string') {
+          const normalized = existingLog.comissionado.trim().toUpperCase();
+          if (normalized === 'SIM') {
+            return true;
+          }
+        }
+
+        if (existingLog.faturavel === true || existingLog.is_billable === true) {
+          return true;
+        }
+
+        return false;
+      })();
 
       const metadata = user.user_metadata as Record<string, unknown> | undefined;
       const metadataFullName =
@@ -386,9 +406,24 @@ export function useTimeLogs(projectId?: string) {
         ? sanitizedTime.split('.')[0]?.slice(0, 8) ?? sanitizedTime.slice(0, 8)
         : null;
 
-      const rejectionReason = _options?.justificativa?.trim() ?? null;
+      const hasJustificationOverride =
+        options !== undefined && Object.prototype.hasOwnProperty.call(options, 'justificativa');
+      const rejectionReason = options?.justificativa?.trim() ?? null;
+      const hasCommissionedOverride =
+        options !== undefined && Object.prototype.hasOwnProperty.call(options, 'commissioned');
+      const commissionedBool =
+        status === 'aprovado'
+          ? hasCommissionedOverride
+            ? Boolean(options?.commissioned)
+            : existingCommissioned
+          : false;
+      const commissionedFlag: 'SIM' | 'NÃO' = commissionedBool ? 'SIM' : 'NÃO';
 
-      if (status === 'reprovado' && (!rejectionReason || rejectionReason.length === 0)) {
+      if (
+        status === 'reprovado' &&
+        hasJustificationOverride &&
+        (!rejectionReason || rejectionReason.length === 0)
+      ) {
         toast({
           title: 'Justificativa obrigatória',
           description: 'Informe uma justificativa para reprovar o tempo registrado.',
@@ -408,13 +443,11 @@ export function useTimeLogs(projectId?: string) {
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
         aprovado: approvedFlag,
+        comissionado: commissionedFlag,
+        faturavel: commissionedBool,
       };
 
-      if (status !== 'aprovado') {
-        approvalUpdates.comissionado = 'NÃO';
-        approvalUpdates.faturavel = false;
-        approvalUpdates.is_billable = false;
-      }
+      approvalUpdates.is_billable = commissionedBool;
 
       const supabaseUpdates = buildSupabasePayload(approvalUpdates);
 
@@ -440,9 +473,9 @@ export function useTimeLogs(projectId?: string) {
                   status === 'reprovado' ? rejectionReason ?? null : null,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
                 aprovado: approvedFlag,
-                comissionado: status === 'aprovado' ? log.comissionado ?? null : 'NÃO',
-                faturavel: status === 'aprovado' ? log.faturavel ?? false : false,
-                is_billable: status === 'aprovado' ? log.is_billable ?? false : false,
+                comissionado: commissionedFlag,
+                faturavel: commissionedBool,
+                is_billable: commissionedBool,
               }
             : log,
         ),
