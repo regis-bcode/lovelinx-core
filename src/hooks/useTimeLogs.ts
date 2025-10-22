@@ -124,6 +124,42 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     return null;
   })();
 
+  const normalizedApprovalStatus = (() => {
+    const rawStatus = (log as { approval_status?: string | null }).approval_status;
+
+    if (typeof rawStatus === 'string') {
+      const trimmed = rawStatus.trim();
+
+      if (trimmed.length > 0) {
+        return trimmed as TimeLog['approval_status'];
+      }
+    }
+
+    if (typeof log.status_aprovacao === 'string') {
+      const normalized = log.status_aprovacao.trim().toLowerCase();
+
+      if (normalized === 'aprovado') {
+        return 'Aprovado';
+      }
+
+      if (normalized === 'reprovado') {
+        return 'Reprovado';
+      }
+
+      if (normalized === 'pendente') {
+        return 'Aguarda Aprovação';
+      }
+    }
+
+    return null;
+  })();
+
+  const normalizedApprovedBy =
+    (log as { approved_by?: string | null }).approved_by ?? log.aprovador_id ?? null;
+
+  const normalizedApprovedAt =
+    (log as { approved_at?: string | null }).approved_at ?? log.data_aprovacao ?? null;
+
   const approvalParts = extractApprovalDateTimeParts(approvalIso);
 
   return {
@@ -136,6 +172,9 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     aprovacao_data: log.aprovacao_data ?? approvalParts.date,
     aprovacao_hora: log.aprovacao_hora ?? approvalParts.time,
     justificativa_reprovacao: log.justificativa_reprovacao ?? null,
+    approval_status: normalizedApprovalStatus,
+    approved_by: normalizedApprovedBy,
+    approved_at: normalizedApprovedAt,
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
     data_aprovacao: approvalIso,
@@ -252,9 +291,12 @@ export function useTimeLogs(projectId?: string) {
         user_id: user.id,
         project_id: projectId,
         status_aprovacao: logData.status_aprovacao ?? 'pendente',
+        approval_status: 'Aguarda Aprovação',
         aprovador_id: null,
         aprovador_nome: null,
+        approved_by: null,
         data_aprovacao: null,
+        approved_at: null,
         justificativa_reprovacao: null,
       };
 
@@ -423,9 +465,17 @@ export function useTimeLogs(projectId?: string) {
 
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
+        approval_status:
+          status === 'aprovado'
+            ? 'Aprovado'
+            : status === 'reprovado'
+              ? 'Reprovado'
+              : 'Aguarda Aprovação',
         aprovador_id: user.id,
         aprovador_nome: approverName,
+        approved_by: user.id,
         data_aprovacao: isoString,
+        approved_at: isoString,
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
         aprovado: approvedFlag,
@@ -436,13 +486,37 @@ export function useTimeLogs(projectId?: string) {
       approvalUpdates.is_billable = commissionedBool;
 
       const supabaseUpdates = buildSupabasePayload(approvalUpdates);
+      const performUpdate = async (updates: Record<string, unknown>) =>
+        supabase
+          .from('time_logs')
+          .update(updates as TimeLogUpdate)
+          .eq('id', id);
 
-      const { error } = await supabase
-        .from('time_logs')
-        .update(supabaseUpdates as TimeLogUpdate)
-        .eq('id', id);
+      const { error } = await performUpdate(supabaseUpdates);
 
-      if (error) throw error;
+      if (error) {
+        const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+        const missingLegacyColumns =
+          error.code === 'PGRST204' &&
+          (message.includes('aprovador_nome') ||
+            message.includes('aprovacao_data') ||
+            message.includes('aprovacao_hora'));
+
+        if (!missingLegacyColumns) {
+          throw error;
+        }
+
+        const fallbackUpdates = { ...supabaseUpdates } as Record<string, unknown>;
+        delete fallbackUpdates.aprovador_nome;
+        delete fallbackUpdates.aprovacao_data;
+        delete fallbackUpdates.aprovacao_hora;
+
+        const { error: fallbackError } = await performUpdate(fallbackUpdates);
+
+        if (fallbackError) {
+          throw fallbackError;
+        }
+      }
 
       setTimeLogs(prev =>
         prev.map(log =>
@@ -450,9 +524,17 @@ export function useTimeLogs(projectId?: string) {
             ? {
                 ...log,
                 status_aprovacao: status,
+                approval_status:
+                  status === 'aprovado'
+                    ? 'Aprovado'
+                    : status === 'reprovado'
+                      ? 'Reprovado'
+                      : 'Aguarda Aprovação',
                 aprovador_id: user.id,
                 aprovador_nome: approverName,
+                approved_by: user.id,
                 data_aprovacao: isoString,
+                approved_at: isoString,
                 aprovacao_data: approvalParts.date ?? log.aprovacao_data ?? null,
                 aprovacao_hora: approvalParts.time ?? log.aprovacao_hora ?? null,
                 justificativa_reprovacao:
@@ -545,9 +627,13 @@ export function useTimeLogs(projectId?: string) {
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',
+        approval_status: 'Aguarda Aprovação',
         observacoes: options?.observacoes ?? null,
         aprovador_id: null,
+        aprovador_nome: null,
+        approved_by: null,
         data_aprovacao: null,
+        approved_at: null,
       };
 
       const { data, error } = await supabase
