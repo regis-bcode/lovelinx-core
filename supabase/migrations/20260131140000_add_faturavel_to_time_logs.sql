@@ -6,3 +6,5 @@ SET faturavel = COALESCE(faturavel, false);
 
 ALTER TABLE public.time_logs
   ALTER COLUMN faturavel SET NOT NULL;
+
+NOTIFY pgrst, 'reload schema';

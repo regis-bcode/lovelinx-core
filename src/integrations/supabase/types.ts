@@ -1480,10 +1480,13 @@ export type Database = {
       time_logs: {
         Row: {
           aprovado: string | null
+          approval_status: "Aguarda Aprovação" | "Aprovado" | "Reprovado" | null
           aprovacao_data: string | null
           aprovacao_hora: string | null
           aprovador_id: string | null
           aprovador_nome: string | null
+          approved_at: string | null
+          approved_by: string | null
           atividade: string | null
           comissionado: string | null
           created_at: string
@@ -1492,6 +1495,7 @@ export type Database = {
           data_inicio: string | null
           faturavel: boolean
           id: string
+          is_billable: boolean | null
           justificativa_reprovacao: string | null
           observacoes: string | null
           project_id: string
@@ -1504,10 +1508,13 @@ export type Database = {
         }
         Insert: {
           aprovado?: string | null
+          approval_status?: "Aguarda Aprovação" | "Aprovado" | "Reprovado" | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           atividade?: string | null
           comissionado?: string | null
           created_at?: string
@@ -1516,6 +1523,7 @@ export type Database = {
           data_inicio?: string | null
           faturavel?: boolean
           id?: string
+          is_billable?: boolean | null
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id: string
@@ -1528,10 +1536,13 @@ export type Database = {
         }
         Update: {
           aprovado?: string | null
+          approval_status?: "Aguarda Aprovação" | "Aprovado" | "Reprovado" | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
           atividade?: string | null
           comissionado?: string | null
           created_at?: string
@@ -1540,6 +1551,7 @@ export type Database = {
           data_inicio?: string | null
           faturavel?: boolean
           id?: string
+          is_billable?: boolean | null
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id?: string
@@ -1734,7 +1746,7 @@ export type Database = {
       member_role_type: "interno" | "cliente" | "parceiro"
       profile_type: "visualizador" | "editor" | "administrador"
       team_type: "projeto" | "suporte"
-      time_entry_type: "automatico" | "manual"
+      time_entry_type: "automatico" | "manual" | "timer"
       user_type:
         | "cliente"
         | "analista"
@@ -1877,7 +1889,7 @@ export const Constants = {
       member_role_type: ["interno", "cliente", "parceiro"],
       profile_type: ["visualizador", "editor", "administrador"],
       team_type: ["projeto", "suporte"],
-      time_entry_type: ["automatico", "manual"],
+      time_entry_type: ["automatico", "manual", "timer"],
       user_type: [
         "cliente",
         "analista",
