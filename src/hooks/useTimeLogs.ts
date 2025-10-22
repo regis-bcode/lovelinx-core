@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
@@ -183,16 +183,36 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   } satisfies TimeLog;
 };
 
+const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
+  'approval_status',
+  'approved_by',
+  'approved_at',
+  'is_billable',
+];
+
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const legacyApprovalSchemaRef = useRef(false);
 
   const buildSupabasePayload = useCallback(
     (payload: Partial<TimeLogFormData>): Record<string, unknown> => {
-      return sanitizeTimeLogPayload(payload as Record<string, unknown>);
+      const sanitized = sanitizeTimeLogPayload(payload as Record<string, unknown>);
+
+      if (!legacyApprovalSchemaRef.current) {
+        return sanitized;
+      }
+
+      for (const column of LEGACY_INCOMPATIBLE_COLUMNS) {
+        if (column in sanitized) {
+          delete sanitized[column];
+        }
+      }
+
+      return sanitized;
     },
-    [],
+    [legacyApprovalSchemaRef],
   );
 
   useEffect(() => {
@@ -501,17 +521,18 @@ export function useTimeLogs(projectId?: string) {
           (message.includes('aprovador_nome') ||
             message.includes('aprovacao_data') ||
             message.includes('aprovacao_hora') ||
-            message.includes('approval_status'));
+            message.includes('approval_status') ||
+            message.includes('approved_at') ||
+            message.includes('approved_by') ||
+            message.includes('is_billable'));
 
         if (!missingLegacyColumns) {
           throw error;
         }
 
-        const fallbackUpdates = { ...supabaseUpdates } as Record<string, unknown>;
-        delete fallbackUpdates.aprovador_nome;
-        delete fallbackUpdates.aprovacao_data;
-        delete fallbackUpdates.aprovacao_hora;
-        delete fallbackUpdates.approval_status;
+        legacyApprovalSchemaRef.current = true;
+
+        const fallbackUpdates = buildSupabasePayload(approvalUpdates);
 
         const { error: fallbackError } = await performUpdate(fallbackUpdates);
 
