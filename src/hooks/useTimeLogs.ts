@@ -38,6 +38,30 @@ export function formatHMS(totalSeconds: number): string {
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
 }
 
+const extractApprovalDateTimeParts = (
+  isoString: string | null | undefined,
+): { date: string | null; time: string | null } => {
+  if (!isoString || typeof isoString !== 'string') {
+    return { date: null, time: null };
+  }
+
+  const [datePartRaw, timePartRaw] = isoString.split('T');
+  const datePart = datePartRaw && datePartRaw.trim().length > 0 ? datePartRaw.trim() : null;
+
+  if (!timePartRaw) {
+    return { date: datePart, time: null };
+  }
+
+  const withoutFraction = timePartRaw.split('.')[0] ?? timePartRaw;
+  const timezoneIndex = withoutFraction.search(/[+-]/);
+  const sliced = timezoneIndex >= 0 ? withoutFraction.slice(0, timezoneIndex) : withoutFraction;
+  const withoutTimezone = sliced.replace(/Z$/i, '');
+  const trimmedTime = withoutTimezone.trim();
+  const timePart = trimmedTime.length > 0 ? trimmedTime.slice(0, 8) : null;
+
+  return { date: datePart, time: timePart };
+};
+
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   const startTimestamp = typeof log.data_inicio === 'string' ? Date.parse(log.data_inicio) : NaN;
   const endTimestamp = typeof log.data_fim === 'string' ? Date.parse(log.data_fim) : NaN;
@@ -100,6 +124,8 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     return null;
   })();
 
+  const approvalParts = extractApprovalDateTimeParts(approvalIso);
+
   return {
     ...log,
     faturavel,
@@ -107,8 +133,8 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     comissionado: normalizedComissionado,
     is_billable: normalizedBillable,
     aprovador_nome: log.aprovador_nome ?? null,
-    aprovacao_data: log.aprovacao_data ?? null,
-    aprovacao_hora: log.aprovacao_hora ?? null,
+    aprovacao_data: log.aprovacao_data ?? approvalParts.date,
+    aprovacao_hora: log.aprovacao_hora ?? approvalParts.time,
     justificativa_reprovacao: log.justificativa_reprovacao ?? null,
     tempo_trabalhado: safeMinutes,
     tempo_formatado: formatHMS(safeSeconds),
@@ -229,8 +255,6 @@ export function useTimeLogs(projectId?: string) {
         aprovador_id: null,
         aprovador_nome: null,
         data_aprovacao: null,
-        aprovacao_data: null,
-        aprovacao_hora: null,
         justificativa_reprovacao: null,
       };
 
@@ -368,12 +392,6 @@ export function useTimeLogs(projectId?: string) {
         approverName = user.email ?? null;
       }
 
-      const [datePart, timePartRaw] = isoString.split('T');
-      const sanitizedTime = timePartRaw ? timePartRaw.replace('Z', '') : null;
-      const approvalTime = sanitizedTime
-        ? sanitizedTime.split('.')[0]?.slice(0, 8) ?? sanitizedTime.slice(0, 8)
-        : null;
-
       const hasJustificationOverride =
         options !== undefined && Object.prototype.hasOwnProperty.call(options, 'justificativa');
       const rejectionReason = options?.justificativa?.trim() ?? null;
@@ -401,13 +419,13 @@ export function useTimeLogs(projectId?: string) {
       }
 
       const approvedFlag: 'SIM' | 'NÃO' = status === 'aprovado' ? 'SIM' : 'NÃO';
+      const approvalParts = extractApprovalDateTimeParts(isoString);
+
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
         aprovador_id: user.id,
         aprovador_nome: approverName,
         data_aprovacao: isoString,
-        aprovacao_data: datePart ?? null,
-        aprovacao_hora: approvalTime ?? null,
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
         aprovado: approvedFlag,
@@ -435,8 +453,8 @@ export function useTimeLogs(projectId?: string) {
                 aprovador_id: user.id,
                 aprovador_nome: approverName,
                 data_aprovacao: isoString,
-                aprovacao_data: datePart ?? null,
-                aprovacao_hora: approvalTime ?? null,
+                aprovacao_data: approvalParts.date ?? log.aprovacao_data ?? null,
+                aprovacao_hora: approvalParts.time ?? log.aprovacao_hora ?? null,
                 justificativa_reprovacao:
                   status === 'reprovado' ? rejectionReason ?? null : null,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
