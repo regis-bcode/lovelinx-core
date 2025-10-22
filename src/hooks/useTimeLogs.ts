@@ -3,34 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
+import { sanitizeTimeLogPayload } from '@/hooks/utils/timeLogPayload';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
 type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
 type TaskActivityInsert = Database['public']['Tables']['task_activities']['Insert'];
-
-const TIME_LOG_COLUMNS = new Set([
-  'task_id',
-  'project_id',
-  'user_id',
-  'tipo_inclusao',
-  'data_inicio',
-  'data_fim',
-  'status_aprovacao',
-  'aprovador_id',
-  'aprovador_nome',
-  'data_aprovacao',
-  'aprovacao_data',
-  'aprovacao_hora',
-  'observacoes',
-  'atividade',
-  'justificativa_reprovacao',
-  'faturavel',
-  'aprovado',
-  'comissionado',
-  'created_at',
-  'updated_at',
-]);
 
 const parseNumericValue = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -58,16 +36,6 @@ export function formatHMS(totalSeconds: number): string {
   const pad = (value: number) => value.toString().padStart(2, '0');
 
   return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
-function sanitizeTimeLogPayload(obj: Record<string, unknown>) {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value !== undefined && TIME_LOG_COLUMNS.has(key)) {
-      out[key] = value;
-    }
-  }
-  return out;
 }
 
 const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
