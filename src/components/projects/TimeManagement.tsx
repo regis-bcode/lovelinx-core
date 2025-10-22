@@ -1304,7 +1304,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setApprovalConfirmation({ action: 'reject', commissioned: false });
   }
 
-  async function handleConfirmApprovalAction() {
+  async function handleConfirmApprovalConfirmation() {
     if (!approvalConfirmation || !timeLog) {
       setApprovalConfirmation(null);
       return;
@@ -2221,7 +2221,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <AlertDialogAction
               onClick={async (event) => {
                 event.preventDefault();
-                await handleConfirmApprovalAction();
+                await handleConfirmApprovalConfirmation();
               }}
               disabled={isSaving || !approvalConfirmation}
             >
