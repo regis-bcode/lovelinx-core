@@ -2131,7 +2131,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       void saveApproval('Aprovado', nextValue);
                     }
                   }}
-                  disabled={approvalStatus !== 'Aprovado' || isSaving}
+                  disabled={isSaving || !timeLog}
                 />
                 <Label htmlFor="isCommissioned" className="text-sm">
                   Comissionado
