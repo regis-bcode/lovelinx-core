@@ -1202,6 +1202,25 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const detailDurationDisplay =
     detailDuration && detailDuration !== '-' ? detailDuration : '00:00:00';
 
+  useEffect(() => {
+    if (!selectedLogForDetails) {
+      return;
+    }
+
+    const updatedLog = timeLogs.find(log => log.id === selectedLogForDetails.id);
+    if (!updatedLog) {
+      return;
+    }
+
+    setSelectedLogForDetails(prev => {
+      if (!prev || prev.id !== updatedLog.id || prev === updatedLog) {
+        return prev;
+      }
+
+      return updatedLog;
+    });
+  }, [selectedLogForDetails?.id, timeLogs]);
+
   const detailStatusInfo = useMemo(() => {
     const baseClass =
       'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold';
@@ -1258,8 +1277,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [approvalConfirmation, setApprovalConfirmation] = useState<
     { action: 'approve' | 'reject'; commissioned: boolean } | null
   >(null);
-  // const { user } = useAuth();
-  const currentUserId = /* user?.id || */ null;
 
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
@@ -1297,6 +1314,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return '';
   }, [timeLog]);
 
+  const normalizedApproverName =
+    typeof timeLog?.aprovador_nome === 'string' ? timeLog.aprovador_nome.trim() : '';
+  const rawApprovalDate = timeLog?.aprovacao_data ?? timeLog?.data_aprovacao ?? '';
+  const normalizedApprovalDate =
+    typeof rawApprovalDate === 'string' ? rawApprovalDate.trim() : '';
+  const rawApprovalTime = timeLog?.aprovacao_hora ?? timeLog?.data_aprovacao ?? '';
+  const normalizedApprovalTime =
+    typeof rawApprovalTime === 'string' ? rawApprovalTime.trim() : '';
+  const isApprovalInfoComplete =
+    normalizedApproverName.length > 0 &&
+    normalizedApprovalDate.length > 0 &&
+    normalizedApprovalTime.length > 0;
+  const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
+
   const isApprovalConfirmationOpen = approvalConfirmation !== null;
   const approvalConfirmationTitle = approvalConfirmation
     ? approvalConfirmation.action === 'approve'
@@ -1320,58 +1351,30 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     : null;
 
   async function saveApproval(nextStatus: ApprovalStatus, nextIsCommissioned: boolean) {
-    if (!timeLog) {
+    if (!timeLog || isApprovalInfoComplete) {
       return;
     }
 
     setIsSaving(true);
     try {
-      const isApprovedAndCommissioned = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
-      const aprovadoValue: 'SIM' | 'NÃO' = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
-      const comissionadoValue: 'SIM' | 'NÃO' = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
-      const payload: Record<string, unknown> = {
-        approval_status: nextStatus,
-        is_billable: isApprovedAndCommissioned,
-        faturavel: isApprovedAndCommissioned,
-        aprovado: aprovadoValue,
-        comissionado: comissionadoValue,
-      };
+      const normalizedStatus =
+        nextStatus === 'Aprovado'
+          ? 'aprovado'
+          : nextStatus === 'Reprovado'
+            ? 'reprovado'
+            : 'pendente';
+      const commissionedValue = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
 
-      let approvedAt: string | null = null;
-      if (nextStatus === 'Aprovado') {
-        approvedAt = new Date().toISOString();
-        payload.approved_at = approvedAt;
-        payload.approved_by = currentUserId;
-      } else {
-        payload.approved_at = null;
-        payload.approved_by = null;
+      const success = await approveTimeLog(timeLog.id, normalizedStatus, {
+        commissioned: commissionedValue,
+      });
+
+      if (!success) {
+        return;
       }
 
-      const { error } = await supabase
-        .from('time_logs')
-        .update(payload)
-        .eq('id', timeLog.id);
-
-      if (error) throw error;
-
       setApprovalStatus(nextStatus);
-      setIsCommissioned(isApprovedAndCommissioned);
-      setSelectedLogForDetails(prev => {
-        if (!prev || prev.id !== timeLog.id) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          approval_status: nextStatus,
-          is_billable: isApprovedAndCommissioned,
-          faturavel: isApprovedAndCommissioned,
-          aprovado: aprovadoValue,
-          comissionado: comissionadoValue,
-          approved_at: nextStatus === 'Aprovado' ? approvedAt : null,
-          approved_by: nextStatus === 'Aprovado' ? currentUserId : null,
-        };
-      });
+      setIsCommissioned(nextStatus === 'Aprovado' ? nextIsCommissioned : false);
     } catch (e) {
       console.error('Erro ao salvar aprovação:', e);
     } finally {
@@ -1380,7 +1383,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }
 
   function handleApprove() {
-    if (!timeLog) {
+    if (!timeLog || isApprovalInfoComplete) {
       return;
     }
 
@@ -1388,7 +1391,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }
 
   function handleReject() {
-    if (!timeLog) {
+    if (!timeLog || isApprovalInfoComplete) {
       return;
     }
 
@@ -1397,7 +1400,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }
 
   function handleToggleCommissioned() {
-    if (!timeLog || isSaving) {
+    if (!timeLog || isSaving || isApprovalInfoComplete) {
       return;
     }
 
@@ -2186,7 +2189,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   <button
                     type="button"
                     onClick={handleToggleCommissioned}
-                    disabled={isSaving || !timeLog}
+                    disabled={isApprovalActionDisabled}
                     aria-pressed={isCommissioned}
                     className={`rounded-full px-4 py-1 text-xs font-medium transition-colors ${
                       isCommissioned
@@ -2199,7 +2202,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   <button
                     type="button"
                     onClick={handleApprove}
-                    disabled={isSaving || !timeLog}
+                    disabled={isApprovalActionDisabled}
                     className="rounded-full px-4 py-1 text-xs font-medium text-white transition-colors bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Aprovado
@@ -2207,7 +2210,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   <button
                     type="button"
                     onClick={handleReject}
-                    disabled={isSaving || !timeLog}
+                    disabled={isApprovalActionDisabled}
                     className="rounded-full px-4 py-1 text-xs font-medium text-white transition-colors bg-red-600 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Reprovado
