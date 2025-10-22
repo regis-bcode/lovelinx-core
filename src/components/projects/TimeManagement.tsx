@@ -1142,18 +1142,43 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
     : '-';
   const detailTaskDescription = detailTask?.descricao_tarefa?.trim() ?? '';
+  const parseCommissionedFlag = (value: unknown): boolean => {
+    if (typeof value === 'string') {
+      return value.trim().toUpperCase() === 'SIM';
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    return false;
+  };
+
   const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(
     timeLog?.approval_status ?? 'Aguarda Aprovação',
   );
-  const [isBillable, setIsBillable] = useState<boolean>(Boolean(timeLog?.is_billable ?? timeLog?.faturavel));
+  const [isCommissioned, setIsCommissioned] = useState<boolean>(
+    parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable ?? timeLog?.faturavel),
+  );
   const [isSaving, setIsSaving] = useState(false);
+  const [approvalConfirmation, setApprovalConfirmation] = useState<
+    { action: 'approve' | 'reject'; commissioned: boolean } | null
+  >(null);
   // const { user } = useAuth();
   const currentUserId = /* user?.id || */ null;
 
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
-    setIsBillable(Boolean(timeLog?.is_billable ?? timeLog?.faturavel));
-  }, [timeLog?.id, timeLog?.approval_status, timeLog?.is_billable, timeLog?.faturavel]);
+    setIsCommissioned(
+      parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable ?? timeLog?.faturavel),
+    );
+  }, [
+    timeLog?.id,
+    timeLog?.approval_status,
+    timeLog?.comissionado,
+    timeLog?.is_billable,
+    timeLog?.faturavel,
+  ]);
 
   const timeLogActivity = useMemo(() => {
     if (!timeLog) {
@@ -1178,18 +1203,47 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return '';
   }, [timeLog]);
 
-  async function saveApproval(nextStatus: ApprovalStatus, nextIsBillable: boolean) {
+  const isApprovalConfirmationOpen = approvalConfirmation !== null;
+  const approvalConfirmationTitle = approvalConfirmation
+    ? approvalConfirmation.action === 'approve'
+      ? 'Confirmar aprovação'
+      : 'Confirmar reprovação'
+    : 'Confirmar ação';
+  const approvalConfirmationActionLabel = approvalConfirmation
+    ? approvalConfirmation.action === 'approve'
+      ? 'Aprovar registro'
+      : 'Reprovar registro'
+    : null;
+  const approvalConfirmationAprovadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
+    ? approvalConfirmation.action === 'approve'
+      ? 'SIM'
+      : 'NÃO'
+    : null;
+  const approvalConfirmationComissionadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
+    ? approvalConfirmation.action === 'approve'
+      ? approvalConfirmation.commissioned
+        ? 'SIM'
+        : 'NÃO'
+      : 'NÃO'
+    : null;
+
+  async function saveApproval(nextStatus: ApprovalStatus, nextIsCommissioned: boolean) {
     if (!timeLog) {
       return;
     }
 
     setIsSaving(true);
     try {
-      const isApprovedAndBillable = nextStatus === 'Aprovado' ? nextIsBillable : false;
+      const isApprovedAndCommissioned = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
+      const aprovadoValue: 'SIM' | 'NÃO' = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
+      const comissionadoValue: 'SIM' | 'NÃO' =
+        nextStatus === 'Aprovado' && isApprovedAndCommissioned ? 'SIM' : 'NÃO';
       const payload: Record<string, unknown> = {
         approval_status: nextStatus,
-        is_billable: isApprovedAndBillable,
-        faturavel: isApprovedAndBillable,
+        is_billable: isApprovedAndCommissioned,
+        faturavel: isApprovedAndCommissioned,
+        aprovado: aprovadoValue,
+        comissionado: comissionadoValue,
       };
 
       let approvedAt: string | null = null;
@@ -1210,7 +1264,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       if (error) throw error;
 
       setApprovalStatus(nextStatus);
-      setIsBillable(isApprovedAndBillable);
+      setIsCommissioned(isApprovedAndCommissioned);
       setSelectedLogForDetails(prev => {
         if (!prev || prev.id !== timeLog.id) {
           return prev;
@@ -1219,8 +1273,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return {
           ...prev,
           approval_status: nextStatus,
-          is_billable: isApprovedAndBillable,
-          faturavel: isApprovedAndBillable,
+          is_billable: isApprovedAndCommissioned,
+          faturavel: isApprovedAndCommissioned,
+          aprovado: aprovadoValue,
+          comissionado: comissionadoValue,
           approved_at: nextStatus === 'Aprovado' ? approvedAt : null,
           approved_by: nextStatus === 'Aprovado' ? currentUserId : null,
         };
@@ -1237,7 +1293,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    void saveApproval('Aprovado', isBillable);
+    setApprovalConfirmation({ action: 'approve', commissioned: isCommissioned });
   }
 
   function handleReject() {
@@ -1245,7 +1301,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    void saveApproval('Reprovado', false);
+    setApprovalConfirmation({ action: 'reject', commissioned: false });
+  }
+
+  async function handleConfirmApprovalAction() {
+    if (!approvalConfirmation || !timeLog) {
+      setApprovalConfirmation(null);
+      return;
+    }
+
+    if (approvalConfirmation.action === 'approve') {
+      await saveApproval('Aprovado', approvalConfirmation.commissioned);
+    } else {
+      await saveApproval('Reprovado', false);
+    }
+
+    setApprovalConfirmation(null);
   }
 
   const getTaskFieldDisplayValue = useCallback(
@@ -2051,19 +2122,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:justify-between">
               <div className="flex items-center gap-2">
                 <Checkbox
-                  id="isBillable"
-                  checked={isBillable}
+                  id="isCommissioned"
+                  checked={isCommissioned}
                   onCheckedChange={value => {
                     const nextValue = Boolean(value);
-                    setIsBillable(nextValue);
+                    setIsCommissioned(nextValue);
                     if (approvalStatus === 'Aprovado') {
                       void saveApproval('Aprovado', nextValue);
                     }
                   }}
                   disabled={approvalStatus !== 'Aprovado' || isSaving}
                 />
-                <Label htmlFor="isBillable" className="text-sm">
-                  Faturável
+                <Label htmlFor="isCommissioned" className="text-sm">
+                  Comissionado
                 </Label>
               </div>
               <div className="flex items-center gap-2">
@@ -2093,6 +2164,72 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={isApprovalConfirmationOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setApprovalConfirmation(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{approvalConfirmationTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Revise os dados que serão gravados antes de confirmar esta ação.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <span className="text-xs font-semibold uppercase text-muted-foreground">
+                Ação selecionada
+              </span>
+              <p className="mt-1 text-sm font-medium text-foreground">
+                {approvalConfirmationActionLabel ?? '—'}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Campo Aprovado
+                </span>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {approvalConfirmationAprovadoValue ?? '—'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Campo Comissionado
+                </span>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {approvalConfirmationComissionadoValue ?? '—'}
+                </p>
+              </div>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={(event) => {
+                event.preventDefault();
+                setApprovalConfirmation(null);
+              }}
+              disabled={isSaving}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (event) => {
+                event.preventDefault();
+                await handleConfirmApprovalAction();
+              }}
+              disabled={isSaving || !approvalConfirmation}
+            >
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={isLogEditDialogOpen} onOpenChange={handleLogEditDialogOpenChange}>
         <DialogContent className="sm:max-w-[520px]">

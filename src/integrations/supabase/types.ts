@@ -1479,11 +1479,13 @@ export type Database = {
       }
       time_logs: {
         Row: {
+          aprovado: string | null
           aprovacao_data: string | null
           aprovacao_hora: string | null
           aprovador_id: string | null
           aprovador_nome: string | null
           atividade: string | null
+          comissionado: string | null
           created_at: string
           data_aprovacao: string | null
           data_fim: string | null
@@ -1501,11 +1503,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aprovado?: string | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
           atividade?: string | null
+          comissionado?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
@@ -1523,11 +1527,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aprovado?: string | null
           aprovacao_data?: string | null
           aprovacao_hora?: string | null
           aprovador_id?: string | null
           aprovador_nome?: string | null
           atividade?: string | null
+          comissionado?: string | null
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
