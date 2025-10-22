@@ -389,7 +389,11 @@ export function useTimeLogs(projectId?: string) {
   const approveTimeLog = async (
     id: string,
     status: ApprovalStatus,
-    options?: { justificativa?: string | null; commissioned?: boolean },
+    options?: {
+      justificativa?: string | null;
+      commissioned?: boolean;
+      performedAt?: Date;
+    },
   ): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -403,7 +407,9 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
-      const isoString = new Date().toISOString();
+      const providedPerformedAt = options?.performedAt;
+      const performedAt = providedPerformedAt instanceof Date ? providedPerformedAt : null;
+      const isoString = (performedAt ?? new Date()).toISOString();
 
       const existingLog = timeLogs.find(log => log.id === id) ?? null;
       const existingCommissioned = (() => {
@@ -456,7 +462,13 @@ export function useTimeLogs(projectId?: string) {
 
       const hasJustificationOverride =
         options !== undefined && Object.prototype.hasOwnProperty.call(options, 'justificativa');
-      const rejectionReason = options?.justificativa?.trim() ?? null;
+      const rawJustification = options?.justificativa ?? null;
+      const normalizedJustification =
+        typeof rawJustification === 'string' ? rawJustification.trim() : rawJustification;
+      const rejectionReason =
+        normalizedJustification && normalizedJustification.length > 0
+          ? normalizedJustification
+          : null;
       const hasCommissionedOverride =
         options !== undefined && Object.prototype.hasOwnProperty.call(options, 'commissioned');
       const commissionedBool =
@@ -496,6 +508,8 @@ export function useTimeLogs(projectId?: string) {
         approved_by: user.id,
         data_aprovacao: isoString,
         approved_at: isoString,
+        aprovacao_data: approvalParts.date,
+        aprovacao_hora: approvalParts.time,
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
         aprovado: approvedFlag,

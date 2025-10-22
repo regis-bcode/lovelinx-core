@@ -32,7 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-// import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   areActiveTimerRecordsEqual,
   persistActiveTimerRecord,
@@ -115,6 +115,7 @@ interface TimeManagementProps {
 }
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
+  const { user } = useAuth();
   const { tasks, customFields, loading: tasksLoading, updateTask } = useTasks(projectId);
   const {
     timeLogs,
@@ -132,6 +133,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const canManageApprovals = isAdmin() || isGestor();
   const { allocations: projectAllocations, loading: allocationsLoading } = useProjectAllocations(projectId);
   const { toast } = useToast();
+  const getLoggedUserDisplayName = useCallback(() => {
+    const name = typeof user?.name === 'string' ? user.name.trim() : '';
+    if (name.length > 0) {
+      return name;
+    }
+
+    const email = typeof user?.email === 'string' ? user.email.trim() : '';
+    if (email.length > 0) {
+      return email;
+    }
+
+    return '';
+  }, [user?.name, user?.email]);
 
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
@@ -1275,7 +1289,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [approvalConfirmation, setApprovalConfirmation] = useState<
-    { action: 'approve' | 'reject'; commissioned: boolean } | null
+    {
+      action: 'approve' | 'reject';
+      commissioned: boolean;
+      approverName: string | null;
+      performedAt: Date;
+    } | null
   >(null);
 
   useEffect(() => {
@@ -1323,11 +1342,38 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const normalizedApprovalTime =
     typeof rawApprovalTime === 'string' ? rawApprovalTime.trim() : '';
   const hasApprovalName = normalizedApproverName.length > 0;
-  const approvalConfirmationApproverDisplay = hasApprovalName ? normalizedApproverName : '—';
-  const approvalConfirmationDateDisplay =
-    normalizedApprovalDate.length > 0 ? formatApprovalDate(normalizedApprovalDate) : '—';
-  const approvalConfirmationTimeDisplay =
-    normalizedApprovalTime.length > 0 ? formatApprovalTime(normalizedApprovalTime) : '—';
+  const confirmationPerformedAt = approvalConfirmation?.performedAt ?? null;
+  const confirmationApproverName = (() => {
+    if (approvalConfirmation?.approverName) {
+      const trimmed = approvalConfirmation.approverName.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+
+    if (hasApprovalName) {
+      return normalizedApproverName;
+    }
+
+    const fallbackLoggedUser = getLoggedUserDisplayName();
+    if (fallbackLoggedUser.length > 0) {
+      return fallbackLoggedUser;
+    }
+
+    return '';
+  })();
+  const approvalConfirmationApproverDisplay =
+    confirmationApproverName.length > 0 ? confirmationApproverName : '—';
+  const approvalConfirmationDateDisplay = confirmationPerformedAt
+    ? format(confirmationPerformedAt, 'dd/MM/yyyy', { locale: ptBR })
+    : normalizedApprovalDate.length > 0
+      ? formatApprovalDate(normalizedApprovalDate)
+      : '—';
+  const approvalConfirmationTimeDisplay = confirmationPerformedAt
+    ? format(confirmationPerformedAt, 'HH:mm')
+    : normalizedApprovalTime.length > 0
+      ? formatApprovalTime(normalizedApprovalTime)
+      : '—';
   const hasApprovalDate = normalizedApprovalDate.length > 0 && approvalConfirmationDateDisplay !== '-';
   const hasApprovalTime = normalizedApprovalTime.length > 0 && approvalConfirmationTimeDisplay !== '-';
   const isApprovalInfoComplete = hasApprovalName && hasApprovalDate && hasApprovalTime;
@@ -1350,12 +1396,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       : 'NÃO'
     : null;
   const approvalConfirmationComissionadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
-    ? approvalConfirmation.action === 'approve'
+    ? approvalConfirmation.commissioned
       ? 'SIM'
       : 'NÃO'
     : null;
 
-  async function saveApproval(nextStatus: ApprovalStatus, nextIsCommissioned: boolean) {
+  async function saveApproval(
+    nextStatus: ApprovalStatus,
+    nextIsCommissioned: boolean,
+    performedAt?: Date,
+  ) {
     if (!timeLog || isApprovalInfoComplete) {
       return;
     }
@@ -1372,6 +1422,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
       const success = await approveTimeLog(timeLog.id, normalizedStatus, {
         commissioned: commissionedValue,
+        performedAt,
       });
 
       if (!success) {
@@ -1392,7 +1443,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    setApprovalConfirmation({ action: 'approve', commissioned: isCommissioned });
+    const now = new Date();
+    const approverDisplayName = (() => {
+      const loggedUserName = getLoggedUserDisplayName();
+      if (loggedUserName.length > 0) {
+        return loggedUserName;
+      }
+
+      if (hasApprovalName) {
+        return normalizedApproverName;
+      }
+
+      return null;
+    })();
+
+    setApprovalConfirmation({
+      action: 'approve',
+      commissioned: isCommissioned,
+      approverName: approverDisplayName,
+      performedAt: now,
+    });
   }
 
   function handleReject() {
@@ -1401,7 +1471,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     setIsCommissioned(false);
-    setApprovalConfirmation({ action: 'reject', commissioned: false });
+    const now = new Date();
+    const approverDisplayName = (() => {
+      const loggedUserName = getLoggedUserDisplayName();
+      if (loggedUserName.length > 0) {
+        return loggedUserName;
+      }
+
+      if (hasApprovalName) {
+        return normalizedApproverName;
+      }
+
+      return null;
+    })();
+
+    setApprovalConfirmation({
+      action: 'reject',
+      commissioned: false,
+      approverName: approverDisplayName,
+      performedAt: now,
+    });
   }
 
   function handleToggleCommissioned() {
@@ -1424,9 +1513,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     if (approvalConfirmation.action === 'approve') {
-      await saveApproval('Aprovado', approvalConfirmation.commissioned);
+      await saveApproval('Aprovado', approvalConfirmation.commissioned, approvalConfirmation.performedAt);
     } else {
-      await saveApproval('Reprovado', false);
+      await saveApproval('Reprovado', false, approvalConfirmation.performedAt);
     }
 
     setApprovalConfirmation(null);

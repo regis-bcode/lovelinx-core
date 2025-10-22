@@ -17,6 +17,8 @@ export const TIME_LOG_COLUMNS = new Set<AllowedColumns>([
   'aprovador_nome',
   'approved_by',
   'data_aprovacao',
+  'aprovacao_data',
+  'aprovacao_hora',
   'approved_at',
   'observacoes',
   'atividade',
