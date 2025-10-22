@@ -11,3 +11,5 @@ ALTER TABLE public.time_logs
 
 ALTER TABLE public.time_logs
   ADD COLUMN IF NOT EXISTS approved_at timestamptz;
+
+NOTIFY pgrst, 'reload schema';

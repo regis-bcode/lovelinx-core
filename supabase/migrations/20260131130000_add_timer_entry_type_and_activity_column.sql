@@ -14,3 +14,5 @@ END $$;
 
 ALTER TABLE public.time_logs
   ADD COLUMN IF NOT EXISTS atividade text;
+
+NOTIFY pgrst, 'reload schema';
