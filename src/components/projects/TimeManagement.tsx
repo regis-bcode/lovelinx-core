@@ -1315,9 +1315,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     : null;
   const approvalConfirmationComissionadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
     ? approvalConfirmation.action === 'approve'
-      ? approvalConfirmation.commissioned
-        ? 'SIM'
-        : 'NÃO'
+      ? 'SIM'
       : 'NÃO'
     : null;
 
@@ -1330,8 +1328,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     try {
       const isApprovedAndCommissioned = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
       const aprovadoValue: 'SIM' | 'NÃO' = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
-      const comissionadoValue: 'SIM' | 'NÃO' =
-        nextStatus === 'Aprovado' && isApprovedAndCommissioned ? 'SIM' : 'NÃO';
+      const comissionadoValue: 'SIM' | 'NÃO' = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
       const payload: Record<string, unknown> = {
         approval_status: nextStatus,
         is_billable: isApprovedAndCommissioned,
