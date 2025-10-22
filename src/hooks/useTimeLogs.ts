@@ -26,6 +26,8 @@ const TIME_LOG_COLUMNS = new Set([
   'atividade',
   'justificativa_reprovacao',
   'faturavel',
+  'aprovado',
+  'comissionado',
   'created_at',
   'updated_at',
 ]);
@@ -78,7 +80,28 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   const secondsFromRange = hasValidRange ? Math.max(0, Math.round((endTimestamp - startTimestamp) / 1000)) : null;
   const safeSeconds = secondsFromRange ?? secondsFromColumn;
   const safeMinutes = safeSeconds / 60;
-  const faturavel = typeof log.faturavel === 'boolean' ? log.faturavel : false;
+  const normalizedAprovado = (() => {
+    if (typeof log.aprovado === 'string') {
+      const trimmed = log.aprovado.trim().toUpperCase();
+      if (trimmed === 'SIM' || trimmed === 'NÃO') {
+        return trimmed as 'SIM' | 'NÃO';
+      }
+    }
+    return null;
+  })();
+
+  const normalizedComissionado = (() => {
+    if (typeof log.comissionado === 'string') {
+      const trimmed = log.comissionado.trim().toUpperCase();
+      if (trimmed === 'SIM' || trimmed === 'NÃO') {
+        return trimmed as 'SIM' | 'NÃO';
+      }
+    }
+    return null;
+  })();
+
+  const isComissionado = normalizedComissionado === 'SIM';
+  const faturavel = typeof log.faturavel === 'boolean' ? log.faturavel : isComissionado;
   const legacyBillable = (log as { is_billable?: boolean | null }).is_billable;
   const normalizedBillable = typeof legacyBillable === 'boolean' ? legacyBillable : faturavel;
 
@@ -112,6 +135,8 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   return {
     ...log,
     faturavel,
+    aprovado: normalizedAprovado,
+    comissionado: normalizedComissionado,
     is_billable: normalizedBillable,
     aprovador_nome: log.aprovador_nome ?? null,
     aprovacao_data: log.aprovacao_data ?? null,
@@ -372,6 +397,7 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
+      const approvedFlag: 'SIM' | 'NÃO' = status === 'aprovado' ? 'SIM' : 'NÃO';
       const approvalUpdates: Partial<TimeLogFormData> = {
         status_aprovacao: status,
         aprovador_id: user.id,
@@ -381,7 +407,14 @@ export function useTimeLogs(projectId?: string) {
         aprovacao_hora: approvalTime ?? null,
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
+        aprovado: approvedFlag,
       };
+
+      if (status !== 'aprovado') {
+        approvalUpdates.comissionado = 'NÃO';
+        approvalUpdates.faturavel = false;
+        approvalUpdates.is_billable = false;
+      }
 
       const supabaseUpdates = buildSupabasePayload(approvalUpdates);
 
@@ -406,6 +439,10 @@ export function useTimeLogs(projectId?: string) {
                 justificativa_reprovacao:
                   status === 'reprovado' ? rejectionReason ?? null : null,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
+                aprovado: approvedFlag,
+                comissionado: status === 'aprovado' ? log.comissionado ?? null : 'NÃO',
+                faturavel: status === 'aprovado' ? log.faturavel ?? false : false,
+                is_billable: status === 'aprovado' ? log.is_billable ?? false : false,
               }
             : log,
         ),
