@@ -500,7 +500,8 @@ export function useTimeLogs(projectId?: string) {
           error.code === 'PGRST204' &&
           (message.includes('aprovador_nome') ||
             message.includes('aprovacao_data') ||
-            message.includes('aprovacao_hora'));
+            message.includes('aprovacao_hora') ||
+            message.includes('approval_status'));
 
         if (!missingLegacyColumns) {
           throw error;
@@ -510,6 +511,7 @@ export function useTimeLogs(projectId?: string) {
         delete fallbackUpdates.aprovador_nome;
         delete fallbackUpdates.aprovacao_data;
         delete fallbackUpdates.aprovacao_hora;
+        delete fallbackUpdates.approval_status;
 
         const { error: fallbackError } = await performUpdate(fallbackUpdates);
 
