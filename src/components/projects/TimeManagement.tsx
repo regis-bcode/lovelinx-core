@@ -20,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Check, CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, X, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -57,6 +57,39 @@ type TaskDetailEntry = {
   fullWidth?: boolean;
   isLongText?: boolean;
 };
+
+type DetailItemProps = {
+  label: string;
+  value?: ReactNode | null;
+  mono?: boolean;
+  span2?: boolean;
+};
+
+function DetailItem({ label, value, mono, span2 }: DetailItemProps) {
+  const isEmpty =
+    value === undefined ||
+    value === null ||
+    (typeof value === 'string' && value.trim().length === 0);
+
+  return (
+    <div className={span2 ? 'sm:col-span-2' : ''}>
+      <div className="flex items-baseline gap-2 min-w-0">
+        <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+          {label}:
+        </span>
+        <span
+          className={[
+            'min-w-0 break-words',
+            mono ? 'font-mono tabular-nums' : 'font-medium',
+            isEmpty ? 'text-muted-foreground' : '',
+          ].join(' ')}
+        >
+          {isEmpty ? '—' : value}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 type ApprovalStatus = 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado';
 
@@ -1142,6 +1175,67 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     ? `${formatLogCreatedAt(selectedLogForDetails.data_inicio)} → ${formatLogCreatedAt(selectedLogForDetails.data_fim)}`
     : '-';
   const detailTaskDescription = detailTask?.descricao_tarefa?.trim() ?? '';
+  const detailApproverDisplay =
+    detailApproverName && detailApproverName.trim() !== '-' ? detailApproverName : null;
+  const detailLogCreatedAt = selectedLogForDetails
+    ? formatLogCreatedAt(selectedLogForDetails.created_at)
+    : null;
+  const detailApprovalDate =
+    selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
+      ? formatApprovalDate(
+          selectedLogForDetails.aprovacao_data ?? selectedLogForDetails.data_aprovacao,
+        )
+      : null;
+  const detailApprovalTime =
+    selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
+      ? formatApprovalTime(
+          selectedLogForDetails.aprovacao_hora ?? selectedLogForDetails.data_aprovacao,
+        )
+      : null;
+  const detailLogCreatedAtDisplay =
+    detailLogCreatedAt && detailLogCreatedAt !== '-' ? detailLogCreatedAt : null;
+  const detailApprovalDateDisplay =
+    detailApprovalDate && detailApprovalDate !== '-' ? detailApprovalDate : null;
+  const detailApprovalTimeDisplay =
+    detailApprovalTime && detailApprovalTime !== '-' ? detailApprovalTime : null;
+  const detailPeriodDisplay = detailPeriod !== '-' ? detailPeriod : null;
+  const detailDurationDisplay =
+    detailDuration && detailDuration !== '-' ? detailDuration : '00:00:00';
+
+  const detailStatusInfo = useMemo(() => {
+    const baseClass =
+      'inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold';
+    if (!selectedLogForDetails?.status_aprovacao) {
+      return {
+        label: '—',
+        className: `${baseClass} border text-muted-foreground`,
+        icon: <Clock className="h-3.5 w-3.5" />,
+      };
+    }
+
+    switch (selectedLogForDetails.status_aprovacao) {
+      case 'aprovado':
+        return {
+          label: 'Aprovado',
+          className: `${baseClass} bg-green-600 text-white`,
+          icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+        };
+      case 'reprovado':
+        return {
+          label: 'Reprovado',
+          className: `${baseClass} bg-red-600 text-white`,
+          icon: <XCircle className="h-3.5 w-3.5" />,
+        };
+      case 'pendente':
+      default:
+        return {
+          label: 'Pendente',
+          className: `${baseClass} border border-secondary/60 bg-secondary text-secondary-foreground`,
+          icon: <Clock className="h-3.5 w-3.5" />,
+        };
+    }
+  }, [selectedLogForDetails?.status_aprovacao]);
+
   const parseCommissionedFlag = (value: unknown): boolean => {
     if (typeof value === 'string') {
       return value.trim().toUpperCase() === 'SIM';
@@ -1303,6 +1397,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     setIsCommissioned(false);
     setApprovalConfirmation({ action: 'reject', commissioned: false });
+  }
+
+  function handleToggleCommissioned() {
+    if (!timeLog || isSaving) {
+      return;
+    }
+
+    const nextValue = !isCommissioned;
+    setIsCommissioned(nextValue);
+
+    if (approvalStatus === 'Aprovado') {
+      void saveApproval('Aprovado', nextValue);
+    }
   }
 
   async function handleConfirmApprovalConfirmation() {
@@ -1958,76 +2065,47 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </div>
           </DialogHeader>
           <div className="space-y-4 py-2 text-sm">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Tarefa</span>
-                <span className="font-medium">
-                  {detailTask?.tarefa ?? 'Tarefa não encontrada'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Responsável</span>
-                <span>{detailTask?.responsavel ?? '-'}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Tipo de registro</span>
-                <span>
-                  {selectedLogForDetails ? getLogTypeLabel(selectedLogForDetails.tipo_inclusao) : '-'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Tempo registrado</span>
-                <span className="font-mono">{detailDuration}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Data do registro</span>
-                <span>
-                  {selectedLogForDetails ? formatLogCreatedAt(selectedLogForDetails.created_at) : '-'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Período</span>
-                <span>{detailPeriod}</span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Status</span>
-                <div className="flex items-center gap-2">
-                  {selectedLogForDetails ? getStatusBadge(selectedLogForDetails) : (
-                    <Badge variant="secondary">-</Badge>
-                  )}
+            <section className="rounded-2xl border bg-card p-4 sm:p-6 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <h3 className="text-base font-semibold">Detalhes do registro</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Consulte as informações registradas para o apontamento.
+                  </p>
+                </div>
+                <div className={detailStatusInfo.className}>
+                  {detailStatusInfo.icon}
+                  {detailStatusInfo.label}
                 </div>
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Aprovador</span>
-                <span>{detailApproverName}</span>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <DetailItem label="Tarefa" value={detailTask?.tarefa ?? 'Tarefa não encontrada'} />
+                <DetailItem label="Responsável" value={detailTask?.responsavel ?? null} />
+                <DetailItem
+                  label="Tipo de registro"
+                  value={
+                    selectedLogForDetails
+                      ? getLogTypeLabel(selectedLogForDetails.tipo_inclusao)
+                      : null
+                  }
+                />
+                <DetailItem label="Tempo registrado" value={detailDurationDisplay} mono />
+                <DetailItem label="Data do registro" value={detailLogCreatedAtDisplay} />
+                <DetailItem label="Período" value={detailPeriodDisplay} />
+                <DetailItem label="Aprovador" value={detailApproverDisplay} />
+                <DetailItem label="Data da aprovação" value={detailApprovalDateDisplay} />
+                <DetailItem label="Hora da aprovação" value={detailApprovalTimeDisplay} />
+                <DetailItem
+                  label="Descrição da tarefa"
+                  value={
+                    detailTaskDescription
+                      ? detailTaskDescription
+                      : 'Nenhuma descrição registrada.'
+                  }
+                  span2
+                />
               </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Data da aprovação</span>
-                <span>
-                  {selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
-                    ? formatApprovalDate(selectedLogForDetails.aprovacao_data ?? selectedLogForDetails.data_aprovacao)
-                    : '-'}
-                </span>
-              </div>
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Hora da aprovação</span>
-                <span>
-                  {selectedLogForDetails && selectedLogForDetails.status_aprovacao !== 'pendente'
-                    ? formatApprovalTime(selectedLogForDetails.aprovacao_hora ?? selectedLogForDetails.data_aprovacao)
-                    : '-'}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <span className="text-xs font-medium uppercase text-muted-foreground">Descrição da tarefa</span>
-                {detailTaskDescription ? (
-                  <p className="whitespace-pre-wrap leading-relaxed text-foreground">{detailTaskDescription}</p>
-                ) : (
-                  <span className="text-muted-foreground">Nenhuma descrição registrada.</span>
-                )}
-              </div>
-            </div>
+            </section>
             {isTaskDetailsVisible ? (
               <div className="space-y-4 rounded-lg border border-border/60 bg-muted/40 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2104,63 +2182,55 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 )}
               </div>
             ) : null}
-            <Card className="mt-2 border rounded-2xl shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold tracking-wide">
-                  ATIVIDADE REALIZADA
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm leading-6">
-                {timeLogActivity.length > 0 ? (
-                  <div className="whitespace-pre-wrap break-words">{timeLogActivity}</div>
-                ) : (
-                  <span className="text-muted-foreground">—</span>
-                )}
-              </CardContent>
-            </Card>
+            <section className="rounded-2xl border bg-card shadow-sm">
+              <header className="flex items-center justify-between px-4 py-3 sm:px-6">
+                <h4 className="text-sm font-semibold tracking-wide">Atividade realizada</h4>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleCommissioned}
+                    disabled={isSaving || !timeLog}
+                    aria-pressed={isCommissioned}
+                    className={`rounded-full px-4 py-1 text-xs font-medium transition-colors ${
+                      isCommissioned
+                        ? 'bg-blue-600 text-white hover:bg-blue-700'
+                        : 'border border-blue-400 text-blue-600 hover:bg-blue-50'
+                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                  >
+                    Comissionado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={isSaving || !timeLog}
+                    className="rounded-full px-4 py-1 text-xs font-medium text-white transition-colors bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Aprovado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={isSaving || !timeLog}
+                    className="rounded-full px-4 py-1 text-xs font-medium text-white transition-colors bg-red-600 hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Reprovado
+                  </button>
+                </div>
+              </header>
+              <div className="border-t px-4 py-4 sm:px-6">
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed">{timeLogActivity.length > 0 ? timeLogActivity : '—'}</pre>
+              </div>
+            </section>
           </div>
           <DialogFooter className="w-full">
-            <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:justify-between">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="isCommissioned"
-                  checked={isCommissioned}
-                  onCheckedChange={value => {
-                    const nextValue = Boolean(value);
-                    setIsCommissioned(nextValue);
-                    if (approvalStatus === 'Aprovado') {
-                      void saveApproval('Aprovado', nextValue);
-                    }
-                  }}
-                  disabled={isSaving || !timeLog}
-                />
-                <Label htmlFor="isCommissioned" className="text-sm">
-                  Comissionado
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  aria-label="Marcar como aprovado"
-                  className="bg-green-600 text-white hover:bg-green-700"
-                  disabled={isSaving || !timeLog}
-                  onClick={handleApprove}
-                >
-                  <Check className="mr-2 h-4 w-4" /> APROVADO
-                </Button>
-                <Button
-                  type="button"
-                  aria-label="Marcar como reprovado"
-                  className="bg-red-600 text-white hover:bg-red-700"
-                  disabled={isSaving || !timeLog}
-                  onClick={handleReject}
-                >
-                  <X className="mr-2 h-4 w-4" /> REPROVADO
-                </Button>
-                <Button type="button" variant="outline" onClick={() => handleLogDetailsDialogOpenChange(false)}>
-                  Fechar
-                </Button>
-              </div>
+            <div className="flex w-full justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleLogDetailsDialogOpenChange(false)}
+              >
+                Fechar
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
