@@ -91,6 +91,30 @@ function DetailItem({ label, value, mono, span2 }: DetailItemProps) {
   );
 }
 
+const extractApprovalDateTimeParts = (
+  isoString: string | null | undefined,
+): { date: string | null; time: string | null } => {
+  if (!isoString || typeof isoString !== 'string') {
+    return { date: null, time: null };
+  }
+
+  const [datePartRaw, timePartRaw] = isoString.split('T');
+  const datePart = datePartRaw && datePartRaw.trim().length > 0 ? datePartRaw.trim() : null;
+
+  if (!timePartRaw) {
+    return { date: datePart, time: null };
+  }
+
+  const withoutFraction = timePartRaw.split('.')[0] ?? timePartRaw;
+  const timezoneIndex = withoutFraction.search(/[+-]/);
+  const sliced = timezoneIndex >= 0 ? withoutFraction.slice(0, timezoneIndex) : withoutFraction;
+  const withoutTimezone = sliced.replace(/Z$/i, '');
+  const trimmedTime = withoutTimezone.trim();
+  const timePart = trimmedTime.length > 0 ? trimmedTime.slice(0, 8) : null;
+
+  return { date: datePart, time: timePart };
+};
+
 type ApprovalStatus = 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado';
 
 const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
@@ -1405,6 +1429,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     nextStatus: ApprovalStatus,
     nextIsCommissioned: boolean,
     performedAt?: Date,
+    approverNameOverride?: string | null,
   ) {
     if (!timeLog || isApprovalInfoComplete) {
       return;
@@ -1412,7 +1437,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     setIsSaving(true);
     try {
-      const normalizedStatus =
+      const normalizedStatus: TimeLog['status_aprovacao'] =
         nextStatus === 'Aprovado'
           ? 'aprovado'
           : nextStatus === 'Reprovado'
@@ -1431,6 +1456,64 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
       setApprovalStatus(nextStatus);
       setIsCommissioned(nextStatus === 'Aprovado' ? nextIsCommissioned : false);
+
+      const performedAtDate = performedAt instanceof Date ? performedAt : null;
+      const performedAtIso = performedAtDate ? performedAtDate.toISOString() : null;
+      const approvalParts = extractApprovalDateTimeParts(performedAtIso);
+      const commissionedFlag: TimeLog['comissionado'] =
+        nextStatus === 'Aprovado' && nextIsCommissioned ? 'SIM' : 'NÃO';
+      const approvedFlag: TimeLog['aprovado'] = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
+
+      const applyLocalApprovalPatch = <T extends TimeLog | null>(current: T): T => {
+        if (!current || current.id !== timeLog.id) {
+          return current;
+        }
+
+        const updated: Partial<TimeLog> = {
+          status_aprovacao: normalizedStatus,
+          approval_status: nextStatus,
+          comissionado: commissionedFlag,
+          faturavel: nextStatus === 'Aprovado' ? nextIsCommissioned : false,
+          is_billable: nextStatus === 'Aprovado' ? nextIsCommissioned : false,
+          aprovado: approvedFlag,
+        };
+
+        if (performedAtIso) {
+          const overrideName =
+            typeof approverNameOverride === 'string' && approverNameOverride.trim().length > 0
+              ? approverNameOverride.trim()
+              : null;
+          const confirmationName = confirmationApproverName.trim().length > 0
+            ? confirmationApproverName.trim()
+            : null;
+          const existingName =
+            current.aprovador_nome && current.aprovador_nome.trim().length > 0
+              ? current.aprovador_nome.trim()
+              : null;
+          const normalizedName = normalizedApproverName.length > 0 ? normalizedApproverName : null;
+          const loggedUserName = (() => {
+            const value = getLoggedUserDisplayName();
+            return value.length > 0 ? value : null;
+          })();
+          const resolvedApproverName =
+            overrideName ?? confirmationName ?? existingName ?? normalizedName ?? loggedUserName ?? null;
+
+          Object.assign(updated, {
+            data_aprovacao: performedAtIso,
+            approved_at: performedAtIso,
+            aprovacao_data: approvalParts.date,
+            aprovacao_hora: approvalParts.time,
+            aprovador_nome: resolvedApproverName,
+            aprovador_id: user?.id ?? current.aprovador_id ?? null,
+            approved_by: user?.id ?? current.approved_by ?? null,
+          });
+        }
+
+        return { ...current, ...updated } as T;
+      };
+
+      setSelectedLogForDetails(prev => applyLocalApprovalPatch(prev));
+      setApprovalDialogLog(prev => applyLocalApprovalPatch(prev));
     } catch (e) {
       console.error('Erro ao salvar aprovação:', e);
     } finally {
@@ -1513,9 +1596,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     if (approvalConfirmation.action === 'approve') {
-      await saveApproval('Aprovado', approvalConfirmation.commissioned, approvalConfirmation.performedAt);
+      await saveApproval(
+        'Aprovado',
+        approvalConfirmation.commissioned,
+        approvalConfirmation.performedAt,
+        approvalConfirmation.approverName ?? null,
+      );
     } else {
-      await saveApproval('Reprovado', false, approvalConfirmation.performedAt);
+      await saveApproval(
+        'Reprovado',
+        false,
+        approvalConfirmation.performedAt,
+        approvalConfirmation.approverName ?? null,
+      );
     }
 
     setApprovalConfirmation(null);
