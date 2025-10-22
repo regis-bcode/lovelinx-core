@@ -1301,6 +1301,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
+    setIsCommissioned(false);
     setApprovalConfirmation({ action: 'reject', commissioned: false });
   }
 
