@@ -1322,10 +1322,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const rawApprovalTime = timeLog?.aprovacao_hora ?? timeLog?.data_aprovacao ?? '';
   const normalizedApprovalTime =
     typeof rawApprovalTime === 'string' ? rawApprovalTime.trim() : '';
-  const isApprovalInfoComplete =
-    normalizedApproverName.length > 0 &&
-    normalizedApprovalDate.length > 0 &&
-    normalizedApprovalTime.length > 0;
+  const hasApprovalName = normalizedApproverName.length > 0;
+  const approvalConfirmationApproverDisplay = hasApprovalName ? normalizedApproverName : '—';
+  const approvalConfirmationDateDisplay =
+    normalizedApprovalDate.length > 0 ? formatApprovalDate(normalizedApprovalDate) : '—';
+  const approvalConfirmationTimeDisplay =
+    normalizedApprovalTime.length > 0 ? formatApprovalTime(normalizedApprovalTime) : '—';
+  const hasApprovalDate = normalizedApprovalDate.length > 0 && approvalConfirmationDateDisplay !== '-';
+  const hasApprovalTime = normalizedApprovalTime.length > 0 && approvalConfirmationTimeDisplay !== '-';
+  const isApprovalInfoComplete = hasApprovalName && hasApprovalDate && hasApprovalTime;
   const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
 
   const isApprovalConfirmationOpen = approvalConfirmation !== null;
@@ -2275,6 +2280,32 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 </span>
                 <p className="mt-1 text-sm font-medium text-foreground">
                   {approvalConfirmationComissionadoValue ?? '—'}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 px-4 py-3 sm:col-span-2">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Nome do aprovador
+                </span>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {approvalConfirmationApproverDisplay}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Data da aprovação ou reprovação
+                </span>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {approvalConfirmationDateDisplay}
+                </p>
+              </div>
+              <div className="rounded-lg border border-slate-200 px-4 py-3">
+                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                  Horário da aprovação ou reprovação
+                </span>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  {approvalConfirmationTimeDisplay}
                 </p>
               </div>
             </div>
