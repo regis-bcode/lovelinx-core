@@ -393,6 +393,7 @@ export function useTimeLogs(projectId?: string) {
       justificativa?: string | null;
       commissioned?: boolean;
       performedAt?: Date;
+      approverName?: string | null;
     },
   ): Promise<boolean> => {
     try {
@@ -458,6 +459,16 @@ export function useTimeLogs(projectId?: string) {
 
       if (!approverName) {
         approverName = user.email ?? null;
+      }
+
+      const overrideApprover = options?.approverName;
+      if (typeof overrideApprover === 'string') {
+        const trimmed = overrideApprover.trim();
+        if (trimmed.length > 0) {
+          approverName = trimmed;
+        }
+      } else if (overrideApprover === null) {
+        approverName = null;
       }
 
       const hasJustificationOverride =

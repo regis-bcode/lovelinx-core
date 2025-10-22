@@ -1445,9 +1445,21 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             : 'pendente';
       const commissionedValue = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
 
+      const normalizedApproverOverride =
+        typeof approverNameOverride === 'string' ? approverNameOverride.trim() : '';
+      const approverOverrideValue =
+        normalizedApproverOverride.length > 0 ? normalizedApproverOverride : null;
+      const confirmationApproverValue = (() => {
+        const trimmed = confirmationApproverName.trim();
+        return trimmed.length > 0 ? trimmed : null;
+      })();
+      const approverNameForPersistence =
+        approverOverrideValue ?? confirmationApproverValue ?? null;
+
       const success = await approveTimeLog(timeLog.id, normalizedStatus, {
         commissioned: commissionedValue,
         performedAt,
+        approverName: approverNameForPersistence,
       });
 
       if (!success) {
