@@ -519,7 +519,6 @@ export function useTimeLogs(projectId?: string) {
         approved_by: user.id,
         data_aprovacao: isoString,
         approved_at: isoString,
-        aprovacao_data: approvalParts.date,
         aprovacao_hora: approvalParts.time,
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
@@ -545,6 +544,7 @@ export function useTimeLogs(projectId?: string) {
           error.code === 'PGRST204' &&
           (message.includes('aprovador_nome') ||
             message.includes('aprovacao_data') ||
+            message.includes('data_aprovacao') ||
             message.includes('aprovacao_hora') ||
             message.includes('approval_status') ||
             message.includes('approved_at') ||
