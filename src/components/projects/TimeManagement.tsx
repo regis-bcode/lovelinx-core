@@ -1310,7 +1310,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     timeLog?.approval_status ?? 'Aguarda Aprovação',
   );
   const [isCommissioned, setIsCommissioned] = useState<boolean>(
-    parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable ?? timeLog?.faturavel),
+    parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
   );
   const [isSaving, setIsSaving] = useState(false);
   const [approvalConfirmation, setApprovalConfirmation] = useState<
@@ -1325,14 +1325,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
     setIsCommissioned(
-      parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable ?? timeLog?.faturavel),
+      parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
     );
   }, [
     timeLog?.id,
     timeLog?.approval_status,
     timeLog?.comissionado,
     timeLog?.is_billable,
-    timeLog?.faturavel,
   ]);
 
   const timeLogActivity = useMemo(() => {
@@ -1474,8 +1473,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       const performedAtDate = performedAt instanceof Date ? performedAt : null;
       const performedAtIso = performedAtDate ? performedAtDate.toISOString() : null;
       const approvalParts = extractApprovalDateTimeParts(performedAtIso);
-      const commissionedFlag: TimeLog['comissionado'] =
-        nextStatus === 'Aprovado' && nextIsCommissioned ? 'SIM' : 'NÃO';
       const approvedFlag: TimeLog['aprovado'] = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
 
       const applyLocalApprovalPatch = <T extends TimeLog | null>(current: T): T => {
@@ -1486,8 +1483,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         const updated: Partial<TimeLog> = {
           status_aprovacao: normalizedStatus,
           approval_status: nextStatus,
-          comissionado: commissionedFlag,
-          faturavel: nextStatus === 'Aprovado' ? nextIsCommissioned : false,
+          comissionado: commissionedValue,
           is_billable: nextStatus === 'Aprovado' ? nextIsCommissioned : false,
           aprovado: approvedFlag,
         };

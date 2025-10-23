@@ -21,9 +21,8 @@ export interface TimeLog {
   observacoes?: string | null;
   atividade?: string | null;
   justificativa_reprovacao?: string | null;
-  faturavel?: boolean;
+  comissionado?: boolean;
   aprovado?: 'SIM' | 'NÃO' | null;
-  comissionado?: 'SIM' | 'NÃO' | null;
   approval_status?: 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado' | null;
   is_billable?: boolean | null;
   approved_by?: string | null;
