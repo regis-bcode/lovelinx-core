@@ -1719,6 +1719,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      approve_time_log: {
+        Args: {
+          p_time_log_id: string
+          p_status: Database["public"]["Enums"]["approval_status"]
+          p_commissioned?: boolean
+          p_performed_at?: string
+          p_approver_name?: string | null
+          p_rejection_reason?: string | null
+        }
+        Returns: Database["public"]["Tables"]["time_logs"]["Row"]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

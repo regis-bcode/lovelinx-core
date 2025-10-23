@@ -502,97 +502,26 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
-      const approvedFlag: 'SIM' | 'NÃO' = status === 'aprovado' ? 'SIM' : 'NÃO';
-      const approvalParts = extractApprovalDateTimeParts(isoString);
-
-      const approvalUpdates: Partial<TimeLogFormData> = {
-        status_aprovacao: status,
-        approval_status:
-          status === 'aprovado'
-            ? 'Aprovado'
-            : status === 'reprovado'
-              ? 'Reprovado'
-              : 'Aguarda Aprovação',
-        aprovador_id: user.id,
-        aprovador_nome: approverName,
-        approved_by: user.id,
-        data_aprovacao: isoString,
-        approved_at: isoString,
-        aprovacao_hora: approvalParts.time,
-        justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
-        observacoes: status === 'reprovado' ? rejectionReason : undefined,
-        aprovado: approvedFlag,
-        comissionado: commissionedBool,
-      };
-
-      approvalUpdates.is_billable = commissionedBool;
-
-      const supabaseUpdates = buildSupabasePayload(approvalUpdates);
-      const performUpdate = async (updates: Record<string, unknown>) =>
-        supabase
-          .from('time_logs')
-          .update(updates as TimeLogUpdate)
-          .eq('id', id);
-
-      const { error } = await performUpdate(supabaseUpdates);
+        const { data, error } = await supabase.rpc('approve_time_log', {
+        p_time_log_id: id,
+        p_status: status,
+        p_commissioned: commissionedBool,
+        p_performed_at: isoString,
+        p_approver_name: approverName,
+        p_rejection_reason: rejectionReason,
+      });
 
       if (error) {
-        const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
-        const missingLegacyColumns =
-          error.code === 'PGRST204' &&
-          (message.includes('aprovador_nome') ||
-            message.includes('aprovacao_data') ||
-            message.includes('data_aprovacao') ||
-            message.includes('aprovacao_hora') ||
-            message.includes('approval_status') ||
-            message.includes('approved_at') ||
-            message.includes('approved_by') ||
-            message.includes('is_billable'));
-
-        if (!missingLegacyColumns) {
-          throw error;
-        }
-
-        legacyApprovalSchemaRef.current = true;
-
-        const fallbackUpdates = buildSupabasePayload(approvalUpdates);
-
-        const { error: fallbackError } = await performUpdate(fallbackUpdates);
-
-        if (fallbackError) {
-          throw fallbackError;
-        }
+        throw error;
       }
 
-      setTimeLogs(prev =>
-        prev.map(log =>
-          log.id === id
-            ? {
-                ...log,
-                status_aprovacao: status,
-                approval_status:
-                  status === 'aprovado'
-                    ? 'Aprovado'
-                    : status === 'reprovado'
-                      ? 'Reprovado'
-                      : 'Aguarda Aprovação',
-                aprovador_id: user.id,
-                aprovador_nome: approverName,
-                approved_by: user.id,
-                data_aprovacao: isoString,
-                approved_at: isoString,
-                aprovacao_data: approvalParts.date ?? log.aprovacao_data ?? null,
-                aprovacao_hora: approvalParts.time ?? log.aprovacao_hora ?? null,
-                justificativa_reprovacao:
-                  status === 'reprovado' ? rejectionReason ?? null : null,
-                observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
-                aprovado: approvedFlag,
-                comissionado: commissionedBool,
-                is_billable: commissionedBool,
-              }
-            : log,
-        ),
-      );
+      if (!data) {
+        throw new Error('Nenhum dado retornado ao atualizar aprovação do tempo.');
+      }
+
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+
+      setTimeLogs(prev => prev.map(log => (log.id === id ? normalized : log)));
 
       toast({
         title: 'Sucesso',
