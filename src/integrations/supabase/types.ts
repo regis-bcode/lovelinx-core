@@ -1488,12 +1488,11 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           atividade: string | null
-          comissionado: string | null
+          comissionado: boolean
           created_at: string
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
-          faturavel: boolean
           id: string
           is_billable: boolean | null
           justificativa_reprovacao: string | null
@@ -1516,12 +1515,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           atividade?: string | null
-          comissionado?: string | null
+          comissionado?: boolean
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
-          faturavel?: boolean
           id?: string
           is_billable?: boolean | null
           justificativa_reprovacao?: string | null
@@ -1544,12 +1542,11 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           atividade?: string | null
-          comissionado?: string | null
+          comissionado?: boolean
           created_at?: string
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
-          faturavel?: boolean
           id?: string
           is_billable?: boolean | null
           justificativa_reprovacao?: string | null

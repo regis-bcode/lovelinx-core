@@ -22,7 +22,6 @@ export const TIME_LOG_COLUMNS = new Set<AllowedColumns>([
   'observacoes',
   'atividade',
   'justificativa_reprovacao',
-  'faturavel',
   'aprovado',
   'comissionado',
   'tempo_trabalhado',

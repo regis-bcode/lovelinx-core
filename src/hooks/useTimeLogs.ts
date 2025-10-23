@@ -83,19 +83,37 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   })();
 
   const normalizedComissionado = (() => {
+    if (typeof log.comissionado === 'boolean') {
+      return log.comissionado;
+    }
+
     if (typeof log.comissionado === 'string') {
       const trimmed = log.comissionado.trim().toUpperCase();
-      if (trimmed === 'SIM' || trimmed === 'NÃO') {
-        return trimmed as 'SIM' | 'NÃO';
+      if (trimmed === 'SIM') {
+        return true;
+      }
+
+      if (trimmed === 'NÃO') {
+        return false;
       }
     }
+
+    const legacyFaturavel = (log as { faturavel?: boolean | null }).faturavel;
+    if (typeof legacyFaturavel === 'boolean') {
+      return legacyFaturavel;
+    }
+
     return null;
   })();
 
-  const isComissionado = normalizedComissionado === 'SIM';
-  const faturavel = typeof log.faturavel === 'boolean' ? log.faturavel : isComissionado;
   const legacyBillable = (log as { is_billable?: boolean | null }).is_billable;
-  const normalizedBillable = typeof legacyBillable === 'boolean' ? legacyBillable : faturavel;
+  const comissionado =
+    typeof normalizedComissionado === 'boolean'
+      ? normalizedComissionado
+      : typeof legacyBillable === 'boolean'
+        ? legacyBillable
+        : false;
+  const normalizedBillable = typeof legacyBillable === 'boolean' ? legacyBillable : comissionado;
 
   const approvalIso =
     typeof log.data_aprovacao === 'string' && log.data_aprovacao.trim().length > 0
@@ -164,9 +182,8 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   return {
     ...log,
-    faturavel,
+    comissionado,
     aprovado: normalizedAprovado,
-    comissionado: normalizedComissionado,
     is_billable: normalizedBillable,
     aprovador_nome: log.aprovador_nome ?? null,
     aprovacao_data: log.aprovacao_data ?? approvalParts.date,
@@ -413,24 +430,8 @@ export function useTimeLogs(projectId?: string) {
       const isoString = (performedAt ?? new Date()).toISOString();
 
       const existingLog = timeLogs.find(log => log.id === id) ?? null;
-      const existingCommissioned = (() => {
-        if (!existingLog) {
-          return false;
-        }
-
-        if (typeof existingLog.comissionado === 'string') {
-          const normalized = existingLog.comissionado.trim().toUpperCase();
-          if (normalized === 'SIM') {
-            return true;
-          }
-        }
-
-        if (existingLog.faturavel === true || existingLog.is_billable === true) {
-          return true;
-        }
-
-        return false;
-      })();
+      const existingCommissioned =
+        (existingLog?.comissionado ?? null) === true || existingLog?.is_billable === true;
 
       const metadata = user.user_metadata as Record<string, unknown> | undefined;
       const metadataFullName =
@@ -488,8 +489,6 @@ export function useTimeLogs(projectId?: string) {
             ? Boolean(options?.commissioned)
             : existingCommissioned
           : false;
-      const commissionedFlag: 'SIM' | 'NÃO' = commissionedBool ? 'SIM' : 'NÃO';
-
       if (
         status === 'reprovado' &&
         hasJustificationOverride &&
@@ -523,8 +522,7 @@ export function useTimeLogs(projectId?: string) {
         justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
         observacoes: status === 'reprovado' ? rejectionReason : undefined,
         aprovado: approvedFlag,
-        comissionado: commissionedFlag,
-        faturavel: commissionedBool,
+        comissionado: commissionedBool,
       };
 
       approvalUpdates.is_billable = commissionedBool;
@@ -589,8 +587,7 @@ export function useTimeLogs(projectId?: string) {
                   status === 'reprovado' ? rejectionReason ?? null : null,
                 observacoes: status === 'reprovado' ? rejectionReason ?? null : log.observacoes,
                 aprovado: approvedFlag,
-                comissionado: commissionedFlag,
-                faturavel: commissionedBool,
+                comissionado: commissionedBool,
                 is_billable: commissionedBool,
               }
             : log,
