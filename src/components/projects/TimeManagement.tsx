@@ -151,6 +151,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     startTimerLog,
     stopTimerLog,
     deleteTimeLog,
+    refreshTimeLogs,
     loading: logsLoading,
   } = useTimeLogs(projectId);
   const { isAdmin, isGestor } = useUserRoles();
@@ -1430,12 +1431,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     nextIsCommissioned: boolean,
     performedAt?: Date,
     approverNameOverride?: string | null,
-  ) {
+  ): Promise<boolean> {
     if (!timeLog || isApprovalInfoComplete) {
-      return;
+      return false;
     }
 
     setIsSaving(true);
+    let succeeded = false;
     try {
       const normalizedStatus: TimeLog['status_aprovacao'] =
         nextStatus === 'Aprovado'
@@ -1463,7 +1465,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       });
 
       if (!success) {
-        return;
+        return false;
       }
 
       setApprovalStatus(nextStatus);
@@ -1526,11 +1528,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
       setSelectedLogForDetails(prev => applyLocalApprovalPatch(prev));
       setApprovalDialogLog(prev => applyLocalApprovalPatch(prev));
+      succeeded = true;
     } catch (e) {
       console.error('Erro ao salvar aprovação:', e);
+      return false;
     } finally {
       setIsSaving(false);
     }
+
+    return succeeded;
   }
 
   function handleApprove() {
@@ -1607,23 +1613,31 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    if (approvalConfirmation.action === 'approve') {
-      await saveApproval(
-        'Aprovado',
-        approvalConfirmation.commissioned,
-        approvalConfirmation.performedAt,
-        approvalConfirmation.approverName ?? null,
-      );
-    } else {
-      await saveApproval(
+    const wasSuccessful = await (async () => {
+      if (approvalConfirmation.action === 'approve') {
+        return saveApproval(
+          'Aprovado',
+          approvalConfirmation.commissioned,
+          approvalConfirmation.performedAt,
+          approvalConfirmation.approverName ?? null,
+        );
+      }
+
+      return saveApproval(
         'Reprovado',
         false,
         approvalConfirmation.performedAt,
         approvalConfirmation.approverName ?? null,
       );
+    })();
+
+    if (!wasSuccessful) {
+      return;
     }
 
     setApprovalConfirmation(null);
+    handleLogDetailsDialogOpenChange(false);
+    await refreshTimeLogs();
   }
 
   const getTaskFieldDisplayValue = useCallback(
