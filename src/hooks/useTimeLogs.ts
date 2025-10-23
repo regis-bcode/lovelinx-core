@@ -205,7 +205,21 @@ const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
   'approved_by',
   'approved_at',
   'is_billable',
+  'aprovacao_data',
+  'aprovacao_hora',
 ];
+
+const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, TimeLog['approval_status']> = {
+  pendente: 'Aguarda Aprovação',
+  aprovado: 'Aprovado',
+  reprovado: 'Reprovado',
+};
+
+const APPROVED_FLAG_MAP: Record<ApprovalStatus, TimeLog['aprovado']> = {
+  pendente: null,
+  aprovado: 'SIM',
+  reprovado: 'NÃO',
+};
 
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
@@ -502,7 +516,7 @@ export function useTimeLogs(projectId?: string) {
         return false;
       }
 
-        const { data, error } = await supabase.rpc('approve_time_log', {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('approve_time_log', {
         p_time_log_id: id,
         p_status: status,
         p_commissioned: commissionedBool,
@@ -511,15 +525,90 @@ export function useTimeLogs(projectId?: string) {
         p_rejection_reason: rejectionReason,
       });
 
-      if (error) {
-        throw error;
+      let updatedRow: TimeLogRow | null = null;
+
+      if (rpcError) {
+        if (rpcError.code === 'PGRST202') {
+          console.warn('Função approve_time_log indisponível. Aplicando fallback de compatibilidade.', rpcError);
+
+          const effectiveCommissioned = status === 'aprovado' ? commissionedBool : false;
+          const normalizedApproverName =
+            approverName && approverName.trim().length > 0 ? approverName.trim() : null;
+          const fallbackApproverName =
+            status === 'pendente'
+              ? null
+              : normalizedApproverName ?? existingLog?.aprovador_nome ?? null;
+          const performedAtIso = status === 'pendente' ? null : isoString;
+          const { date: approvalDatePart, time: approvalTimePart } =
+            extractApprovalDateTimeParts(performedAtIso ?? undefined);
+
+          const fallbackPayload = sanitizeTimeLogPayload({
+            status_aprovacao: status,
+            approval_status: APPROVAL_STATUS_LABELS[status],
+            aprovado: APPROVED_FLAG_MAP[status],
+            comissionado: effectiveCommissioned,
+            is_billable: effectiveCommissioned,
+            aprovador_id: status === 'pendente' ? null : user.id,
+            approved_by: status === 'pendente' ? null : user.id,
+            aprovador_nome: fallbackApproverName,
+            data_aprovacao: performedAtIso,
+            approved_at: performedAtIso,
+            aprovacao_data: approvalDatePart,
+            aprovacao_hora: approvalTimePart,
+            justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
+            observacoes: status === 'reprovado' ? rejectionReason ?? null : undefined,
+            updated_at: new Date().toISOString(),
+          });
+
+          const attemptLegacyUpdate = async (
+            payload: Record<string, unknown>,
+            allowRetry: boolean,
+          ): Promise<TimeLogRow> => {
+            const { data: updateData, error: updateError } = await supabase
+              .from('time_logs')
+              .update(payload as TimeLogUpdate)
+              .eq('id', id)
+              .select()
+              .single();
+
+            if (updateError) {
+              if (allowRetry && updateError.code === '42703') {
+                const trimmedPayload = { ...payload };
+                for (const column of LEGACY_INCOMPATIBLE_COLUMNS) {
+                  if (column in trimmedPayload) {
+                    delete trimmedPayload[column];
+                  }
+                }
+                legacyApprovalSchemaRef.current = true;
+                return attemptLegacyUpdate(trimmedPayload, false);
+              }
+
+              throw updateError;
+            }
+
+            if (!updateData) {
+              throw new Error(
+                'Nenhum dado retornado ao atualizar aprovação do tempo (modo compatibilidade).',
+              );
+            }
+
+            return updateData as TimeLogRow;
+          };
+
+          updatedRow = await attemptLegacyUpdate(fallbackPayload, true);
+          legacyApprovalSchemaRef.current = true;
+        } else {
+          throw rpcError;
+        }
+      } else {
+        updatedRow = rpcData as TimeLogRow | null;
       }
 
-      if (!data) {
+      if (!updatedRow) {
         throw new Error('Nenhum dado retornado ao atualizar aprovação do tempo.');
       }
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(updatedRow);
 
       setTimeLogs(prev => prev.map(log => (log.id === id ? normalized : log)));
 
