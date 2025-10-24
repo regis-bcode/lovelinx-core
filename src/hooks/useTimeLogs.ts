@@ -748,10 +748,14 @@ export function useTimeLogs(projectId?: string) {
       taskName?: string | null;
       timeLogId?: string | null;
       existingActivity?: string | null;
+      startedAtMs?: number | null;
+      allowCreateIfMissing?: boolean;
     },
   ): Promise<TimeLog | null> => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (!user) {
         toast({
@@ -791,16 +795,6 @@ export function useTimeLogs(projectId?: string) {
         openLog = (fetchedLog as TimeLogRow | null) ?? null;
       }
 
-      const logIdToUpdate = normalizedLogId ?? openLog?.id ?? null;
-
-      if (!logIdToUpdate) {
-        toast({
-          title: 'Cronômetro não encontrado',
-          description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
-        });
-        return null;
-      }
-
       const nowMs = Date.now();
       const isoNow = new Date(nowMs).toISOString();
 
@@ -830,6 +824,135 @@ export function useTimeLogs(projectId?: string) {
       const normalizedActivityValue =
         typeof activity === 'string' && activity.trim().length > 0 ? activity.trim() : null;
 
+      const fallbackStartedAtMs = (() => {
+        if (typeof openLog?.data_inicio === 'string') {
+          const parsed = Date.parse(openLog.data_inicio);
+          if (Number.isFinite(parsed)) {
+            return Math.min(parsed, nowMs);
+          }
+        }
+        if (typeof options?.startedAtMs === 'number' && Number.isFinite(options.startedAtMs)) {
+          return Math.min(options.startedAtMs, nowMs);
+        }
+        return null;
+      })();
+
+      const shouldAttemptCreate = options?.allowCreateIfMissing !== false;
+
+      const registerTimeLogActivity = async (log: TimeLog) => {
+        try {
+          const summaryParts: string[] = [];
+          if (log.tempo_formatado) {
+            summaryParts.push(`Tempo registrado: ${log.tempo_formatado}`);
+          }
+          const activitySummary = normalizedActivityValue ?? '';
+          if (activitySummary.length > 0) {
+            summaryParts.push(`Atividade: ${activitySummary}`);
+          }
+
+          const activityPayload: TaskActivityInsert = {
+            task_id: taskId,
+            actor_id: user.id,
+            kind: 'system.time_log',
+            title:
+              typeof options?.taskName === 'string' && options.taskName.trim().length > 0
+                ? `Tempo registrado - ${options.taskName.trim()}`
+                : 'Tempo registrado via cronômetro',
+            message:
+              summaryParts.length > 0
+                ? summaryParts.join(' • ')
+                : 'Tempo registrado via Gestão de Tarefas.',
+            payload: {
+              time_log_id: log.id,
+              tempo_formatado: log.tempo_formatado ?? null,
+              data_inicio: log.data_inicio ?? null,
+              data_fim: log.data_fim ?? null,
+              atividade: normalizedActivityValue,
+              observacoes: log.observacoes ?? null,
+            } as TaskActivityInsert['payload'],
+          };
+
+          const { error: activityError } = await supabase
+            .from('task_activities')
+            .insert(activityPayload);
+
+          if (activityError) {
+            console.error('Erro ao registrar atividade de tempo:', activityError);
+          }
+        } catch (activityError) {
+          console.error('Erro inesperado ao registrar atividade de tempo:', activityError);
+        }
+      };
+
+      const createLogFromFallback = async (): Promise<TimeLog | null> => {
+        if (!shouldAttemptCreate || !fallbackStartedAtMs) {
+          toast({
+            title: 'Cronômetro não encontrado',
+            description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
+          });
+          return null;
+        }
+
+        if (!projectId) {
+          toast({
+            title: 'Projeto não selecionado',
+            description: 'Não foi possível identificar o projeto para registrar o tempo.',
+            variant: 'destructive',
+          });
+          return null;
+        }
+
+        const startIso = new Date(fallbackStartedAtMs).toISOString();
+
+        const insertPayload: Partial<TimeLogFormData> = {
+          task_id: taskId,
+          project_id: projectId,
+          user_id: user.id,
+          tipo_inclusao: 'timer',
+          data_inicio: startIso,
+          data_fim: isoNow,
+          atividade: normalizedActivityValue,
+          status_aprovacao: 'pendente',
+          approval_status: 'Aguarda Aprovação',
+          observacoes: null,
+          aprovador_id: null,
+          aprovador_nome: null,
+          approved_by: null,
+          data_aprovacao: null,
+          approved_at: null,
+        };
+
+        const { data: insertedData, error: insertError } = await supabase
+          .from('time_logs')
+          .insert(buildSupabasePayload(insertPayload) as TimeLogInsert)
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        if (!insertedData) {
+          throw new Error('Nenhum dado retornado ao registrar novo log de tempo.');
+        }
+
+        const normalized = normalizeTimeLogRecord(insertedData as TimeLogRow);
+
+        setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
+
+        await registerTimeLogActivity(normalized);
+
+        toast({
+          title: 'Sucesso',
+          description: 'Tempo registrado com sucesso',
+        });
+
+        return normalized;
+      };
+
+      const logIdToUpdate = normalizedLogId ?? openLog?.id ?? null;
+
+      if (!logIdToUpdate) {
+        return await createLogFromFallback();
+      }
+
       const updatePayload: Partial<TimeLogFormData> = {
         data_fim: isoNow,
         atividade: normalizedActivityValue,
@@ -846,11 +969,7 @@ export function useTimeLogs(projectId?: string) {
 
       if (updateError) {
         if (updateError.code === 'PGRST116') {
-          toast({
-            title: 'Cronômetro não encontrado',
-            description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
-          });
-          return null;
+          return await createLogFromFallback();
         }
         throw updateError;
       }
@@ -869,48 +988,7 @@ export function useTimeLogs(projectId?: string) {
         return [normalized, ...prev];
       });
 
-      try {
-        const summaryParts: string[] = [];
-        if (normalized.tempo_formatado) {
-          summaryParts.push(`Tempo registrado: ${normalized.tempo_formatado}`);
-        }
-        const activitySummary = normalizedActivityValue ?? '';
-        if (activitySummary.length > 0) {
-          summaryParts.push(`Atividade: ${activitySummary}`);
-        }
-
-        const activityPayload: TaskActivityInsert = {
-          task_id: taskId,
-          actor_id: user.id,
-          kind: 'system.time_log',
-          title:
-            typeof options?.taskName === 'string' && options.taskName.trim().length > 0
-              ? `Tempo registrado - ${options.taskName.trim()}`
-              : 'Tempo registrado via cronômetro',
-          message:
-            summaryParts.length > 0
-              ? summaryParts.join(' • ')
-              : 'Tempo registrado via Gestão de Tarefas.',
-          payload: {
-            time_log_id: normalized.id,
-            tempo_formatado: normalized.tempo_formatado ?? null,
-            data_inicio: normalized.data_inicio ?? null,
-            data_fim: normalized.data_fim ?? null,
-            atividade: normalizedActivityValue,
-            observacoes: normalized.observacoes ?? null,
-          } as TaskActivityInsert['payload'],
-        };
-
-        const { error: activityError } = await supabase
-          .from('task_activities')
-          .insert(activityPayload);
-
-        if (activityError) {
-          console.error('Erro ao registrar atividade de tempo:', activityError);
-        }
-      } catch (activityError) {
-        console.error('Erro inesperado ao registrar atividade de tempo:', activityError);
-      }
+      await registerTimeLogActivity(normalized);
 
       toast({
         title: 'Sucesso',

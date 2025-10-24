@@ -332,7 +332,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    const result = await stopTimerLog(taskId);
+    const startTimestamp = activeTimers[taskId];
+    const result = await stopTimerLog(taskId, {
+      startedAtMs: typeof startTimestamp === 'number' && Number.isFinite(startTimestamp)
+        ? startTimestamp
+        : null,
+      allowCreateIfMissing: true,
+    });
 
     if (!result) {
       return;
