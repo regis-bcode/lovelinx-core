@@ -806,7 +806,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
   const [pendingStopTimer, setPendingStopTimer] = useState<
-    { rowIndex: number; row: TaskRow; logId?: string | null; existingActivity?: string | null } | null
+    {
+      rowIndex: number;
+      row: TaskRow;
+      logId?: string | null;
+      existingActivity?: string | null;
+      startedAt?: number | null;
+    } | null
   >(null);
   const [stopTimerActivityDescription, setStopTimerActivityDescription] = useState('');
   const [stopTimerError, setStopTimerError] = useState<string | null>(null);
@@ -2820,11 +2826,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         }
       }
 
+      const startedAtTimestamp = typeof row.id === 'string' ? activeTimers[row.id] ?? null : null;
+
       setPendingStopTimer({
         rowIndex,
         row,
         logId: runningLog?.id ?? null,
         existingActivity: runningLog?.atividade ?? null,
+        startedAt: startedAtTimestamp,
       });
       const existingDescription =
         typeof runningLog?.atividade === 'string' && runningLog.atividade.trim().length > 0
@@ -2842,6 +2851,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     activityDescription?: string | null;
     timeLogId?: string | null;
     existingActivity?: string | null;
+    startedAtMs?: number | null;
+    allowCreateIfMissing?: boolean;
   }
 
   const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
@@ -2870,12 +2881,24 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       typeof options?.activityDescription === 'string' && options.activityDescription.trim().length > 0
         ? options.activityDescription.trim()
         : undefined;
+    const fallbackStartedAt = (() => {
+      if (typeof options?.startedAtMs === 'number' && Number.isFinite(options.startedAtMs)) {
+        return options.startedAtMs;
+      }
+      if (typeof row.id === 'string' && row.id.length > 0) {
+        const fromState = activeTimers[row.id];
+        return typeof fromState === 'number' && Number.isFinite(fromState) ? fromState : null;
+      }
+      return null;
+    })();
 
     const result = await stopTimerLog(row.id, {
       activityDescription: description,
       taskName,
       timeLogId: options?.timeLogId,
       existingActivity: options?.existingActivity,
+      startedAtMs: fallbackStartedAt,
+      allowCreateIfMissing: options?.allowCreateIfMissing,
     });
 
     if (result) {
@@ -2921,6 +2944,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           typeof pendingStopTimer.existingActivity === 'string'
             ? pendingStopTimer.existingActivity
             : null,
+        startedAtMs: pendingStopTimer.startedAt ?? null,
+        allowCreateIfMissing: true,
       });
 
       if (didStop) {
