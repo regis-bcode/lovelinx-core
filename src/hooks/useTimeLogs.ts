@@ -728,6 +728,8 @@ export function useTimeLogs(projectId?: string) {
     options?: {
       activityDescription?: string | null;
       taskName?: string | null;
+      timeLogId?: string | null;
+      existingActivity?: string | null;
     },
   ): Promise<TimeLog | null> => {
     try {
@@ -742,19 +744,38 @@ export function useTimeLogs(projectId?: string) {
         return null;
       }
 
-      const { data: openLog, error: selectError } = await supabase
-        .from('time_logs')
-        .select('*')
-        .eq('task_id', taskId)
-        .eq('user_id', user.id)
-        .is('data_fim', null)
-        .order('data_inicio', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const normalizedLogId =
+        typeof options?.timeLogId === 'string' && options.timeLogId.trim().length > 0
+          ? options.timeLogId.trim()
+          : null;
 
-      if (selectError) throw selectError;
+      let openLog: TimeLogRow | null = null;
 
-      if (!openLog) {
+      if (!normalizedLogId || !options?.existingActivity) {
+        const baseQuery = supabase
+          .from('time_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .is('data_fim', null)
+          .order('data_inicio', { ascending: false })
+          .limit(1);
+
+        if (normalizedLogId) {
+          baseQuery.eq('id', normalizedLogId);
+        } else {
+          baseQuery.eq('task_id', taskId);
+        }
+
+        const { data: fetchedLog, error: selectError } = await baseQuery.maybeSingle();
+
+        if (selectError) throw selectError;
+
+        openLog = (fetchedLog as TimeLogRow | null) ?? null;
+      }
+
+      const logIdToUpdate = normalizedLogId ?? openLog?.id ?? null;
+
+      if (!logIdToUpdate) {
         toast({
           title: 'Cronômetro não encontrado',
           description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
@@ -770,7 +791,14 @@ export function useTimeLogs(projectId?: string) {
           ? options.activityDescription.trim()
           : '';
       const existingActivity = (() => {
-        if (typeof openLog.atividade === 'string') {
+        if (typeof options?.existingActivity === 'string') {
+          const trimmed = options.existingActivity.trim();
+          if (trimmed.length > 0) {
+            return trimmed;
+          }
+        }
+
+        if (typeof openLog?.atividade === 'string') {
           const trimmed = openLog.atividade.trim();
           if (trimmed.length > 0) {
             return trimmed;
@@ -792,19 +820,28 @@ export function useTimeLogs(projectId?: string) {
       const { data, error: updateError } = await supabase
         .from('time_logs')
         .update(buildSupabasePayload(updatePayload) as TimeLogUpdate)
-        .eq('id', openLog.id)
+        .eq('id', logIdToUpdate)
+        .eq('task_id', taskId)
+        .eq('user_id', user.id)
         .select()
         .single();
 
-      let updatedRecord: TimeLogRow;
-
       if (updateError) {
+        if (updateError.code === 'PGRST116') {
+          toast({
+            title: 'Cronômetro não encontrado',
+            description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
+          });
+          return null;
+        }
         throw updateError;
       }
 
-      updatedRecord = data as TimeLogRow;
+      if (!data) {
+        throw new Error('Nenhum dado retornado ao finalizar o log de tempo.');
+      }
 
-      const normalized = normalizeTimeLogRecord(updatedRecord);
+      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
 
       setTimeLogs(prev => {
         const hasLog = prev.some(log => log.id === normalized.id);
