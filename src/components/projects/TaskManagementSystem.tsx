@@ -798,7 +798,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   } | null>(null);
   const [selectedResponsavelForTimer, setSelectedResponsavelForTimer] = useState<string | null>(null);
   const [isSavingResponsavelForTimer, setIsSavingResponsavelForTimer] = useState(false);
-  const [pendingStopTimer, setPendingStopTimer] = useState<{ rowIndex: number; row: TaskRow } | null>(null);
+  const [pendingStopTimer, setPendingStopTimer] = useState<
+    { rowIndex: number; row: TaskRow; logId?: string | null; existingActivity?: string | null } | null
+  >(null);
   const [stopTimerActivityDescription, setStopTimerActivityDescription] = useState('');
   const [stopTimerError, setStopTimerError] = useState<string | null>(null);
   const [isSubmittingStopTimer, setIsSubmittingStopTimer] = useState(false);
@@ -2803,7 +2805,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const runningLog = timeLogs.find(log => log.task_id === row.id && !log.data_fim);
 
-      setPendingStopTimer({ rowIndex, row });
+      setPendingStopTimer({
+        rowIndex,
+        row,
+        logId: runningLog?.id ?? null,
+        existingActivity: runningLog?.atividade ?? null,
+      });
       const existingDescription =
         typeof runningLog?.atividade === 'string' && runningLog.atividade.trim().length > 0
           ? runningLog.atividade
@@ -2818,6 +2825,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     rowIndex?: number;
     statusAfterStop?: string | null;
     activityDescription?: string | null;
+    timeLogId?: string | null;
+    existingActivity?: string | null;
   }
 
   const handleStopTimer = async (row: TaskRow, options?: StopTimerOptions) => {
@@ -2854,6 +2863,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const result = await stopTimerLog(row.id, {
       activityDescription: description,
       taskName,
+      timeLogId: options?.timeLogId,
+      existingActivity: options?.existingActivity,
     });
 
     if (result) {
@@ -2893,6 +2904,11 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const didStop = await handleStopTimer(currentRow, {
         rowIndex,
         activityDescription: trimmedDescription,
+        timeLogId: pendingStopTimer.logId ?? null,
+        existingActivity:
+          typeof pendingStopTimer.existingActivity === 'string'
+            ? pendingStopTimer.existingActivity
+            : null,
       });
 
       if (didStop) {
