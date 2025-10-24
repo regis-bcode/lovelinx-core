@@ -4386,6 +4386,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         ref={fileInputRef}
         type="file"
         accept=".xlsx,.xls"
+        id="task-management-import"
         className="hidden"
         onChange={handleImportFileChange}
       />
