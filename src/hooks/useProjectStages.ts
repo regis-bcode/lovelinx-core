@@ -65,7 +65,31 @@ export function useProjectStages() {
 
   const isTableMissingError = (error: unknown, tableName: string): error is PostgrestError => {
     const parsed = error as PostgrestError | undefined;
-    return Boolean(parsed?.code === 'PGRST205' && parsed?.message?.includes(`'public.${tableName}'`));
+
+    if (parsed?.code !== 'PGRST205') {
+      return false;
+    }
+
+    const normalizedTableName = tableName.toLowerCase();
+    const includesTableName = (value?: string | null) => {
+      if (!value) return false;
+      const normalized = value.toLowerCase();
+
+      return [
+        `'public.${normalizedTableName}'`,
+        `"public.${normalizedTableName}"`,
+        `'${normalizedTableName}'`,
+        `"${normalizedTableName}"`,
+        `public.${normalizedTableName}`,
+        normalizedTableName,
+      ].some(token => normalized.includes(token));
+    };
+
+    return (
+      includesTableName(parsed?.message) ||
+      includesTableName(parsed?.details) ||
+      includesTableName(parsed?.hint)
+    );
   };
 
   const loadFallbackStages = (userId: string) => {
