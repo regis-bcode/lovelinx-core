@@ -152,6 +152,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
+  const [timerActionsInFlight, setTimerActionsInFlight] = useState<Record<string, boolean>>({});
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [taskPendingAssignment, setTaskPendingAssignment] = useState<Task | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState('');
@@ -327,64 +328,114 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   };
 
-  const stopTimer = async (taskId: string, options?: { discard?: boolean }) => {
-    if (!activeTimers[taskId]) {
-      return;
-    }
+  const removeLocalTimerState = useCallback(
+    (taskId: string) => {
+      applyActiveTimersUpdate(prev => {
+        if (!prev[taskId]) {
+          return prev;
+        }
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
 
-    const startTimestamp = activeTimers[taskId];
-    const result = await stopTimerLog(taskId, {
-      startedAtMs: typeof startTimestamp === 'number' && Number.isFinite(startTimestamp)
-        ? startTimestamp
-        : null,
-      allowCreateIfMissing: true,
-      suppressSuccessToast: options?.discard === true,
-    });
+      setElapsedSeconds(prev => {
+        if (!(taskId in prev)) {
+          return prev;
+        }
+        const updated = { ...prev };
+        delete updated[taskId];
+        return updated;
+      });
+    },
+    [applyActiveTimersUpdate],
+  );
 
-    if (!result) {
-      return;
-    }
+  const updateTimerActionState = useCallback((taskId: string, inFlight: boolean) => {
+    setTimerActionsInFlight(prev => {
+      if (inFlight) {
+        if (prev[taskId]) {
+          return prev;
+        }
+        return { ...prev, [taskId]: true };
+      }
 
-    applyActiveTimersUpdate(prev => {
       if (!prev[taskId]) {
         return prev;
       }
+
       const updated = { ...prev };
       delete updated[taskId];
       return updated;
     });
+  }, []);
 
-    setElapsedSeconds(prev => {
-      if (!(taskId in prev)) {
-        return prev;
-      }
-      const updated = { ...prev };
-      delete updated[taskId];
-      return updated;
-    });
+  const stopTimer = async (taskId: string, options?: { discard?: boolean }) => {
+    const hasActiveTimers = Object.keys(activeTimers).length > 0;
+    if (!hasActiveTimers) {
+      toast({
+        title: 'Nenhum cronômetro em andamento',
+        description: 'Inicie um cronômetro antes de tentar parar ou zerar o tempo.',
+      });
+      return false;
+    }
 
-    if (options?.discard) {
-      const logId = result.id;
-      const removed = await deleteTimeLog(logId, { suppressToast: true });
+    const startTimestamp = activeTimers[taskId];
+    if (typeof startTimestamp !== 'number' || !Number.isFinite(startTimestamp)) {
+      toast({
+        title: 'Cronômetro não encontrado',
+        description: 'Não encontramos um cronômetro ativo para esta tarefa.',
+      });
+      removeLocalTimerState(taskId);
+      return false;
+    }
 
-      if (removed) {
+    updateTimerActionState(taskId, true);
+
+    try {
+      const result = await stopTimerLog(taskId, {
+        startedAtMs: startTimestamp,
+        allowCreateIfMissing: options?.discard ? false : true,
+        suppressSuccessToast: options?.discard === true,
+      });
+
+      if (!result) {
         toast({
-          title: 'Cronômetro zerado',
-          description: 'O tempo registrado foi descartado.',
-        });
-      } else {
-        toast({
-          title: 'Erro ao zerar cronômetro',
-          description: 'O tempo foi interrompido, mas não foi possível remover o registro.',
+          title: 'Erro ao finalizar cronômetro',
+          description: 'Não foi possível registrar o encerramento do tempo. Tente novamente.',
           variant: 'destructive',
         });
+        return false;
+      }
+
+      removeLocalTimerState(taskId);
+
+      if (options?.discard) {
+        const logId = result.id;
+        const removed = await deleteTimeLog(logId, { suppressToast: true });
+
+        if (removed) {
+          toast({
+            title: 'Cronômetro zerado',
+            description: 'O tempo registrado foi descartado.',
+          });
+        } else {
+          toast({
+            title: 'Erro ao zerar cronômetro',
+            description: 'O tempo foi interrompido, mas não foi possível remover o registro.',
+            variant: 'destructive',
+          });
+        }
+
+        await refreshTimeLogs();
+        return removed;
       }
 
       await refreshTimeLogs();
-      return;
+      return true;
+    } finally {
+      updateTimerActionState(taskId, false);
     }
-
-    await refreshTimeLogs();
   };
 
   const resetTimer = (taskId: string) => stopTimer(taskId, { discard: true });
@@ -1898,16 +1949,27 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 {activeTimerEntries.map(([taskId]) => {
                   const task = tasks.find(t => t.id === taskId);
                   const currentSeconds = elapsedSeconds[taskId] || 0;
+                  const isActionRunning = Boolean(timerActionsInFlight[taskId]);
                   return (
                     <div key={taskId} className="rounded-md border px-3 py-2 shadow-sm">
                       <div className="text-xs uppercase text-muted-foreground">Timer ativo</div>
                       <div className="font-medium">{task?.tarefa || 'Tarefa'}</div>
                       <div className="font-mono text-sm">{formatTime(currentSeconds)}</div>
                       <div className="mt-2 flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => stopTimer(taskId)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => stopTimer(taskId)}
+                          disabled={isActionRunning}
+                        >
                           Parar
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => resetTimer(taskId)}>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => resetTimer(taskId)}
+                          disabled={isActionRunning}
+                        >
                           Zerar
                         </Button>
                       </div>
@@ -1969,6 +2031,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => stopTimer(task.id)}
+                                disabled={Boolean(timerActionsInFlight[task.id])}
                               >
                                 Parar
                               </Button>
@@ -1976,6 +2039,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                                 size="sm"
                                 variant="destructive"
                                 onClick={() => resetTimer(task.id)}
+                                disabled={Boolean(timerActionsInFlight[task.id])}
                               >
                                 Zerar
                               </Button>
