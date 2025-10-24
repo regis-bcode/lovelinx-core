@@ -293,8 +293,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     const tentativeStart = Date.now();
     const startedLog = await startTimerLog(taskId, {
-      tipoInclusao: 'timer',
-      startedAt: new Date(tentativeStart),
+      tipo_inclusao: 'timer',
+      data_inicio: new Date(tentativeStart).toISOString(),
       observacoes: 'Registro automático pela Gestão de Tempo',
     });
 
@@ -355,6 +355,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       delete updated[taskId];
       return updated;
     });
+
+    await refreshTimeLogs();
   };
 
   const addManualTime = async (taskId: string) => {

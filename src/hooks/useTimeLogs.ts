@@ -632,7 +632,9 @@ export function useTimeLogs(projectId?: string) {
   const startTimerLog = async (
     taskId: string,
     options?: {
+      tipo_inclusao?: TimeEntryType;
       tipoInclusao?: TimeEntryType;
+      data_inicio?: string;
       startedAt?: Date;
       observacoes?: string | null;
     },
@@ -679,14 +681,30 @@ export function useTimeLogs(projectId?: string) {
         return normalizedExisting;
       }
 
-      const startedAt = options?.startedAt ?? new Date();
-      const isoStart = startedAt.toISOString();
+      const providedStartFromString = (() => {
+        if (typeof options?.data_inicio === 'string') {
+          const parsed = new Date(options.data_inicio);
+          return Number.isNaN(parsed.getTime()) ? null : parsed;
+        }
+        return null;
+      })();
+
+      const providedStartFromDate = (() => {
+        if (options?.startedAt instanceof Date) {
+          return Number.isNaN(options.startedAt.getTime()) ? null : options.startedAt;
+        }
+        return null;
+      })();
+
+      const effectiveStartDate = providedStartFromString ?? providedStartFromDate ?? new Date();
+      const isoStart = providedStartFromString?.toISOString() ?? effectiveStartDate.toISOString();
+      const effectiveEntryType = options?.tipo_inclusao ?? options?.tipoInclusao ?? 'timer';
 
       const payload: Partial<TimeLogFormData> = {
         task_id: taskId,
         project_id: projectId,
         user_id: user.id,
-        tipo_inclusao: options?.tipoInclusao ?? 'timer',
+        tipo_inclusao: effectiveEntryType,
         data_inicio: isoStart,
         data_fim: null,
         status_aprovacao: 'pendente',
