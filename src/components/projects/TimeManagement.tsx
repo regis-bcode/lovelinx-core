@@ -327,7 +327,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   };
 
-  const stopTimer = async (taskId: string) => {
+  const stopTimer = async (taskId: string, options?: { discard?: boolean }) => {
     if (!activeTimers[taskId]) {
       return;
     }
@@ -338,6 +338,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         ? startTimestamp
         : null,
       allowCreateIfMissing: true,
+      suppressSuccessToast: options?.discard === true,
     });
 
     if (!result) {
@@ -362,8 +363,31 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return updated;
     });
 
+    if (options?.discard) {
+      const logId = result.id;
+      const removed = await deleteTimeLog(logId, { suppressToast: true });
+
+      if (removed) {
+        toast({
+          title: 'Cronômetro zerado',
+          description: 'O tempo registrado foi descartado.',
+        });
+      } else {
+        toast({
+          title: 'Erro ao zerar cronômetro',
+          description: 'O tempo foi interrompido, mas não foi possível remover o registro.',
+          variant: 'destructive',
+        });
+      }
+
+      await refreshTimeLogs();
+      return;
+    }
+
     await refreshTimeLogs();
   };
+
+  const resetTimer = (taskId: string) => stopTimer(taskId, { discard: true });
 
   const addManualTime = async (taskId: string) => {
     const time = manualTime[taskId];
@@ -1879,6 +1903,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <div className="text-xs uppercase text-muted-foreground">Timer ativo</div>
                       <div className="font-medium">{task?.tarefa || 'Tarefa'}</div>
                       <div className="font-mono text-sm">{formatTime(currentSeconds)}</div>
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => stopTimer(taskId)}>
+                          Parar
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => resetTimer(taskId)}>
+                          Zerar
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
@@ -1932,13 +1964,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         <span className="font-mono text-sm">{displayedTime}</span>
                         <div className="flex gap-2">
                           {isTimerActive ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => stopTimer(task.id)}
-                            >
-                              Parar
-                            </Button>
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => stopTimer(task.id)}
+                              >
+                                Parar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => resetTimer(task.id)}
+                              >
+                                Zerar
+                              </Button>
+                            </>
                           ) : (
                             <Button
                               size="sm"

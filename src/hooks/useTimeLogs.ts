@@ -750,6 +750,7 @@ export function useTimeLogs(projectId?: string) {
       existingActivity?: string | null;
       startedAtMs?: number | null;
       allowCreateIfMissing?: boolean;
+      suppressSuccessToast?: boolean;
     },
   ): Promise<TimeLog | null> => {
     try {
@@ -838,6 +839,7 @@ export function useTimeLogs(projectId?: string) {
       })();
 
       const shouldAttemptCreate = options?.allowCreateIfMissing !== false;
+      const shouldShowSuccessToast = options?.suppressSuccessToast !== true;
 
       const registerTimeLogActivity = async (log: TimeLog) => {
         try {
@@ -939,10 +941,12 @@ export function useTimeLogs(projectId?: string) {
 
         await registerTimeLogActivity(normalized);
 
-        toast({
-          title: 'Sucesso',
-          description: 'Tempo registrado com sucesso',
-        });
+        if (shouldShowSuccessToast) {
+          toast({
+            title: 'Sucesso',
+            description: 'Tempo registrado com sucesso',
+          });
+        }
 
         return normalized;
       };
@@ -990,10 +994,12 @@ export function useTimeLogs(projectId?: string) {
 
       await registerTimeLogActivity(normalized);
 
-      toast({
-        title: 'Sucesso',
-        description: 'Tempo registrado com sucesso',
-      });
+      if (shouldShowSuccessToast) {
+        toast({
+          title: 'Sucesso',
+          description: 'Tempo registrado com sucesso',
+        });
+      }
 
       return normalized;
     } catch (error) {
@@ -1007,7 +1013,12 @@ export function useTimeLogs(projectId?: string) {
     }
   };
 
-  const deleteTimeLog = async (id: string): Promise<boolean> => {
+  const deleteTimeLog = async (
+    id: string,
+    options?: {
+      suppressToast?: boolean;
+    },
+  ): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('time_logs')
@@ -1018,10 +1029,12 @@ export function useTimeLogs(projectId?: string) {
 
       setTimeLogs(prev => prev.filter(log => log.id !== id));
 
-      toast({
-        title: 'Sucesso',
-        description: 'Log de tempo deletado',
-      });
+      if (options?.suppressToast !== true) {
+        toast({
+          title: 'Sucesso',
+          description: 'Log de tempo deletado',
+        });
+      }
 
       return true;
     } catch (error) {
