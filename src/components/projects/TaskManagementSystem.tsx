@@ -1593,6 +1593,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const payload: Partial<TaskFormData> = {};
 
       Object.entries(rest).forEach(([key, value]) => {
+        if (key === 'data_inicio') {
+          return;
+        }
+
         if (value === undefined || value === null) {
           return;
         }
@@ -1652,9 +1656,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         payload.project_id = projectId;
       }
 
-      if (row.data_inicio instanceof Date) {
-        payload.data_inicio = row.data_inicio.toISOString().slice(0, 10);
-      }
       if (row.data_vencimento instanceof Date) {
         payload.data_vencimento = row.data_vencimento.toISOString().slice(0, 10);
       }
@@ -1850,7 +1851,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     prioridade: 'Média',
     status: defaultStatusName || '',
     cliente: defaultClient || undefined,
-    data_inicio: format(new Date(), 'yyyy-MM-dd'),
     data_vencimento: format(new Date(), 'yyyy-MM-dd'),
     percentual_conclusao: 0,
     nivel: 0,
@@ -2400,10 +2400,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
           const startDateCell = getCellValue(row, 'Início') ?? getCellValue(row, 'Data Início');
           const startDate = parseExcelDate(startDateCell);
-          if (startDate) {
-            payload.data_inicio = startDate;
-          }
-
           const dueDate = parseExcelDate(getCellValue(row, 'Vencimento'));
           if (dueDate) {
             payload.data_vencimento = dueDate;
