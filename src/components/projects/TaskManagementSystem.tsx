@@ -2795,7 +2795,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      if (!activeTimers[row.id]) {
+      const runningLog = timeLogs.find(log => log.task_id === row.id && !log.data_fim);
+
+      if (!activeTimers[row.id] && !runningLog) {
         toast({
           title: 'Nenhum apontamento em andamento',
           description: 'Inicie o cronômetro desta tarefa para registrar a atividade.',
@@ -2803,7 +2805,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      const runningLog = timeLogs.find(log => log.task_id === row.id && !log.data_fim);
+      if (!activeTimers[row.id] && runningLog?.data_inicio) {
+        const startedAt = new Date(runningLog.data_inicio).getTime();
+        if (Number.isFinite(startedAt)) {
+          applyActiveTimersUpdate(prev => {
+            if (prev[row.id!]) {
+              return prev;
+            }
+            return { ...prev, [row.id!]: startedAt };
+          });
+        }
+      }
 
       setPendingStopTimer({
         rowIndex,
@@ -2818,7 +2830,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       setStopTimerActivityDescription(existingDescription ?? '');
       setStopTimerError(null);
     },
-    [activeTimers, timeLogs, toast],
+    [activeTimers, timeLogs, toast, applyActiveTimersUpdate],
   );
 
   interface StopTimerOptions {
@@ -2836,10 +2848,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         description: 'Salve a tarefa antes de finalizar o apontamento.',
         variant: 'destructive',
       });
-      return;
-    }
-
-    if (!activeTimers[row.id]) {
       return;
     }
 
