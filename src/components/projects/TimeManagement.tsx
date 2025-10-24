@@ -91,30 +91,6 @@ function DetailItem({ label, value, mono, span2 }: DetailItemProps) {
   );
 }
 
-const extractApprovalDateTimeParts = (
-  isoString: string | null | undefined,
-): { date: string | null; time: string | null } => {
-  if (!isoString || typeof isoString !== 'string') {
-    return { date: null, time: null };
-  }
-
-  const [datePartRaw, timePartRaw] = isoString.split('T');
-  const datePart = datePartRaw && datePartRaw.trim().length > 0 ? datePartRaw.trim() : null;
-
-  if (!timePartRaw) {
-    return { date: datePart, time: null };
-  }
-
-  const withoutFraction = timePartRaw.split('.')[0] ?? timePartRaw;
-  const timezoneIndex = withoutFraction.search(/[+-]/);
-  const sliced = timezoneIndex >= 0 ? withoutFraction.slice(0, timezoneIndex) : withoutFraction;
-  const withoutTimezone = sliced.replace(/Z$/i, '');
-  const trimmedTime = withoutTimezone.trim();
-  const timePart = trimmedTime.length > 0 ? trimmedTime.slice(0, 8) : null;
-
-  return { date: datePart, time: timePart };
-};
-
 type ApprovalStatus = 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado';
 
 const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
@@ -735,7 +711,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     try {
       let encounteredFailure = false;
       for (const log of logsToUpdate) {
-        const success = await approveTimeLog(
+        const updated = await approveTimeLog(
           log.id,
           bulkApprovalAction === 'approve' ? 'aprovado' : 'reprovado',
           bulkApprovalAction === 'reject'
@@ -743,7 +719,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             : undefined,
         );
 
-        if (!success) {
+        if (!updated) {
           encounteredFailure = true;
           break;
         }
@@ -1071,7 +1047,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setApprovalSubmittingType(approvalDialogAction);
 
     try {
-      const success = await approveTimeLog(
+      const updated = await approveTimeLog(
         approvalDialogLog.id,
         approvalDialogAction === 'approve' ? 'aprovado' : 'reprovado',
         approvalDialogAction === 'reject'
@@ -1079,7 +1055,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           : undefined,
       );
 
-      if (success) {
+      if (updated) {
         setIsApprovalDialogOpen(false);
         setApprovalDialogLog(null);
         setApprovalDialogAction(null);
@@ -1457,73 +1433,46 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       const approverNameForPersistence =
         approverOverrideValue ?? confirmationApproverValue ?? null;
 
-      const success = await approveTimeLog(timeLog.id, normalizedStatus, {
+      const updatedLog = await approveTimeLog(timeLog.id, normalizedStatus, {
         commissioned: commissionedValue,
         performedAt,
         approverName: approverNameForPersistence,
       });
 
-      if (!success) {
+      if (!updatedLog) {
         return false;
       }
 
-      setApprovalStatus(nextStatus);
-      setIsCommissioned(nextStatus === 'Aprovado' ? nextIsCommissioned : false);
-
-      const performedAtDate = performedAt instanceof Date ? performedAt : null;
-      const performedAtIso = performedAtDate ? performedAtDate.toISOString() : null;
-      const approvalParts = extractApprovalDateTimeParts(performedAtIso);
-      const approvedFlag: TimeLog['aprovado'] = nextStatus === 'Aprovado' ? 'SIM' : 'NÃO';
-
-      const applyLocalApprovalPatch = <T extends TimeLog | null>(current: T): T => {
-        if (!current || current.id !== timeLog.id) {
-          return current;
+      const updatedApprovalStatus = updatedLog.approval_status ?? nextStatus;
+      const updatedCommissioned = (() => {
+        if (typeof updatedLog.comissionado === 'boolean') {
+          return updatedLog.comissionado;
         }
 
-        const updated: Partial<TimeLog> = {
-          status_aprovacao: normalizedStatus,
-          approval_status: nextStatus,
-          comissionado: commissionedValue,
-          is_billable: nextStatus === 'Aprovado' ? nextIsCommissioned : false,
-          aprovado: approvedFlag,
-        };
-
-        if (performedAtIso) {
-          const overrideName =
-            typeof approverNameOverride === 'string' && approverNameOverride.trim().length > 0
-              ? approverNameOverride.trim()
-              : null;
-          const confirmationName = confirmationApproverName.trim().length > 0
-            ? confirmationApproverName.trim()
-            : null;
-          const existingName =
-            current.aprovador_nome && current.aprovador_nome.trim().length > 0
-              ? current.aprovador_nome.trim()
-              : null;
-          const normalizedName = normalizedApproverName.length > 0 ? normalizedApproverName : null;
-          const loggedUserName = (() => {
-            const value = getLoggedUserDisplayName();
-            return value.length > 0 ? value : null;
-          })();
-          const resolvedApproverName =
-            overrideName ?? confirmationName ?? existingName ?? normalizedName ?? loggedUserName ?? null;
-
-          Object.assign(updated, {
-            data_aprovacao: performedAtIso,
-            approved_at: performedAtIso,
-            aprovacao_data: approvalParts.date,
-            aprovacao_hora: approvalParts.time,
-            aprovador_nome: resolvedApproverName,
-            aprovador_id: user?.id ?? current.aprovador_id ?? null,
-            approved_by: user?.id ?? current.approved_by ?? null,
-          });
+        if (typeof updatedLog.is_billable === 'boolean') {
+          return updatedLog.is_billable;
         }
 
-        return { ...current, ...updated } as T;
-      };
+        return nextStatus === 'Aprovado' ? nextIsCommissioned : false;
+      })();
 
-      setSelectedLogForDetails(prev => applyLocalApprovalPatch(prev));
-      setApprovalDialogLog(prev => applyLocalApprovalPatch(prev));
+      setApprovalStatus(updatedApprovalStatus);
+      setIsCommissioned(updatedCommissioned);
+
+      setSelectedLogForDetails(prev => {
+        if (!prev || prev.id !== updatedLog.id) {
+          return prev;
+        }
+
+        return updatedLog;
+      });
+      setApprovalDialogLog(prev => {
+        if (!prev || prev.id !== updatedLog.id) {
+          return prev;
+        }
+
+        return updatedLog;
+      });
       succeeded = true;
     } catch (e) {
       console.error('Erro ao salvar aprovação:', e);

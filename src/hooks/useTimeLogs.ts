@@ -426,7 +426,7 @@ export function useTimeLogs(projectId?: string) {
       performedAt?: Date;
       approverName?: string | null;
     },
-  ): Promise<boolean> => {
+  ): Promise<TimeLog | null> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -436,7 +436,7 @@ export function useTimeLogs(projectId?: string) {
           description: 'Você precisa estar autenticado',
           variant: 'destructive',
         });
-        return false;
+        return null;
       }
 
       const providedPerformedAt = options?.performedAt;
@@ -513,7 +513,7 @@ export function useTimeLogs(projectId?: string) {
           description: 'Informe uma justificativa para reprovar o tempo registrado.',
           variant: 'destructive',
         });
-        return false;
+        return null;
       }
 
       const { data: rpcData, error: rpcError } = await supabase.rpc('approve_time_log', {
@@ -617,7 +617,7 @@ export function useTimeLogs(projectId?: string) {
         description: `Tempo ${status === 'aprovado' ? 'aprovado' : 'reprovado'} com sucesso`,
       });
 
-      return true;
+      return normalized;
     } catch (error) {
       console.error('Erro ao aprovar/reprovar tempo:', error);
       toast({
@@ -625,7 +625,7 @@ export function useTimeLogs(projectId?: string) {
         description: 'Não foi possível atualizar o status',
         variant: 'destructive',
       });
-      return false;
+      return null;
     }
   };
 
