@@ -741,7 +741,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const { modulos, createModulo } = useModulos();
   const { areas, createArea } = useAreas();
   const { categorias, createCategoria } = useCategorias();
-  const { timeLogs, getTaskTotalTime, getResponsibleTotalTime, startTimerLog, stopTimerLog } = useTimeLogs(projectId);
+  const {
+    timeLogs,
+    getTaskTotalTime,
+    getResponsibleTotalTime,
+    startTimerLog,
+    stopTimerLog,
+    refreshTimeLogs,
+  } = useTimeLogs(projectId);
   const tasksWithTimeLogs = useMemo(() => {
     const set = new Set<string>();
     timeLogs.forEach(log => {
@@ -2880,6 +2887,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
         updateCell(options.rowIndex, 'status', options.statusAfterStop);
       }
+      await refreshTimeLogs();
       return true;
     }
 
@@ -2977,8 +2985,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       const tentativeStart = Date.now();
       const startedLog = await startTimerLog(row.id, {
-        tipoInclusao: 'automatico',
-        startedAt: new Date(tentativeStart),
+        tipo_inclusao: 'automatico',
+        data_inicio: new Date(tentativeStart).toISOString(),
         observacoes: 'Registro automático pela Gestão de Tarefas',
       });
 
