@@ -790,6 +790,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     { key: string; label: string; defaultDirection?: SortDirection } | null
   >(null);
   const [savingRowIndex, setSavingRowIndex] = useState<number | null>(null);
+  const savingRowPromiseRef = useRef<Promise<Task | null> | null>(null);
+  const savingRowIndexRef = useRef<number | null>(null);
   const [deletingRowIndex, setDeletingRowIndex] = useState<number | null>(null);
   const [isCustomFieldDialogOpen, setIsCustomFieldDialogOpen] = useState(false);
   const [selectedFieldType, setSelectedFieldType] = useState<CustomField['field_type'] | null>(null);
@@ -3201,9 +3203,29 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   }
 
   const handleSaveRow = useCallback(async (index: number, options: SaveRowOptions = {}) => {
-    const row = editableRows[index];
+    let row = editableRows[index];
     if (!row) {
       return null;
+    }
+
+    if (savingRowIndexRef.current !== null) {
+      if (savingRowIndexRef.current === index && savingRowPromiseRef.current) {
+        return savingRowPromiseRef.current;
+      }
+
+      const inFlight = savingRowPromiseRef.current;
+      if (inFlight) {
+        try {
+          await inFlight;
+        } catch {
+          // Ignorar erros já tratados no fluxo original antes de prosseguir.
+        }
+      }
+
+      row = editableRows[index];
+      if (!row) {
+        return null;
+      }
     }
 
     const trimmedName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
@@ -3216,107 +3238,121 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return null;
     }
 
-    if (savingRowIndex !== null) {
-      return null;
-    }
+    const executeSave = async (): Promise<Task | null> => {
+      setSavingRowIndex(index);
+      savingRowIndexRef.current = index;
 
-    let rowToSave = row;
-    const wasDraft = !rowToSave.id || rowToSave._isNew || rowToSave.isDraft;
-    const normalizedOriginal: TaskRow | null = rowToSave.id
-      ? (() => {
-          const existing = tasks.find(taskItem => taskItem.id === rowToSave.id);
-          if (!existing) {
-            return null;
-          }
-          return {
-            ...existing,
-            custom_fields: existing.custom_fields ?? {},
-          };
-        })()
-      : null;
+      try {
+        let rowToSave = row;
+        const wasDraft = !rowToSave.id || rowToSave._isNew || rowToSave.isDraft;
+        const normalizedOriginal: TaskRow | null = rowToSave.id
+          ? (() => {
+              const existing = tasks.find(taskItem => taskItem.id === rowToSave.id);
+              if (!existing) {
+                return null;
+              }
+              return {
+                ...existing,
+                custom_fields: existing.custom_fields ?? {},
+              };
+            })()
+          : null;
 
-    const sanitizedOriginal = normalizedOriginal ? sanitizeTaskForSave(normalizedOriginal) : null;
-    const auditOperation: 'INSERT' | 'UPDATE' = wasDraft ? 'INSERT' : 'UPDATE';
+        const sanitizedOriginal = normalizedOriginal ? sanitizeTaskForSave(normalizedOriginal) : null;
+        const auditOperation: 'INSERT' | 'UPDATE' = wasDraft ? 'INSERT' : 'UPDATE';
 
-    if (!row.task_id || row.task_id.trim().length === 0) {
-      const generatedId = getNextTaskIdentifier();
-      rowToSave = { ...row, task_id: generatedId };
-      setEditableRows(prev =>
-        prev.map((prevRow, idx) => {
-          if (idx !== index) {
-            return prevRow;
-          }
-          return { ...prevRow, task_id: generatedId };
-        }),
-      );
-    }
+        if (!row.task_id || row.task_id.trim().length === 0) {
+          const generatedId = getNextTaskIdentifier();
+          rowToSave = { ...row, task_id: generatedId };
+          setEditableRows(prev =>
+            prev.map((prevRow, idx) => {
+              if (idx !== index) {
+                return prevRow;
+              }
+              return { ...prevRow, task_id: generatedId };
+            }),
+          );
+        }
 
-    setSavingRowIndex(index);
+        const payload = sanitizeTaskForSave(rowToSave);
+        let savedTask: Task | null = null;
+
+        if (!rowToSave.id || rowToSave._isNew || rowToSave.isDraft) {
+          savedTask = await createTaskMutation(payload);
+        } else {
+          savedTask = await updateTask(rowToSave.id, payload);
+        }
+
+        if (!savedTask) {
+          return null;
+        }
+
+        await ensureGapForTask(savedTask);
+
+        setEditableRows(prev =>
+          prev.map((prevRow, idx) => {
+            if (idx !== index) {
+              return prevRow;
+            }
+            return {
+              ...savedTask,
+              custom_fields: savedTask.custom_fields ?? {},
+              _isNew: false,
+              isDraft: false,
+            };
+          }),
+        );
+
+        if (!options.suppressSuccessDialog) {
+          setSuccessDialogData({ task: savedTask, wasDraft });
+          setIsSuccessDialogOpen(true);
+          toast({
+            title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
+            description: 'Registro salvo com sucesso!',
+          });
+        }
+
+        const normalizedSavedTask: TaskRow = {
+          ...savedTask,
+          custom_fields: savedTask.custom_fields ?? {},
+        };
+        const sanitizedAfter = sanitizeTaskForSave(normalizedSavedTask);
+
+        await logTaskChange({
+          operation: auditOperation,
+          task: savedTask,
+          before: sanitizedOriginal,
+          after: sanitizedAfter,
+        });
+
+        await refreshTasks();
+        return savedTask;
+      } catch (error) {
+        console.error('Erro ao salvar tarefa individual:', error);
+        toast({
+          title: 'Erro ao salvar tarefa',
+          description: 'Não foi possível salvar esta tarefa. Tente novamente.',
+          variant: 'destructive',
+        });
+        return null;
+      } finally {
+        if (savingRowIndexRef.current === index) {
+          savingRowIndexRef.current = null;
+        }
+        setSavingRowIndex(current => (current === index ? null : current));
+      }
+    };
+
+    const saveOperation = executeSave();
+    savingRowPromiseRef.current = saveOperation;
 
     try {
-      const payload = sanitizeTaskForSave(rowToSave);
-      let savedTask: Task | null = null;
-
-      if (!rowToSave.id || rowToSave._isNew || rowToSave.isDraft) {
-        savedTask = await createTaskMutation(payload);
-      } else {
-        savedTask = await updateTask(rowToSave.id, payload);
-      }
-
-      if (!savedTask) {
-        return null;
-      }
-
-      await ensureGapForTask(savedTask);
-
-      setEditableRows(prev =>
-        prev.map((prevRow, idx) => {
-          if (idx !== index) {
-            return prevRow;
-          }
-          return {
-            ...savedTask,
-            custom_fields: savedTask.custom_fields ?? {},
-            _isNew: false,
-            isDraft: false,
-          };
-        }),
-      );
-
-      if (!options.suppressSuccessDialog) {
-        setSuccessDialogData({ task: savedTask, wasDraft });
-        setIsSuccessDialogOpen(true);
-        toast({
-          title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
-          description: 'Registro salvo com sucesso!',
-        });
-      }
-
-      const normalizedSavedTask: TaskRow = {
-        ...savedTask,
-        custom_fields: savedTask.custom_fields ?? {},
-      };
-      const sanitizedAfter = sanitizeTaskForSave(normalizedSavedTask);
-
-      await logTaskChange({
-        operation: auditOperation,
-        task: savedTask,
-        before: sanitizedOriginal,
-        after: sanitizedAfter,
-      });
-
-      await refreshTasks();
-      return savedTask;
-    } catch (error) {
-      console.error('Erro ao salvar tarefa individual:', error);
-      toast({
-        title: 'Erro ao salvar tarefa',
-        description: 'Não foi possível salvar esta tarefa. Tente novamente.',
-        variant: 'destructive',
-      });
-      return null;
+      const result = await saveOperation;
+      return result;
     } finally {
-      setSavingRowIndex(null);
+      if (savingRowPromiseRef.current === saveOperation) {
+        savingRowPromiseRef.current = null;
+      }
     }
   }, [
     createTaskMutation,
@@ -3326,7 +3362,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     logTaskChange,
     refreshTasks,
     sanitizeTaskForSave,
-    savingRowIndex,
     tasks,
     toast,
     updateTask,
