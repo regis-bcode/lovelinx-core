@@ -66,8 +66,26 @@ const shouldFallbackToNomeColumn = (error: unknown): boolean => {
 const buildInsertPayload = (
   basePayload: Record<string, unknown>,
   useNomeColumn: boolean,
+  excludedColumns: ReadonlySet<string> | string[] = [],
 ): Record<string, unknown> => {
   const payload: Record<string, unknown> = { ...basePayload };
+
+  const applyExcludedColumns = (columns: ReadonlySet<string> | string[]) => {
+    if (Array.isArray(columns)) {
+      columns.forEach(column => {
+        delete payload[column];
+      });
+      return;
+    }
+
+    columns.forEach(column => {
+      delete payload[column];
+    });
+  };
+
+  if (excludedColumns && (Array.isArray(excludedColumns) ? excludedColumns.length > 0 : excludedColumns.size > 0)) {
+    applyExcludedColumns(excludedColumns);
+  }
 
   if ('tarefa' in payload) {
     const raw = payload.tarefa;
@@ -150,6 +168,21 @@ const sanitizeExtras = (extras?: Record<string, unknown> | null) => {
   }, {});
 };
 
+const extractMissingColumnName = (error: unknown): string | null => {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const typedError = error as { code?: string; message?: string };
+
+  if (typedError.code !== 'PGRST204' || typeof typedError.message !== 'string') {
+    return null;
+  }
+
+  const match = typedError.message.match(/Could not find the '([^']+)' column/);
+  return match ? match[1] : null;
+};
+
 export async function createTask(params: CreateTaskParams): Promise<Task> {
   const payload: Record<string, unknown> = {
     project_id: params.projectId,
@@ -196,6 +229,7 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
   let lastError: unknown = null;
 
   let useNomeColumn = false;
+  const excludedColumns = new Set<string>();
 
   while (attempts < 5) {
     attempts += 1;
@@ -228,7 +262,7 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
       payload.cronograma = false;
     }
 
-    const dataToInsert = buildInsertPayload(payload, useNomeColumn);
+    const dataToInsert = buildInsertPayload(payload, useNomeColumn, excludedColumns);
 
     const { data, error } = await supabase
       .from('tasks')
@@ -255,6 +289,13 @@ export async function createTask(params: CreateTaskParams): Promise<Task> {
 
     if (shouldFallbackToNomeColumn(error)) {
       useNomeColumn = true;
+      continue;
+    }
+
+    const missingColumn = extractMissingColumnName(error);
+    if (missingColumn) {
+      excludedColumns.add(missingColumn);
+      delete payload[missingColumn];
       continue;
     }
 

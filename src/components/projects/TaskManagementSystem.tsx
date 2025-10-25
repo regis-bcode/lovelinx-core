@@ -1245,6 +1245,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
+  const [isTaskNameRequiredDialogOpen, setIsTaskNameRequiredDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeTimersStorageKey = useMemo(
@@ -3641,11 +3642,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const trimmedName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
     if (!trimmedName) {
-      toast({
-        title: 'Informe a tarefa',
-        description: 'Defina uma tarefa antes de salvar.',
-        variant: 'destructive',
-      });
+      setIsTaskNameRequiredDialogOpen(true);
       return null;
     }
 
@@ -3737,6 +3734,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         });
 
         await refreshTasks();
+
+        if (wasDraft) {
+          addNewRow();
+        }
         return savedTask;
       } catch (error) {
         console.error('Erro ao salvar tarefa individual:', error);
@@ -3766,6 +3767,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
     }
   }, [
+    addNewRow,
     createTaskMutation,
     editableRows,
     ensureGapForTask,
@@ -3814,6 +3816,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const handleSuccessDialogDismiss = useCallback(() => {
     setIsSuccessDialogOpen(false);
     setSuccessDialogData(null);
+  }, []);
+
+  const handleTaskNameRequiredDialogClose = useCallback(() => {
+    setIsTaskNameRequiredDialogOpen(false);
   }, []);
 
 
@@ -5970,6 +5976,26 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         </DialogContent>
       </Dialog>
 
+      <AlertDialog
+        open={isTaskNameRequiredDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            handleTaskNameRequiredDialogClose();
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Nome da tarefa obrigatório</AlertDialogTitle>
+            <AlertDialogDescription>
+              O campo nome da tarefa é obrigatório.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={handleTaskNameRequiredDialogClose}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={isDeleteDialogOpen}
         onOpenChange={open => {
