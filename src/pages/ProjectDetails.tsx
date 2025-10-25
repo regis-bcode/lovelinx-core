@@ -39,7 +39,10 @@ export default function ProjectDetails() {
 
   const [fetchedProject, setFetchedProject] = useState<Project | null>(null);
   const [isFetchingProject, setIsFetchingProject] = useState(false);
-  const [activeTab, setActiveTab] = useState("tap");
+  const [activeTab, setActiveTab] = useState(() => {
+    const initialTab = searchParams.get("tab");
+    return initialTab ?? "tap";
+  });
   const projectFromStore = id ? getProject(id) : null;
   const project = projectFromStore ?? fetchedProject;
   const hasActiveTimers = useProjectActiveTimersIndicator(project?.id);
@@ -197,6 +200,17 @@ export default function ProjectDetails() {
   }, [project, gapTaskId]);
 
   const tabParam = searchParams.get('tab');
+
+  useEffect(() => {
+    if (!tabItems.length) {
+      return;
+    }
+
+    const hasActiveTab = tabItems.some((tab) => tab.value === activeTab);
+    if (!hasActiveTab) {
+      setActiveTab(tabItems[0].value);
+    }
+  }, [tabItems, activeTab]);
 
   useEffect(() => {
     if (!tabParam) return;
