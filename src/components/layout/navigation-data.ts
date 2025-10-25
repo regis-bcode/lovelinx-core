@@ -7,6 +7,7 @@ import {
   GanttChart,
   LayoutDashboard,
   LineChart,
+  ClipboardList,
   Map,
   Package,
   PanelsTopLeft,
@@ -42,6 +43,11 @@ export const navigation: NavigationItem[] = [
     title: "Projetos",
     url: "/projects",
     icon: GanttChart,
+  },
+  {
+    title: "Gestão de Tarefas",
+    url: "/task-management",
+    icon: ClipboardList,
   },
   {
     title: "Equipe",

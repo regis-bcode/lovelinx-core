@@ -12,6 +12,7 @@ import Projects from "./pages/Projects";
 import ProjectsNew from "./pages/ProjectsNew";
 import ProjectDetails from "./pages/ProjectDetails";
 import ProjectOnePage from "./pages/ProjectOnePage";
+import TaskManagementPage from "./pages/TaskManagement";
 import Users from "./pages/Users";
 import AuditLogsPage from "./pages/audit-logs";
 import Clients from "./pages/Clients";
@@ -85,13 +86,21 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
-      <Route 
-        path="/projects" 
+      <Route
+        path="/projects"
         element={
           <ProtectedRoute>
             <Projects />
           </ProtectedRoute>
-        } 
+        }
+      />
+      <Route
+        path="/task-management"
+        element={
+          <ProtectedRoute>
+            <TaskManagementPage />
+          </ProtectedRoute>
+        }
       />
       <Route 
         path="/projects-tap" 
