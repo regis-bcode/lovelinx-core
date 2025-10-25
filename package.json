@@ -9,7 +9,7 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "test": "npm run test:payload",
-    "test:payload": "tsc -p tsconfig.tests.json && node -e \"const fs=require('fs');fs.mkdirSync('build-tests',{recursive:true});fs.writeFileSync('build-tests/package.json','{\\\"type\\\":\\\"commonjs\\\"}');\" && node build-tests/tests/time-log-payload.test.js",
+    "test:payload": "tsc -p tsconfig.tests.json && node -e \"const fs=require('fs');fs.mkdirSync('build-tests',{recursive:true});fs.writeFileSync('build-tests/package.json','{\\\"type\\\":\\\"commonjs\\\"}');\" && node --test build-tests/tests/*.js",
     "preview": "vite preview"
   },
   "dependencies": {

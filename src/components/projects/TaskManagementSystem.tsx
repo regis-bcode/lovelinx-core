@@ -111,6 +111,7 @@ import {
   sanitizeActiveTimerRecord,
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
+import { getStartTimerButtonState, hasAssignedResponsible } from './taskActionGuards';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useForm, type Resolver } from 'react-hook-form';
@@ -847,26 +848,6 @@ const TASK_ACTION_ICON_VARIANTS = {
   delete:
     'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
 } as const;
-
-const hasAssignedResponsible = (row: TaskRow): boolean => {
-  if (typeof row.user_id === 'string' && row.user_id.trim().length > 0) {
-    return true;
-  }
-
-  const responsavel = row.responsavel;
-
-  if (typeof responsavel !== 'string') {
-    return false;
-  }
-
-  const trimmed = responsavel.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return normalized !== 'sem responsavel';
-};
 
 const extractTaskNumber = (identifier?: string | null): number => {
   if (!identifier) {
@@ -4829,6 +4810,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const hasRowChanges = !sanitizedOriginal || !deepEqual(sanitizedRow, sanitizedOriginal);
     const trimmedRowName = typeof row.tarefa === 'string' ? row.tarefa.trim() : '';
     const canPersistRow = trimmedRowName.length > 0 && hasRowChanges;
+    const startButtonState = getStartTimerButtonState(row, {
+      isSaving: isSavingRow,
+      isRunning,
+    });
 
     return (
       <TableRow
@@ -4900,19 +4885,30 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     className={cn(
                       TASK_ACTION_ICON_BASE_CLASS,
                       TASK_ACTION_ICON_VARIANTS.start,
-                      !hasAssignedResponsible(row) && 'pointer-events-none'
+                      startButtonState.reason === 'noResponsible' && 'pointer-events-none'
                     )}
                     onClick={() => void handleStartTimer(row, index)}
-                    disabled={isSavingRow || isRunning || !hasAssignedResponsible(row)}
+                    disabled={startButtonState.disabled}
                     aria-label="Iniciar apontamento"
                   >
                     <Play className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {hasAssignedResponsible(row)
-                    ? 'Iniciar apontamento'
-                    : 'Associe um responsável para iniciar'}
+                  {(() => {
+                    switch (startButtonState.reason) {
+                      case 'noResponsible':
+                        return 'Associe um responsável para iniciar';
+                      case 'missingName':
+                        return 'Informe a tarefa antes de iniciar';
+                      case 'saving':
+                        return 'Aguarde concluir o salvamento';
+                      case 'running':
+                        return 'Já existe um apontamento em andamento';
+                      default:
+                        return 'Iniciar apontamento';
+                    }
+                  })()}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
