@@ -5,6 +5,263 @@ import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import { createTask as createTaskService, normalizeDatabaseTaskRecord } from '@/lib/tasks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import type { Database } from '@/integrations/supabase/types';
+import type { PostgrestError } from '@supabase/supabase-js';
+
+export type TasksRow = Database['public']['Tables']['tasks']['Row'];
+export type TimeLogsRow = Database['public']['Tables']['time_logs']['Row'];
+export type UsersRow = Database['public']['Tables']['users']['Row'];
+
+export type TaskInsertPayload = Omit<TasksRow, 'id' | 'created_at' | 'updated_at'>;
+
+const logAndThrow = (context: string, error: PostgrestError | Error): never => {
+  console.error(context, error);
+  throw error;
+};
+
+const nowUTC = () => new Date().toISOString();
+
+export const getTaskById = async (taskId: string) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('id', taskId)
+    .single();
+
+  if (error) {
+    logAndThrow('Erro ao buscar tarefa por ID', error);
+  }
+
+  return { data: data as TasksRow, error: null };
+};
+
+export const insertTask = async (payload: TaskInsertPayload) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([payload])
+    .select('id')
+    .single();
+
+  if (error) {
+    logAndThrow('Erro ao inserir tarefa', error);
+  }
+
+  return { data, error: null };
+};
+
+export const updateTaskRecord = async (taskId: string, patch: Partial<TasksRow>) => {
+  const { data, error } = await supabase
+    .from('tasks')
+    .update(patch)
+    .eq('id', taskId)
+    .select()
+    .single();
+
+  if (error) {
+    logAndThrow('Erro ao atualizar tarefa', error);
+  }
+
+  return { data: data as TasksRow, error: null };
+};
+
+export const deleteTaskIfOnlyPendingApprovals = async (taskId: string) => {
+  const { data: logs, error: logsError } = await supabase
+    .from('time_logs')
+    .select('id, status_aprovacao, aprovado')
+    .eq('task_id', taskId);
+
+  if (logsError) {
+    logAndThrow('Erro ao carregar apontamentos da tarefa antes da exclusão', logsError);
+  }
+
+  const hasBlockedLogs = (logs ?? []).some(log => {
+    const status = (log.status_aprovacao ?? '').toLowerCase();
+    const aprovado = (log.aprovado ?? '').toLowerCase();
+    return status !== 'pendente' || aprovado === 'sim';
+  });
+
+  if (hasBlockedLogs) {
+    const error = new Error('Não é possível excluir: existem apontamentos já aprovados ou não-pendentes.');
+    console.error(error.message);
+    throw error;
+  }
+
+  const { error } = await supabase.from('tasks').delete().eq('id', taskId);
+
+  if (error) {
+    logAndThrow('Erro ao excluir tarefa', error);
+  }
+
+  return { data: true, error: null };
+};
+
+export const resolveResponsibleUserId = async (task: TasksRow): Promise<string> => {
+  if (task.user_id) {
+    return task.user_id;
+  }
+
+  const responsavel = typeof task.responsavel === 'string' ? task.responsavel.trim() : '';
+  if (!responsavel) {
+    const resolutionError = new Error(
+      'Defina user_id ou um responsável que corresponda a um único usuário.',
+    );
+    console.error(resolutionError.message);
+    throw resolutionError;
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, nome_completo')
+    .ilike('nome_completo', responsavel)
+    .limit(2);
+
+  if (error) {
+    logAndThrow('Erro ao resolver usuário responsável pela tarefa', error);
+  }
+
+  if (!data || data.length !== 1) {
+    const resolutionError = new Error('Defina user_id ou um responsável que corresponda a um único usuário.');
+    console.error(resolutionError.message);
+    throw resolutionError;
+  }
+
+  return data[0].id;
+};
+
+export const canStartTimer = (task: TasksRow): boolean => {
+  if (!task || !task.id) {
+    return false;
+  }
+
+  if (task.user_id) {
+    return true;
+  }
+
+  return typeof task.responsavel === 'string' && task.responsavel.trim().length > 0;
+};
+
+export const startTimer = async (taskId: string, projectId: string, userId: string) => {
+  const nowIso = nowUTC();
+
+  const { data: existing, error: existingError } = await supabase
+    .from('time_logs')
+    .select('id')
+    .eq('task_id', taskId)
+    .eq('project_id', projectId)
+    .eq('user_id', userId)
+    .is('data_fim', null)
+    .maybeSingle();
+
+  if (existingError) {
+    logAndThrow('Erro ao verificar apontamentos ativos', existingError);
+  }
+
+  if (existing) {
+    const duplicationError = new Error('Já existe um apontamento ativo para esta tarefa/usuário.');
+    console.error(duplicationError.message);
+    throw duplicationError;
+  }
+
+  const insertPayload = {
+    task_id: taskId,
+    project_id: projectId,
+    user_id: userId,
+    data_inicio: nowIso,
+    data_fim: null,
+    tempo_minutos: 0,
+    status_aprovacao: 'pendente',
+    aprovado: 'não',
+    comissionado: 'não',
+  } satisfies Partial<TimeLogsRow>;
+
+  const { data, error } = await supabase
+    .from('time_logs')
+    .insert([insertPayload])
+    .select('id, data_inicio')
+    .single();
+
+  if (error) {
+    logAndThrow('Erro ao iniciar apontamento de tempo', error);
+  }
+
+  return { data, error: null };
+};
+
+export const stopTimer = async (activeLogId: string, atividade: string) => {
+  const endIso = nowUTC();
+
+  const { data: log, error: logError } = await supabase
+    .from('time_logs')
+    .select('data_inicio')
+    .eq('id', activeLogId)
+    .single();
+
+  if (logError) {
+    logAndThrow('Erro ao carregar log ativo para finalização', logError);
+  }
+
+  const startIso = log?.data_inicio;
+  if (!startIso) {
+    const missingStartError = new Error('Apontamento sem data de início registrada.');
+    console.error(missingStartError.message);
+    throw missingStartError;
+  }
+
+  const durationMinutes = Math.max(
+    1,
+    Math.ceil((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000),
+  );
+
+  const { error } = await supabase
+    .from('time_logs')
+    .update({
+      data_fim: endIso,
+      tempo_minutos: durationMinutes,
+      atividade,
+    })
+    .eq('id', activeLogId);
+
+  if (error) {
+    logAndThrow('Erro ao finalizar apontamento de tempo', error);
+  }
+
+  return { data: { tempo_minutos: durationMinutes }, error: null };
+};
+
+export const sumDailyMinutes = async (userId: string, dayUTC: string) => {
+  const reference = new Date(dayUTC);
+  const startDayUTC = new Date(Date.UTC(
+    reference.getUTCFullYear(),
+    reference.getUTCMonth(),
+    reference.getUTCDate(),
+    0,
+    0,
+    0,
+  ));
+  const endDayUTC = new Date(Date.UTC(
+    reference.getUTCFullYear(),
+    reference.getUTCMonth(),
+    reference.getUTCDate(),
+    23,
+    59,
+    59,
+  ));
+
+  const { data, error } = await supabase
+    .from('time_logs')
+    .select('tempo_minutos, data_inicio, data_fim')
+    .eq('user_id', userId)
+    .gte('data_inicio', startDayUTC.toISOString())
+    .lte('data_inicio', endDayUTC.toISOString());
+
+  if (error) {
+    logAndThrow('Erro ao somar minutos diários de apontamentos', error);
+  }
+
+  const totalMinutes = (data ?? []).reduce((acc, row) => acc + (row.tempo_minutos ?? 0), 0);
+
+  return { data: totalMinutes, error: null };
+};
 
 export function useTasks(projectId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -268,20 +525,7 @@ export function useTasks(projectId?: string) {
 
   const deleteTask = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await (supabase as any)
-        .from('tasks')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Erro ao deletar tarefa:', error);
-        toast({
-          title: "Erro",
-          description: "Erro ao deletar tarefa.",
-          variant: "destructive",
-        });
-        return false;
-      }
+      await deleteTaskIfOnlyPendingApprovals(id);
 
       setTasks(prev => prev.filter(task => task.id !== id));
       toast({
@@ -291,6 +535,13 @@ export function useTasks(projectId?: string) {
       return true;
     } catch (error) {
       console.error('Erro ao deletar tarefa:', error);
+      const description =
+        error instanceof Error ? error.message : 'Erro ao deletar tarefa. Verifique os apontamentos vinculados.';
+      toast({
+        title: "Erro",
+        description,
+        variant: "destructive",
+      });
       return false;
     }
   };
