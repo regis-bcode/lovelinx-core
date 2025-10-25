@@ -10,6 +10,10 @@ type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
 type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
 type TaskActivityInsert = Database['public']['Tables']['task_activities']['Insert'];
 
+export type StopTimerLogResult =
+  | { status: 'success'; log: TimeLog }
+  | { status: 'skipped'; reason: 'missing-active-log' | 'missing-start-time' };
+
 const parseNumericValue = (value: unknown, fallback = 0): number => {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value;
@@ -771,7 +775,7 @@ export function useTimeLogs(projectId?: string) {
       allowCreateIfMissing?: boolean;
       suppressSuccessToast?: boolean;
     },
-  ): Promise<TimeLog | null> => {
+  ): Promise<StopTimerLogResult | null> => {
     try {
       const {
         data: { user },
@@ -905,13 +909,20 @@ export function useTimeLogs(projectId?: string) {
         }
       };
 
-      const createLogFromFallback = async (): Promise<TimeLog | null> => {
-        if (!shouldAttemptCreate || !fallbackStartedAtMs) {
-          toast({
-            title: 'Cronômetro não encontrado',
-            description: 'Nenhum apontamento em andamento foi localizado para esta tarefa.',
-          });
-          return null;
+      const createLogFromFallback = async (): Promise<StopTimerLogResult> => {
+        if (!fallbackStartedAtMs) {
+          if (shouldAttemptCreate) {
+            toast({
+              title: 'Dados insuficientes',
+              description: 'Não foi possível determinar o horário de início do cronômetro.',
+              variant: 'destructive',
+            });
+          }
+          return { status: 'skipped', reason: 'missing-start-time' };
+        }
+
+        if (!shouldAttemptCreate) {
+          return { status: 'skipped', reason: 'missing-active-log' };
         }
 
         if (!projectId) {
@@ -981,7 +992,7 @@ export function useTimeLogs(projectId?: string) {
           });
         }
 
-        return normalized;
+        return { status: 'success', log: normalized };
       };
 
       const logIdToUpdate = normalizedLogId ?? openLog?.id ?? null;
@@ -1050,7 +1061,7 @@ export function useTimeLogs(projectId?: string) {
         });
       }
 
-      return normalized;
+      return { status: 'success', log: normalized };
     } catch (error) {
       console.error('Erro ao finalizar log de tempo:', error);
       toast({

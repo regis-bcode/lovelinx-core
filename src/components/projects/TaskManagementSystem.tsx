@@ -2901,16 +2901,19 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       allowCreateIfMissing: options?.allowCreateIfMissing,
     });
 
-    if (result) {
-      removeActiveTimer();
-      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
-        updateCell(options.rowIndex, 'status', options.statusAfterStop);
-      }
-      await refreshTimeLogs();
-      return true;
+    if (!result) {
+      return false;
     }
 
-    return false;
+    removeActiveTimer();
+
+    if (result.status === 'success' && options?.statusAfterStop && typeof options.rowIndex === 'number') {
+      updateCell(options.rowIndex, 'status', options.statusAfterStop);
+    }
+
+    await refreshTimeLogs();
+
+    return true;
   };
 
   const handleConfirmStopTimerDialog = useCallback(async () => {

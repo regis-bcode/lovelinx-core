@@ -351,6 +351,24 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     [applyActiveTimersUpdate],
   );
 
+  useEffect(() => {
+    if (Object.keys(activeTimers).length === 0) {
+      return;
+    }
+
+    const openTaskIds = new Set(
+      timeLogs
+        .filter(log => typeof log.task_id === 'string' && !log.data_fim)
+        .map(log => log.task_id as string),
+    );
+
+    Object.keys(activeTimers).forEach(taskId => {
+      if (!openTaskIds.has(taskId)) {
+        removeLocalTimerState(taskId);
+      }
+    });
+  }, [activeTimers, timeLogs, removeLocalTimerState]);
+
   const updateTimerActionState = useCallback((taskId: string, inFlight: boolean) => {
     setTimerActionsInFlight(prev => {
       if (inFlight) {
@@ -408,10 +426,28 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return false;
       }
 
+      if (result.status === 'skipped') {
+        if (!options?.discard) {
+          return false;
+        }
+
+        removeLocalTimerState(taskId);
+
+        toast({
+          title: 'Cronômetro zerado',
+          description: 'Nenhum apontamento ativo foi encontrado e o cronômetro foi limpo.',
+        });
+
+        await refreshTimeLogs();
+        return true;
+      }
+
+      const finalizedLog = result.log;
+
       removeLocalTimerState(taskId);
 
       if (options?.discard) {
-        const logId = result.id;
+        const logId = finalizedLog.id;
         const removed = await deleteTimeLog(logId, { suppressToast: true });
 
         if (removed) {
