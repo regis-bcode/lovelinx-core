@@ -3544,16 +3544,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     addNewRow();
   }, [addNewRow]);
 
-  const handleOpenTaskFromGantt = useCallback(
-    (index: number) => {
-      if (!editableRows[index]) {
-        return;
-      }
-      void handleOpenTaskDialog(editableRows[index], 'view');
-    },
-    [editableRows, handleOpenTaskDialog],
-  );
-
   const performDeleteRow = useCallback(
     async (index: number): Promise<boolean> => {
       const row = editableRows[index];
@@ -4643,6 +4633,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
     },
     [getTaskById, taskDialogForm, toast],
+  );
+
+  const handleOpenTaskFromGantt = useCallback(
+    (index: number) => {
+      if (!editableRows[index]) {
+        return;
+      }
+      void handleOpenTaskDialog(editableRows[index], 'view');
+    },
+    [editableRows, handleOpenTaskDialog],
   );
 
   const handleTaskDialogSubmit = taskDialogForm.handleSubmit(async values => {
