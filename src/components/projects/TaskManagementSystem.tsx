@@ -462,16 +462,48 @@ const mapTaskToDialogValues = (task: TasksRow): TaskDialogFormValues => ({
   updated_at: task.updated_at ?? null,
 });
 
-const parseCustomFields = (value: string | null | undefined) => {
-  if (!value) {
-    return null;
+class CustomFieldsParseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CustomFieldsParseError';
+  }
+}
+
+interface CustomFieldsParseResult {
+  parsed: Record<string, unknown> | null;
+  error: CustomFieldsParseError | null;
+}
+
+const parseCustomFields = (value: string | null | undefined): CustomFieldsParseResult => {
+  if (!value || value.trim().length === 0) {
+    return { parsed: null, error: null };
   }
 
   try {
-    const parsed = JSON.parse(value);
-    return parsed as Record<string, unknown>;
+    const parsed = JSON.parse(value) as unknown;
+
+    if (parsed === null) {
+      return { parsed: null, error: null };
+    }
+
+    if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return { parsed: parsed as Record<string, unknown>, error: null };
+    }
+
+    const typeDescription = Array.isArray(parsed) ? 'um array' : typeof parsed;
+    return {
+      parsed: null,
+      error: new CustomFieldsParseError(
+        `Os campos personalizados devem ser um objeto JSON. Valor recebido é ${typeDescription}.`,
+      ),
+    };
   } catch (error) {
-    throw new Error('JSON inválido nos campos personalizados.');
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('Falha ao interpretar campos personalizados da tarefa:', message);
+    return {
+      parsed: null,
+      error: new CustomFieldsParseError('JSON inválido nos campos personalizados.'),
+    };
   }
 };
 
@@ -527,7 +559,13 @@ const buildTaskPatchFromFormValues = (values: TaskDialogFormValues): Partial<Tas
     link_drive: sanitizeStringField(values.link_drive ?? null),
     validado_por: sanitizeStringField(values.validado_por ?? null),
     escopo: sanitizeStringField(values.escopo ?? null),
-    custom_fields: parseCustomFields(values.custom_fields ?? null),
+    custom_fields: (() => {
+      const { parsed, error } = parseCustomFields(values.custom_fields ?? null);
+      if (error) {
+        throw error;
+      }
+      return parsed;
+    })(),
   };
 };
 
@@ -4614,7 +4652,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       try {
         patch = buildTaskPatchFromFormValues(values);
       } catch (parseError) {
-        if (parseError instanceof Error && parseError.message.includes('JSON inválido')) {
+        if (parseError instanceof CustomFieldsParseError) {
           taskDialogForm.setError('custom_fields', { type: 'manual', message: parseError.message });
           return;
         }
