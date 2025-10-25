@@ -145,7 +145,7 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
 
   const { data: existing, error: existingError } = await supabase
     .from('time_logs')
-    .select('id')
+    .select('id, data_inicio')
     .eq('task_id', taskId)
     .eq('project_id', projectId)
     .eq('user_id', userId)
@@ -157,9 +157,7 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
   }
 
   if (existing) {
-    const duplicationError = new Error('Já existe um apontamento ativo para esta tarefa/usuário.');
-    console.error(duplicationError.message);
-    throw duplicationError;
+    return { data: existing as Pick<TimeLogsRow, 'id' | 'data_inicio'>, error: null };
   }
 
   const insertPayload = {

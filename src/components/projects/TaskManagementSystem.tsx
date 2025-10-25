@@ -4037,9 +4037,18 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
       return (
         <div className="flex flex-col text-xs">
-          <span>{formatDuration(totalSeconds)}</span>
+          <span
+            className={cn(
+              'tabular-nums font-medium',
+              isRunning ? 'font-bold text-red-600 dark:text-red-400' : 'text-foreground',
+            )}
+          >
+            {formatDuration(totalSeconds)}
+          </span>
           {isRunning ? (
-            <span className="text-[10px] text-muted-foreground">Cronometrando...</span>
+            <span className="text-[10px] font-semibold uppercase text-red-500 dark:text-red-400">
+              Cronometrando...
+            </span>
           ) : null}
         </div>
       );
@@ -4466,9 +4475,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const totalSeconds = getRowAccumulatedSeconds(row);
       const isRunning = Boolean(activeTimers[row.id]);
       return (
-        <span>
-          {formatDuration(totalSeconds)}
-          {isRunning ? ' · Em andamento' : ''}
+        <span className="flex items-center gap-1">
+          <span
+            className={cn(
+              'tabular-nums font-medium',
+              isRunning ? 'font-bold text-red-600 dark:text-red-400' : undefined,
+            )}
+          >
+            {formatDuration(totalSeconds)}
+          </span>
+          {isRunning ? (
+            <span className="text-[11px] font-semibold uppercase text-red-500 dark:text-red-400">
+              Em andamento
+            </span>
+          ) : null}
         </span>
       );
     }
