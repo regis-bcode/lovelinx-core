@@ -25,6 +25,7 @@ import {
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -38,7 +39,6 @@ import { Badge } from '@/components/ui/badge';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SortModal } from '@/components/sort/SortModal';
 import { HeaderSortBadge } from '@/components/sort/HeaderSortBadge';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Settings,
   Save,
@@ -66,14 +66,25 @@ import {
   Upload,
   History,
 } from 'lucide-react';
-import { ActivityPanel } from '@/components/tasks/activity-panel';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TaskGanttView } from '@/components/projects/TaskGanttView';
 import { CustomField, Task, TaskFormData } from '@/types/task';
 import type { Status } from '@/types/status';
 import type { TAP } from '@/types/tap';
-import { useTasks } from '@/hooks/useTasks';
+import {
+  useTasks,
+  canStartTimer,
+  resolveResponsibleUserId,
+  startTimer as startTaskTimer,
+  stopTimer as stopTaskTimer,
+  sumDailyMinutes,
+  getTaskById,
+  insertTask,
+  updateTaskRecord,
+  type TaskInsertPayload,
+  type TasksRow,
+} from '@/hooks/useTasks';
 import { useTAP } from '@/hooks/useTAP';
 import { useStatus } from '@/hooks/useStatus';
 import { useModulos } from '@/hooks/useModulos';
@@ -102,6 +113,10 @@ import {
 } from '@/lib/active-timers';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 interface TaskManagementSystemProps {
   projectId: string;
@@ -193,6 +208,253 @@ const PRIORITY_WEIGHTS: Record<string, number> = {
   alta: 2,
   critica: 3,
   crítica: 3,
+};
+
+const taskDialogSchema = z.object({
+  id: z.string().uuid().optional().nullable(),
+  project_id: z.string().uuid({ message: 'Projeto obrigatório' }),
+  user_id: z.string().uuid().optional().nullable(),
+  task_id: z.string().min(1, 'Código da tarefa é obrigatório'),
+  nome: z.string().min(1, 'Nome da tarefa é obrigatório'),
+  responsavel: z.string().optional().nullable(),
+  responsavel_cliente: z.string().optional().nullable(),
+  responsavel_consultoria: z.string().optional().nullable(),
+  responsavel_ticket: z.string().optional().nullable(),
+  prioridade: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  status_ticket: z.string().optional().nullable(),
+  cliente: z.string().optional().nullable(),
+  modulo: z.string().optional().nullable(),
+  area: z.string().optional().nullable(),
+  categoria: z.string().optional().nullable(),
+  etapa_projeto: z.string().optional().nullable(),
+  sub_etapa_projeto: z.string().optional().nullable(),
+  descricao_detalhada: z.string().optional().nullable(),
+  retorno_acao: z.string().optional().nullable(),
+  acao_realizada: z.string().optional().nullable(),
+  descricao_ticket: z.string().optional().nullable(),
+  numero_ticket: z.string().optional().nullable(),
+  data_inicio: z.string().optional().nullable(),
+  data_vencimento: z.string().optional().nullable(),
+  data_entrega: z.string().optional().nullable(),
+  data_prevista_entrega: z.string().optional().nullable(),
+  data_prevista_validacao: z.string().optional().nullable(),
+  dias_para_concluir: z.coerce.number().nullable().optional(),
+  percentual_conclusao: z.coerce.number().min(0).max(100).nullable().optional(),
+  tempo_total: z.coerce.number().min(0).default(0),
+  cronograma: z.boolean().optional(),
+  link: z.string().optional().nullable(),
+  link_drive: z.string().optional().nullable(),
+  validado_por: z.string().optional().nullable(),
+  escopo: z.string().optional().nullable(),
+  custom_fields: z.string().optional().nullable(),
+  created_at: z.string().optional().nullable(),
+  updated_at: z.string().optional().nullable(),
+});
+
+type TaskDialogFormValues = z.infer<typeof taskDialogSchema>;
+
+type TaskDialogFieldType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'date'
+  | 'boolean'
+  | 'json'
+  | 'datetime';
+
+type TaskDialogField = {
+  name: keyof TaskDialogFormValues;
+  label: string;
+  type: TaskDialogFieldType;
+  readOnly?: boolean;
+};
+
+const TASK_DIALOG_FIELDS: TaskDialogField[] = [
+  { name: 'task_id', label: 'Código da tarefa', type: 'text', readOnly: true },
+  { name: 'nome', label: 'Nome', type: 'text' },
+  { name: 'responsavel', label: 'Responsável', type: 'text' },
+  { name: 'responsavel_cliente', label: 'Responsável (Cliente)', type: 'text' },
+  { name: 'responsavel_consultoria', label: 'Responsável (Consultoria)', type: 'text' },
+  { name: 'responsavel_ticket', label: 'Responsável (Ticket)', type: 'text' },
+  { name: 'user_id', label: 'Usuário Vinculado', type: 'text' },
+  { name: 'project_id', label: 'Projeto', type: 'text', readOnly: true },
+  { name: 'prioridade', label: 'Prioridade', type: 'text' },
+  { name: 'status', label: 'Status', type: 'text' },
+  { name: 'status_ticket', label: 'Status do Ticket', type: 'text' },
+  { name: 'cliente', label: 'Cliente', type: 'text' },
+  { name: 'modulo', label: 'Módulo', type: 'text' },
+  { name: 'area', label: 'Área', type: 'text' },
+  { name: 'categoria', label: 'Categoria', type: 'text' },
+  { name: 'etapa_projeto', label: 'Etapa do Projeto', type: 'text' },
+  { name: 'sub_etapa_projeto', label: 'Sub-etapa do Projeto', type: 'text' },
+  { name: 'descricao_detalhada', label: 'Descrição Detalhada', type: 'textarea' },
+  { name: 'retorno_acao', label: 'Retorno da Ação', type: 'textarea' },
+  { name: 'acao_realizada', label: 'Ação Realizada', type: 'textarea' },
+  { name: 'descricao_ticket', label: 'Descrição do Ticket', type: 'textarea' },
+  { name: 'numero_ticket', label: 'Número do Ticket', type: 'text' },
+  { name: 'data_inicio', label: 'Data de Início', type: 'date' },
+  { name: 'data_vencimento', label: 'Data de Vencimento', type: 'date' },
+  { name: 'data_entrega', label: 'Data de Entrega', type: 'date' },
+  { name: 'data_prevista_entrega', label: 'Data Prevista de Entrega', type: 'date' },
+  { name: 'data_prevista_validacao', label: 'Data Prevista de Validação', type: 'date' },
+  { name: 'dias_para_concluir', label: 'Dias para Concluir', type: 'number' },
+  { name: 'percentual_conclusao', label: '% Conclusão', type: 'number' },
+  { name: 'tempo_total', label: 'Tempo Total (min)', type: 'number', readOnly: true },
+  { name: 'cronograma', label: 'Cronograma', type: 'boolean' },
+  { name: 'link', label: 'Link', type: 'text' },
+  { name: 'link_drive', label: 'Link Drive', type: 'text' },
+  { name: 'validado_por', label: 'Validado por', type: 'text' },
+  { name: 'escopo', label: 'Escopo', type: 'textarea' },
+  { name: 'custom_fields', label: 'Campos Personalizados (JSON)', type: 'json' },
+  { name: 'created_at', label: 'Criado em', type: 'datetime', readOnly: true },
+  { name: 'updated_at', label: 'Atualizado em', type: 'datetime', readOnly: true },
+];
+
+const sanitizeStringField = (value?: string | null) => {
+  if (value === undefined || value === null) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const formatDateForInput = (value?: string | null) => {
+  if (!value) {
+    return '';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value.slice(0, 10);
+  }
+
+  return format(parsed, 'yyyy-MM-dd');
+};
+
+const formatDateTimeForDisplay = (value?: string | null) => {
+  if (!value) {
+    return '';
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return format(parsed, 'dd/MM/yyyy HH:mm');
+};
+
+const mapTaskToDialogValues = (task: TasksRow): TaskDialogFormValues => ({
+  id: task.id,
+  project_id: task.project_id,
+  user_id: task.user_id ?? null,
+  task_id: task.task_id ?? '',
+  nome: task.nome ?? '',
+  responsavel: task.responsavel ?? null,
+  responsavel_cliente: task.responsavel_cliente ?? null,
+  responsavel_consultoria: task.responsavel_consultoria ?? null,
+  responsavel_ticket: task.responsavel_ticket ?? null,
+  prioridade: task.prioridade ?? null,
+  status: task.status ?? null,
+  status_ticket: task.status_ticket ?? null,
+  cliente: task.cliente ?? null,
+  modulo: task.modulo ?? null,
+  area: task.area ?? null,
+  categoria: task.categoria ?? null,
+  etapa_projeto: task.etapa_projeto ?? null,
+  sub_etapa_projeto: task.sub_etapa_projeto ?? null,
+  descricao_detalhada: task.descricao_detalhada ?? null,
+  retorno_acao: task.retorno_acao ?? null,
+  acao_realizada: task.acao_realizada ?? null,
+  descricao_ticket: task.descricao_ticket ?? null,
+  numero_ticket: task.numero_ticket ?? null,
+  data_inicio: task.data_inicio ?? null,
+  data_vencimento: task.data_vencimento ?? null,
+  data_entrega: task.data_entrega ?? null,
+  data_prevista_entrega: task.data_prevista_entrega ?? null,
+  data_prevista_validacao: task.data_prevista_validacao ?? null,
+  dias_para_concluir: task.dias_para_concluir ?? null,
+  percentual_conclusao: task.percentual_conclusao ?? null,
+  tempo_total: task.tempo_total ?? 0,
+  cronograma: Boolean(task.cronograma),
+  link: task.link ?? null,
+  link_drive: task.link_drive ?? null,
+  validado_por: task.validado_por ?? null,
+  escopo: task.escopo ?? null,
+  custom_fields: task.custom_fields ? JSON.stringify(task.custom_fields, null, 2) : null,
+  created_at: task.created_at ?? null,
+  updated_at: task.updated_at ?? null,
+});
+
+const parseCustomFields = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    throw new Error('JSON inválido nos campos personalizados.');
+  }
+};
+
+const buildTaskPatchFromFormValues = (values: TaskDialogFormValues): Partial<TasksRow> => {
+  const toDateValue = (raw?: string | null) => {
+    if (!raw) {
+      return null;
+    }
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const toNumberValue = (raw?: number | null) => {
+    if (raw === null || raw === undefined) {
+      return null;
+    }
+    return Number.isFinite(raw) ? raw : null;
+  };
+
+  return {
+    project_id: values.project_id,
+    user_id: sanitizeStringField(values.user_id ?? null),
+    task_id: values.task_id.trim(),
+    nome: values.nome.trim(),
+    responsavel: sanitizeStringField(values.responsavel ?? null),
+    responsavel_cliente: sanitizeStringField(values.responsavel_cliente ?? null),
+    responsavel_consultoria: sanitizeStringField(values.responsavel_consultoria ?? null),
+    responsavel_ticket: sanitizeStringField(values.responsavel_ticket ?? null),
+    prioridade: sanitizeStringField(values.prioridade ?? null),
+    status: sanitizeStringField(values.status ?? null) ?? 'Atenção',
+    status_ticket: sanitizeStringField(values.status_ticket ?? null),
+    cliente: sanitizeStringField(values.cliente ?? null),
+    modulo: sanitizeStringField(values.modulo ?? null),
+    area: sanitizeStringField(values.area ?? null),
+    categoria: sanitizeStringField(values.categoria ?? null),
+    etapa_projeto: sanitizeStringField(values.etapa_projeto ?? null),
+    sub_etapa_projeto: sanitizeStringField(values.sub_etapa_projeto ?? null),
+    descricao_detalhada: sanitizeStringField(values.descricao_detalhada ?? null),
+    retorno_acao: sanitizeStringField(values.retorno_acao ?? null),
+    acao_realizada: sanitizeStringField(values.acao_realizada ?? null),
+    descricao_ticket: sanitizeStringField(values.descricao_ticket ?? null),
+    numero_ticket: sanitizeStringField(values.numero_ticket ?? null),
+    data_inicio: toDateValue(values.data_inicio),
+    data_vencimento: toDateValue(values.data_vencimento),
+    data_entrega: toDateValue(values.data_entrega),
+    data_prevista_entrega: toDateValue(values.data_prevista_entrega),
+    data_prevista_validacao: toDateValue(values.data_prevista_validacao),
+    dias_para_concluir: toNumberValue(values.dias_para_concluir ?? null),
+    percentual_conclusao: toNumberValue(values.percentual_conclusao ?? null),
+    tempo_total: Number.isFinite(values.tempo_total) ? values.tempo_total : 0,
+    cronograma: Boolean(values.cronograma),
+    link: sanitizeStringField(values.link ?? null),
+    link_drive: sanitizeStringField(values.link_drive ?? null),
+    validado_por: sanitizeStringField(values.validado_por ?? null),
+    escopo: sanitizeStringField(values.escopo ?? null),
+    custom_fields: parseCustomFields(values.custom_fields ?? null),
+  };
 };
 
 // Ajuste este conjunto conforme as colunas que podem ser ordenadas no seu grid.
@@ -474,7 +736,13 @@ const TASK_ACTION_ICON_VARIANTS = {
     'bg-rose-500 text-white hover:bg-rose-600 hover:text-white focus-visible:ring-rose-500 disabled:bg-rose-300 disabled:text-rose-700',
 } as const;
 
-const hasAssignedResponsible = (responsavel: TaskRow['responsavel']): boolean => {
+const hasAssignedResponsible = (row: TaskRow): boolean => {
+  if (typeof row.user_id === 'string' && row.user_id.trim().length > 0) {
+    return true;
+  }
+
+  const responsavel = row.responsavel;
+
   if (typeof responsavel !== 'string') {
     return false;
   }
@@ -745,8 +1013,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     timeLogs,
     getTaskTotalTime,
     getResponsibleTotalTime,
-    startTimerLog,
-    stopTimerLog,
     refreshTimeLogs,
   } = useTimeLogs(projectId);
   const tasksWithTimeLogs = useMemo(() => {
@@ -775,6 +1041,60 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [hasChanges, setHasChanges] = useState(false);
   const [isCondensedView, setIsCondensedView] = useState(false);
   const [activeView, setActiveView] = useState<'table' | 'gantt'>('table');
+  const taskDialogDefaultValues = useMemo<TaskDialogFormValues>(
+    () => ({
+      id: null,
+      project_id: projectId,
+      user_id: null,
+      task_id: '',
+      nome: '',
+      responsavel: null,
+      responsavel_cliente: null,
+      responsavel_consultoria: null,
+      responsavel_ticket: null,
+      prioridade: null,
+      status: null,
+      status_ticket: null,
+      cliente: null,
+      modulo: null,
+      area: null,
+      categoria: null,
+      etapa_projeto: null,
+      sub_etapa_projeto: null,
+      descricao_detalhada: null,
+      retorno_acao: null,
+      acao_realizada: null,
+      descricao_ticket: null,
+      numero_ticket: null,
+      data_inicio: null,
+      data_vencimento: null,
+      data_entrega: null,
+      data_prevista_entrega: null,
+      data_prevista_validacao: null,
+      dias_para_concluir: null,
+      percentual_conclusao: null,
+      tempo_total: 0,
+      cronograma: false,
+      link: null,
+      link_drive: null,
+      validado_por: null,
+      escopo: null,
+      custom_fields: null,
+      created_at: null,
+      updated_at: null,
+    }),
+    [projectId],
+  );
+  const taskDialogForm = useForm<TaskDialogFormValues>({
+    resolver: zodResolver(taskDialogSchema),
+    defaultValues: taskDialogDefaultValues,
+  });
+  const [taskDialogState, setTaskDialogState] = useState<{
+    mode: 'view' | 'edit';
+    task: TasksRow | null;
+  } | null>(null);
+  const [taskDialogLoading, setTaskDialogLoading] = useState(false);
+  const [pendingDeleteRowIndex, setPendingDeleteRowIndex] = useState<number | null>(null);
   const {
     sortRules,
     addRule,
@@ -800,7 +1120,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isFieldRequired, setIsFieldRequired] = useState(false);
   const [fieldSearch, setFieldSearch] = useState('');
   const [isCreatingField, setIsCreatingField] = useState(false);
-  const [activeTaskDialog, setActiveTaskDialog] = useState<{ mode: 'view' | 'edit'; index: number } | null>(null);
   const [pendingResponsavelAssignment, setPendingResponsavelAssignment] = useState<{
     row: TaskRow;
     rowIndex: number;
@@ -835,7 +1154,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activitySheetTask, setActivitySheetTask] = useState<{ taskId: string; taskName: string | null } | null>(null);
   const activeTimersStorageKey = useMemo(
     () => `task-active-timers-${projectId}`,
     [projectId]
@@ -1929,13 +2247,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     });
   }, [tasks]);
 
-  useEffect(() => {
-    if (!activeTaskDialog) return;
-    if (!editableRows[activeTaskDialog.index]) {
-      setActiveTaskDialog(null);
-    }
-  }, [activeTaskDialog, editableRows]);
-
   const tasksLength = tasks.length;
 
   useEffect(() => {
@@ -2864,7 +3175,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         description: 'Salve a tarefa antes de finalizar o apontamento.',
         variant: 'destructive',
       });
-      return;
+      return false;
     }
 
     const removeActiveTimer = () => {
@@ -2878,44 +3189,73 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       });
     };
 
-    const taskName = typeof row.tarefa === 'string' ? row.tarefa : null;
-    const description =
-      typeof options?.activityDescription === 'string' && options.activityDescription.trim().length > 0
-        ? options.activityDescription.trim()
-        : undefined;
-    const fallbackStartedAt = (() => {
-      if (typeof options?.startedAtMs === 'number' && Number.isFinite(options.startedAtMs)) {
-        return options.startedAtMs;
-      }
-      if (typeof row.id === 'string' && row.id.length > 0) {
-        const fromState = activeTimers[row.id];
-        return typeof fromState === 'number' && Number.isFinite(fromState) ? fromState : null;
-      }
-      return null;
-    })();
+    const activityDescription = options?.activityDescription?.trim();
 
-    const result = await stopTimerLog(row.id, {
-      activityDescription: description,
-      taskName,
-      timeLogId: options?.timeLogId,
-      existingActivity: options?.existingActivity,
-      startedAtMs: fallbackStartedAt,
-      allowCreateIfMissing: options?.allowCreateIfMissing,
-    });
-
-    if (!result) {
+    if (!activityDescription) {
+      toast({
+        title: 'Descrição obrigatória',
+        description: 'Informe a descrição da atividade para finalizar o apontamento.',
+        variant: 'destructive',
+      });
       return false;
     }
 
-    removeActiveTimer();
+    try {
+      const { data: taskRecord } = await getTaskById(row.id);
+      const resolvedUserId = await resolveResponsibleUserId(taskRecord);
 
-    if (result.status === 'success' && options?.statusAfterStop && typeof options.rowIndex === 'number') {
-      updateCell(options.rowIndex, 'status', options.statusAfterStop);
+      const activeLogId = options?.timeLogId
+        ? options.timeLogId
+        : await (async () => {
+            const { data: activeLog, error } = await supabase
+              .from('time_logs')
+              .select('id')
+              .eq('task_id', taskRecord.id)
+              .eq('user_id', resolvedUserId)
+              .is('data_fim', null)
+              .maybeSingle();
+
+            if (error) {
+              throw error;
+            }
+
+            return activeLog?.id ?? null;
+          })();
+
+      if (!activeLogId) {
+        toast({
+          title: 'Nenhum apontamento em andamento',
+          description: 'Inicie o cronômetro desta tarefa para registrar a atividade.',
+        });
+        return false;
+      }
+
+      await stopTaskTimer(activeLogId, activityDescription);
+
+      removeActiveTimer();
+
+      if (options?.statusAfterStop && typeof options.rowIndex === 'number') {
+        updateCell(options.rowIndex, 'status', options.statusAfterStop);
+      }
+
+      await refreshTimeLogs();
+
+      const { data: totalMinutes } = await sumDailyMinutes(resolvedUserId, new Date().toISOString());
+      if (totalMinutes > 600) {
+        toast({
+          title: 'Atenção',
+          description: 'Você ultrapassou 10h de apontamentos hoje.',
+        });
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Erro ao finalizar apontamento de tempo:', error);
+      const description =
+        error instanceof Error ? error.message : 'Não foi possível finalizar o apontamento.';
+      toast({ title: 'Erro ao finalizar apontamento', description, variant: 'destructive' });
+      return false;
     }
-
-    await refreshTimeLogs();
-
-    return true;
   };
 
   const handleConfirmStopTimerDialog = useCallback(async () => {
@@ -2972,32 +3312,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [closeStopTimerDialog],
   );
 
-  const openActivitySheet = useCallback(
-    (row: TaskRow) => {
-      if (!row.id) {
-        toast({
-          title: 'Atenção',
-          description: 'Salve a tarefa para visualizar o histórico de atividades.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      const taskName = typeof row.tarefa === 'string' ? row.tarefa.trim() : null;
-      setActivitySheetTask({ taskId: row.id, taskName: taskName && taskName.length > 0 ? taskName : null });
-    },
-    [toast],
-  );
-
-  const handleActivitySheetChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        setActivitySheetTask(null);
-      }
-    },
-    [],
-  );
-
   const startTimer = useCallback(
     async (row: TaskRow) => {
       if (!row.id) {
@@ -3009,30 +3323,39 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      const tentativeStart = Date.now();
-      const startedLog = await startTimerLog(row.id, {
-        tipo_inclusao: 'automatico',
-        data_inicio: new Date(tentativeStart).toISOString(),
-        observacoes: 'Registro automático pela Gestão de Tarefas',
-      });
+      try {
+        const { data: taskRecord } = await getTaskById(row.id);
 
-      if (!startedLog) {
-        return;
-      }
-
-      const normalizedStart =
-        typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
-          ? new Date(startedLog.data_inicio).getTime()
-          : tentativeStart;
-
-      applyActiveTimersUpdate(prev => {
-        if (prev[row.id!]) {
-          return prev;
+        if (!canStartTimer(taskRecord)) {
+          toast({
+            title: 'Responsável obrigatório',
+            description: 'Defina o user_id da tarefa ou um responsável vinculado a um usuário válido.',
+            variant: 'destructive',
+          });
+          return;
         }
-        return { ...prev, [row.id!]: normalizedStart };
-      });
+
+        const resolvedUserId = await resolveResponsibleUserId(taskRecord);
+        const { data: startedLog } = await startTaskTimer(taskRecord.id, taskRecord.project_id, resolvedUserId);
+
+        const referenceStart = startedLog?.data_inicio
+          ? new Date(startedLog.data_inicio).getTime()
+          : Date.now();
+
+        applyActiveTimersUpdate(prev => {
+          if (prev[taskRecord.id]) {
+            return prev;
+          }
+          return { ...prev, [taskRecord.id]: referenceStart };
+        });
+      } catch (error) {
+        console.error('Erro ao iniciar apontamento de tempo:', error);
+        const description =
+          error instanceof Error ? error.message : 'Não foi possível iniciar o apontamento.';
+        toast({ title: 'Erro ao iniciar apontamento', description, variant: 'destructive' });
+      }
     },
-    [toast, applyActiveTimersUpdate, startTimerLog],
+    [applyActiveTimersUpdate, getTaskById, resolveResponsibleUserId, startTaskTimer, toast],
   );
 
   const handleConfirmResponsavelAssignment = async () => {
@@ -3088,19 +3411,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     }
   };
 
-  const navigateToGaps = (taskId?: string) => {
-    if (!taskId) {
-      toast({
-        title: 'Atenção',
-        description: 'Salve a tarefa para acessar a gestão de GAPs.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    navigate(`/projects-tap/${projectId}?tab=gaps&gapTaskId=${taskId}`);
-  };
-
   const addNewRow = useCallback(() => {
     const nextTaskId = getNextTaskIdentifier();
 
@@ -3127,76 +3437,94 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (!editableRows[index]) {
         return;
       }
-      setActiveTaskDialog({ mode: 'view', index });
+      void handleOpenTaskDialog(editableRows[index], 'view');
     },
-    [editableRows],
+    [editableRows, handleOpenTaskDialog],
   );
 
-  const deleteRow = useCallback(async (index: number) => {
-    const row = editableRows[index];
-    if (!row) {
-      return;
-    }
-
-    const rowId = row.id;
-
-    if (rowId) {
-      const hasLoggedTime = timeLogs.some(log => log.task_id === rowId);
-      if (hasLoggedTime) {
-        toast({
-          title: 'Tempo já contabilizado',
-          description: 'Esta tarefa não pode ser excluída porque já possui tempo registrado.',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    if (deletingRowIndex !== null) {
-      return;
-    }
-
-    setDeletingRowIndex(index);
-
-    try {
-      if (row.id) {
-        const success = await deleteTask(row.id);
-        if (!success) {
-          return;
-        }
+  const performDeleteRow = useCallback(
+    async (index: number): Promise<boolean> => {
+      const row = editableRows[index];
+      if (!row) {
+        return false;
       }
 
-      setEditableRows(prev => prev.filter((_, i) => i !== index));
+      if (deletingRowIndex !== null) {
+        return false;
+      }
 
-      if (rowId) {
-        applyActiveTimersUpdate(prev => {
-          if (!prev[rowId]) {
-            return prev;
+      const rowId = row.id ?? null;
+
+      setDeletingRowIndex(index);
+
+      try {
+        if (rowId) {
+          const success = await deleteTask(rowId);
+          if (!success) {
+            return false;
           }
+        }
 
-          const next = { ...prev };
-          delete next[rowId];
-          return next;
-        });
-      }
+        setEditableRows(prev => prev.filter((_, i) => i !== index));
+        setHasChanges(true);
 
-      if (!rowId) {
-        toast({
-          title: 'Rascunho removido',
-          description: 'A tarefa em rascunho foi removida.',
-        });
+        if (rowId) {
+          applyActiveTimersUpdate(prev => {
+            if (!prev[rowId]) {
+              return prev;
+            }
+
+            const next = { ...prev };
+            delete next[rowId];
+            return next;
+          });
+        } else {
+          toast({
+            title: 'Rascunho removido',
+            description: 'A tarefa em rascunho foi removida.',
+          });
+        }
+
+        return true;
+      } catch (error) {
+        console.error('Erro ao excluir tarefa:', error);
+
+        if (!rowId) {
+          toast({
+            title: 'Erro ao excluir tarefa',
+            description: 'Não foi possível remover esta tarefa. Tente novamente.',
+            variant: 'destructive',
+          });
+        }
+
+        return false;
+      } finally {
+        setDeletingRowIndex(null);
       }
-    } catch (error) {
-      console.error('Erro ao excluir tarefa:', error);
-      toast({
-        title: 'Erro ao excluir tarefa',
-        description: 'Não foi possível remover esta tarefa. Tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingRowIndex(null);
+    },
+    [applyActiveTimersUpdate, deleteTask, deletingRowIndex, editableRows, setHasChanges, toast],
+  );
+
+  const handleConfirmDeleteRow = useCallback(async () => {
+    if (pendingDeleteRowIndex === null) {
+      return;
     }
-  }, [applyActiveTimersUpdate, deleteTask, deletingRowIndex, editableRows, timeLogs, toast]);
+
+    const rowExists = editableRows[pendingDeleteRowIndex] !== undefined;
+    if (!rowExists) {
+      setPendingDeleteRowIndex(null);
+      return;
+    }
+
+    const success = await performDeleteRow(pendingDeleteRowIndex);
+    if (success) {
+      setPendingDeleteRowIndex(null);
+      return;
+    }
+
+    // Mesmo em caso de erro, fechar o diálogo após exibir a notificação apropriada.
+    setPendingDeleteRowIndex(null);
+  }, [editableRows, pendingDeleteRowIndex, performDeleteRow]);
 
   interface SaveRowOptions {
     suppressSuccessDialog?: boolean;
@@ -3308,7 +3636,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           setIsSuccessDialogOpen(true);
           toast({
             title: wasDraft ? 'Tarefa criada' : 'Tarefa atualizada',
-            description: 'Registro salvo com sucesso!',
+            description: 'Tarefa gravada com sucesso no Supabase.',
           });
         }
 
@@ -3383,7 +3711,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         };
       }
 
-      if (!hasAssignedResponsible(targetRow.responsavel)) {
+      if (!hasAssignedResponsible(targetRow)) {
         setPendingResponsavelAssignment({ row: targetRow, rowIndex });
         setSelectedResponsavelForTimer(null);
         return;
@@ -4116,10 +4444,157 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     subStageNameById,
   ]);
 
-  const closeTaskDialog = useCallback(() => setActiveTaskDialog(null), []);
+  const handleCloseTaskDialog = useCallback(() => {
+    setTaskDialogState(null);
+    taskDialogForm.reset(taskDialogDefaultValues);
+  }, [taskDialogDefaultValues, taskDialogForm]);
 
-  const activeDialogRow = activeTaskDialog ? editableRows[activeTaskDialog.index] : null;
-  const isTaskDialogOpen = Boolean(activeTaskDialog && activeDialogRow);
+  const isTaskDialogOpen = Boolean(taskDialogState);
+  const currentDialogTask = taskDialogState?.task ?? null;
+  const currentDialogMode = taskDialogState?.mode ?? 'view';
+  const dialogViewValues = useMemo<TaskDialogFormValues>(() => {
+    if (currentDialogTask) {
+      return mapTaskToDialogValues(currentDialogTask);
+    }
+    return taskDialogForm.getValues();
+  }, [currentDialogTask, taskDialogForm]);
+
+  const renderViewFieldContent = useCallback(
+    (field: TaskDialogField): React.ReactNode => {
+      const raw = dialogViewValues[field.name];
+
+      if (field.type === 'boolean') {
+        return raw ? 'Sim' : 'Não';
+      }
+
+      if (raw === null || raw === undefined || raw === '') {
+        return <span className="text-muted-foreground">—</span>;
+      }
+
+      if (field.type === 'date') {
+        const formatted = formatDateForInput(String(raw));
+        if (!formatted) {
+          return String(raw);
+        }
+        const parsed = new Date(formatted);
+        return Number.isNaN(parsed.getTime()) ? formatted : format(parsed, 'dd/MM/yyyy');
+      }
+
+      if (field.type === 'datetime') {
+        return formatDateTimeForDisplay(String(raw));
+      }
+
+      if (field.type === 'json') {
+        const valueString = typeof raw === 'string' ? raw : JSON.stringify(raw, null, 2);
+        let normalized = valueString;
+        try {
+          normalized = JSON.stringify(JSON.parse(valueString), null, 2);
+        } catch (error) {
+          normalized = valueString;
+        }
+        return (
+          <pre className="max-h-48 overflow-auto whitespace-pre-wrap text-xs">{normalized}</pre>
+        );
+      }
+
+      return String(raw);
+    },
+    [dialogViewValues],
+  );
+
+  const handleOpenTaskDialog = useCallback(
+    async (row: TaskRow, mode: 'view' | 'edit') => {
+      if (!row.id) {
+        toast({
+          title: 'Salve a tarefa',
+          description: 'É necessário salvar a tarefa antes de visualizar ou editar os detalhes.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setTaskDialogLoading(true);
+      try {
+        const { data } = await getTaskById(row.id);
+        const formValues = mapTaskToDialogValues(data);
+        taskDialogForm.reset(formValues);
+        setTaskDialogState({ mode, task: data });
+      } catch (error) {
+        console.error('Erro ao carregar detalhes da tarefa:', error);
+        const description =
+          error instanceof Error
+            ? error.message
+            : 'Não foi possível carregar os detalhes da tarefa.';
+        toast({ title: 'Erro', description, variant: 'destructive' });
+      } finally {
+        setTaskDialogLoading(false);
+      }
+    },
+    [getTaskById, taskDialogForm, toast],
+  );
+
+  const handleTaskDialogSubmit = taskDialogForm.handleSubmit(async values => {
+    setTaskDialogLoading(true);
+    try {
+      let patch: Partial<TasksRow>;
+      try {
+        patch = buildTaskPatchFromFormValues(values);
+      } catch (parseError) {
+        if (parseError instanceof Error && parseError.message.includes('JSON inválido')) {
+          taskDialogForm.setError('custom_fields', { type: 'manual', message: parseError.message });
+          return;
+        }
+        throw parseError;
+      }
+
+      if (currentDialogTask?.id) {
+        const { data: updatedTask } = await updateTaskRecord(currentDialogTask.id, patch);
+        toast({
+          title: 'Sucesso',
+          description: 'Tarefa gravada com sucesso no Supabase.',
+        });
+        taskDialogForm.reset(mapTaskToDialogValues(updatedTask));
+      } else {
+        const resolvedUserId =
+          sanitizeStringField(values.user_id ?? null) ?? (user?.id ?? null);
+
+        if (!resolvedUserId) {
+          taskDialogForm.setError('user_id', {
+            type: 'manual',
+            message: 'Informe o usuário responsável (user_id) da tarefa.',
+          });
+          return;
+        }
+
+        const insertPayload: TaskInsertPayload = {
+          ...patch,
+          user_id: resolvedUserId,
+        } as TaskInsertPayload;
+
+        const { data: createdTask } = await insertTask(insertPayload);
+
+        if (createdTask?.id) {
+          const { data: fetchedTask } = await getTaskById(createdTask.id);
+          taskDialogForm.reset(mapTaskToDialogValues(fetchedTask));
+        }
+
+        toast({
+          title: 'Sucesso',
+          description: 'Tarefa gravada com sucesso no Supabase.',
+        });
+      }
+
+      await refreshTasks();
+      handleCloseTaskDialog();
+    } catch (error) {
+      console.error('Erro ao salvar tarefa pelo diálogo:', error);
+      const description =
+        error instanceof Error ? error.message : 'Não foi possível salvar a tarefa.';
+      toast({ title: 'Erro', description, variant: 'destructive' });
+    } finally {
+      setTaskDialogLoading(false);
+    }
+  });
 
   const resetFieldDialogState = () => {
     setSelectedFieldType(null);
@@ -4268,7 +4743,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     variant="ghost"
                     size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.view)}
-                    onClick={() => setActiveTaskDialog({ mode: 'view', index })}
+                    onClick={() => void handleOpenTaskDialog(row, 'view')}
                     aria-label="Visualizar resumo da tarefa"
                   >
                     <Eye className="h-3.5 w-3.5" />
@@ -4282,42 +4757,13 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     variant="ghost"
                     size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.edit)}
-                    onClick={() => setActiveTaskDialog({ mode: 'edit', index })}
+                    onClick={() => void handleOpenTaskDialog(row, 'edit')}
                     aria-label="Editar tarefa"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Editar tarefa</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.gaps)}
-                    onClick={() => navigateToGaps(row.id)}
-                    aria-label="Abrir gestão de GAPs"
-                  >
-                    <FileWarning className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Abrir gestão de GAPs</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.activity)}
-                    onClick={() => openActivitySheet(row)}
-                    aria-label="Visualizar atividades da tarefa"
-                    disabled={!row.id}
-                  >
-                    <History className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Ver atividades</TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -4342,17 +4788,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     className={cn(
                       TASK_ACTION_ICON_BASE_CLASS,
                       TASK_ACTION_ICON_VARIANTS.start,
-                      !hasAssignedResponsible(row.responsavel) && 'pointer-events-none'
+                      !hasAssignedResponsible(row) && 'pointer-events-none'
                     )}
                     onClick={() => void handleStartTimer(row, index)}
-                    disabled={isSavingRow || isRunning || !hasAssignedResponsible(row.responsavel)}
+                    disabled={isSavingRow || isRunning || !hasAssignedResponsible(row)}
                     aria-label="Iniciar apontamento"
                   >
                     <Play className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {hasAssignedResponsible(row.responsavel)
+                  {hasAssignedResponsible(row)
                     ? 'Iniciar apontamento'
                     : 'Associe um responsável para iniciar'}
                 </TooltipContent>
@@ -4378,7 +4824,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                     variant="ghost"
                     size="icon"
                     className={cn(TASK_ACTION_ICON_BASE_CLASS, TASK_ACTION_ICON_VARIANTS.delete)}
-                    onClick={() => void deleteRow(index)}
+                    onClick={() => setPendingDeleteRowIndex(index)}
                     aria-label="Excluir tarefa"
                     disabled={isDeletingRow}
                   >
@@ -4440,6 +4886,28 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const trimmed = rawName.trim();
     return trimmed.length > 0 ? trimmed : null;
   })();
+  const isDeleteDialogOpen = pendingDeleteRowIndex !== null;
+  const deleteDialogRow =
+    pendingDeleteRowIndex !== null ? editableRows[pendingDeleteRowIndex] ?? null : null;
+  const deleteDialogTaskCode =
+    typeof deleteDialogRow?.task_id === 'string' && deleteDialogRow.task_id.trim().length > 0
+      ? deleteDialogRow.task_id
+      : null;
+  const deleteDialogTaskName = (() => {
+    if (!deleteDialogRow) {
+      return null;
+    }
+
+    const rawName = typeof deleteDialogRow.tarefa === 'string' ? deleteDialogRow.tarefa : null;
+    if (!rawName) {
+      return null;
+    }
+
+    const trimmed = rawName.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  })();
+  const isDeleteDialogProcessing =
+    typeof pendingDeleteRowIndex === 'number' && deletingRowIndex === pendingDeleteRowIndex;
   const stopTimerDialogSessionSeconds = stopTimerDialogTaskId
     ? (() => {
         const start = activeTimers[stopTimerDialogTaskId];
@@ -5182,26 +5650,6 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <Sheet open={Boolean(activitySheetTask)} onOpenChange={handleActivitySheetChange}>
-        <SheetContent side="right" className="flex h-full w-full flex-col gap-4 overflow-y-auto sm:max-w-xl">
-          <SheetHeader>
-            <SheetTitle>Atividades da tarefa</SheetTitle>
-          </SheetHeader>
-          {activitySheetTask ? (
-            <div className="space-y-4">
-              <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm">
-                {activitySheetTask.taskName ? (
-                  <p className="font-medium text-foreground">{activitySheetTask.taskName}</p>
-                ) : (
-                  <p className="font-medium text-foreground">Tarefa sem título</p>
-                )}
-                <p className="mt-1 text-xs text-muted-foreground">ID interno: {activitySheetTask.taskId}</p>
-              </div>
-              <ActivityPanel key={activitySheetTask.taskId} taskId={activitySheetTask.taskId} />
-            </div>
-          ) : null}
-        </SheetContent>
-      </Sheet>
       <Dialog
         open={isResponsavelDialogOpen}
         onOpenChange={open => {
@@ -5276,48 +5724,182 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           </DialogContent>
         ) : null}
       </Dialog>
-      <Dialog open={isTaskDialogOpen} onOpenChange={(open) => { if (!open) closeTaskDialog(); }}>
-        <DialogContent className="max-w-4xl">
+      <Dialog
+        open={isTaskDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            handleCloseTaskDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl">
           <DialogHeader>
             <DialogTitle>
-              {activeTaskDialog?.mode === 'view' ? 'Resumo da tarefa' : 'Editar tarefa'}
+              {currentDialogMode === 'view' ? 'Resumo da tarefa' : 'Editar tarefa'}
             </DialogTitle>
+            {currentDialogTask ? (
+              <DialogDescription>
+                Código: {currentDialogTask.task_id} · ID interno: {currentDialogTask.id}
+              </DialogDescription>
+            ) : null}
           </DialogHeader>
-          {activeDialogRow ? (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {activeDialogRow.tarefa && activeDialogRow.tarefa.trim().length > 0
-                    ? activeDialogRow.tarefa
-                    : 'Tarefa sem título'}
-                </p>
-              </div>
-              <ScrollArea className="max-h-[60vh] pr-2">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {visibleColumns.map(column => (
-                    <div key={column.key} className="space-y-1">
-                      <span className="text-xs font-medium text-muted-foreground">{column.label}</span>
-                      {activeTaskDialog?.mode === 'view' ? (
-                        <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm">
-                          {renderTaskSummaryValue(activeDialogRow, column)}
-                        </div>
-                      ) : (
-                        <div className="rounded-md border border-border/40 bg-background px-2 py-1">
-                          {renderEditableCell(activeDialogRow, activeTaskDialog.index, column)}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+          {taskDialogLoading ? (
+            <div className="flex min-h-[200px] items-center justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : null}
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={closeTaskDialog}>Fechar</Button>
-          </DialogFooter>
+          ) : currentDialogMode === 'view' ? (
+            currentDialogTask ? (
+              <>
+                <ScrollArea className="max-h-[60vh] pr-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {TASK_DIALOG_FIELDS.map(field => (
+                      <div key={field.name as string} className="space-y-1">
+                        <span className="text-xs font-medium text-muted-foreground">{field.label}</span>
+                        <div className="rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-sm">
+                          {renderViewFieldContent(field)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <DialogFooter className="mt-4">
+                  <Button variant="outline" onClick={handleCloseTaskDialog}>Fechar</Button>
+                </DialogFooter>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Selecione uma tarefa para visualizar os detalhes.
+              </p>
+            )
+          ) : (
+            <Form {...taskDialogForm}>
+              <form
+                onSubmit={event => {
+                  event.preventDefault();
+                  void handleTaskDialogSubmit();
+                }}
+                className="space-y-4"
+              >
+                <ScrollArea className="max-h-[60vh] pr-2">
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {TASK_DIALOG_FIELDS.map(field => (
+                      <FormField
+                        key={field.name as string}
+                        control={taskDialogForm.control}
+                        name={field.name}
+                        render={({ field: formField }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel>{field.label}</FormLabel>
+                            <FormControl>
+                              {field.type === 'boolean' ? (
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    checked={Boolean(formField.value)}
+                                    onCheckedChange={checked => formField.onChange(checked)}
+                                    disabled={field.readOnly}
+                                  />
+                                  <span className="text-xs text-muted-foreground">
+                                    {Boolean(formField.value) ? 'Sim' : 'Não'}
+                                  </span>
+                                </div>
+                              ) : field.type === 'textarea' || field.type === 'json' ? (
+                                <Textarea
+                                  {...formField}
+                                  value={formField.value ?? ''}
+                                  onChange={event => formField.onChange(event.target.value)}
+                                  rows={field.type === 'json' ? 6 : 4}
+                                  disabled={field.readOnly}
+                                />
+                              ) : field.type === 'date' ? (
+                                <Input
+                                  type="date"
+                                  value={formField.value ? formatDateForInput(String(formField.value)) : ''}
+                                  onChange={event => formField.onChange(event.target.value || null)}
+                                  disabled={field.readOnly}
+                                />
+                              ) : field.type === 'datetime' ? (
+                                <Input
+                                  value={formField.value ? formatDateTimeForDisplay(String(formField.value)) : ''}
+                                  readOnly
+                                  disabled
+                                />
+                              ) : field.type === 'number' ? (
+                                <Input
+                                  type="number"
+                                  value={formField.value ?? ''}
+                                  onChange={event =>
+                                    formField.onChange(event.target.value === '' ? null : event.target.value)
+                                  }
+                                  disabled={field.readOnly}
+                                />
+                              ) : (
+                                <Input
+                                  value={formField.value ?? ''}
+                                  onChange={event => formField.onChange(event.target.value)}
+                                  disabled={field.readOnly}
+                                />
+                              )}
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                </ScrollArea>
+                <DialogFooter className="gap-2">
+                  <Button type="button" variant="outline" onClick={handleCloseTaskDialog}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={taskDialogLoading}>
+                    {taskDialogLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Salvar alterações
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          )}
         </DialogContent>
       </Dialog>
 
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={open => {
+          if (!open) {
+            setPendingDeleteRowIndex(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDialogRow?.id ? (
+                <>
+                  Tem certeza de que deseja excluir{' '}
+                  <span className="font-semibold">{deleteDialogTaskName ?? 'esta tarefa'}</span>
+                  {deleteDialogTaskCode ? ` (${deleteDialogTaskCode})` : ''}?
+                  <br />
+                  A exclusão só será concluída se todos os apontamentos estiverem com status pendente e não aprovados.
+                </>
+              ) : (
+                <>Deseja descartar este rascunho de tarefa? Esta ação não pode ser desfeita.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleteDialogProcessing}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleConfirmDeleteRow()}
+              disabled={isDeleteDialogProcessing}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleteDialogProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Excluir tarefa
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog
         open={isSuccessDialogOpen}
         onOpenChange={open => {
@@ -5331,7 +5913,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             <AlertDialogTitle>{successDialogTitle ?? 'Tarefa salva'}</AlertDialogTitle>
             <AlertDialogDescription>
               <div className="space-y-2 text-sm">
-                <p>Registro salvo com sucesso!</p>
+                <p>Tarefa gravada com sucesso no Supabase.</p>
                 {successTask ? (
                   <div className="grid gap-1">
                     {successDialogCreatedAt ? (
