@@ -113,9 +113,7 @@ import {
 } from '@/lib/active-timers';
 import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useForm, type Resolver } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
 interface TaskManagementSystemProps {
@@ -210,49 +208,125 @@ const PRIORITY_WEIGHTS: Record<string, number> = {
   crítica: 3,
 };
 
-const taskDialogSchema = z.object({
-  id: z.string().uuid().optional().nullable(),
-  project_id: z.string().uuid({ message: 'Projeto obrigatório' }),
-  user_id: z.string().uuid().optional().nullable(),
-  task_id: z.string().min(1, 'Código da tarefa é obrigatório'),
-  nome: z.string().min(1, 'Nome da tarefa é obrigatório'),
-  responsavel: z.string().optional().nullable(),
-  responsavel_cliente: z.string().optional().nullable(),
-  responsavel_consultoria: z.string().optional().nullable(),
-  responsavel_ticket: z.string().optional().nullable(),
-  prioridade: z.string().optional().nullable(),
-  status: z.string().optional().nullable(),
-  status_ticket: z.string().optional().nullable(),
-  cliente: z.string().optional().nullable(),
-  modulo: z.string().optional().nullable(),
-  area: z.string().optional().nullable(),
-  categoria: z.string().optional().nullable(),
-  etapa_projeto: z.string().optional().nullable(),
-  sub_etapa_projeto: z.string().optional().nullable(),
-  descricao_detalhada: z.string().optional().nullable(),
-  retorno_acao: z.string().optional().nullable(),
-  acao_realizada: z.string().optional().nullable(),
-  descricao_ticket: z.string().optional().nullable(),
-  numero_ticket: z.string().optional().nullable(),
-  data_inicio: z.string().optional().nullable(),
-  data_vencimento: z.string().optional().nullable(),
-  data_entrega: z.string().optional().nullable(),
-  data_prevista_entrega: z.string().optional().nullable(),
-  data_prevista_validacao: z.string().optional().nullable(),
-  dias_para_concluir: z.coerce.number().nullable().optional(),
-  percentual_conclusao: z.coerce.number().min(0).max(100).nullable().optional(),
-  tempo_total: z.coerce.number().min(0).default(0),
-  cronograma: z.boolean().optional(),
-  link: z.string().optional().nullable(),
-  link_drive: z.string().optional().nullable(),
-  validado_por: z.string().optional().nullable(),
-  escopo: z.string().optional().nullable(),
-  custom_fields: z.string().optional().nullable(),
-  created_at: z.string().optional().nullable(),
-  updated_at: z.string().optional().nullable(),
-});
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type TaskDialogFormValues = z.infer<typeof taskDialogSchema>;
+type NullableString = string | null;
+
+type TaskDialogFormValues = {
+  id: NullableString;
+  project_id: string;
+  user_id: NullableString;
+  task_id: string;
+  nome: string;
+  responsavel: NullableString;
+  responsavel_cliente: NullableString;
+  responsavel_consultoria: NullableString;
+  responsavel_ticket: NullableString;
+  prioridade: NullableString;
+  status: NullableString;
+  status_ticket: NullableString;
+  cliente: NullableString;
+  modulo: NullableString;
+  area: NullableString;
+  categoria: NullableString;
+  etapa_projeto: NullableString;
+  sub_etapa_projeto: NullableString;
+  descricao_detalhada: NullableString;
+  retorno_acao: NullableString;
+  acao_realizada: NullableString;
+  descricao_ticket: NullableString;
+  numero_ticket: NullableString;
+  data_inicio: NullableString;
+  data_vencimento: NullableString;
+  data_entrega: NullableString;
+  data_prevista_entrega: NullableString;
+  data_prevista_validacao: NullableString;
+  dias_para_concluir: number | null;
+  percentual_conclusao: number | null;
+  tempo_total: number;
+  cronograma: boolean;
+  link: NullableString;
+  link_drive: NullableString;
+  validado_por: NullableString;
+  escopo: NullableString;
+  custom_fields: NullableString;
+  created_at: NullableString;
+  updated_at: NullableString;
+};
+
+const coerceOptionalNumber = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const coerceNonNegativeNumber = (value: unknown, fallback = 0): number => {
+  const parsed = coerceOptionalNumber(value);
+  if (parsed === null) {
+    return Math.max(0, fallback);
+  }
+
+  return Math.max(0, parsed);
+};
+
+const taskDialogResolver: Resolver<TaskDialogFormValues> = async values => {
+  const errors: Record<string, { type: string; message: string }> = {};
+
+  const projectId = typeof values.project_id === 'string' ? values.project_id.trim() : '';
+  const taskId = typeof values.task_id === 'string' ? values.task_id.trim() : '';
+  const nome = typeof values.nome === 'string' ? values.nome.trim() : '';
+
+  const diasParaConcluir = coerceOptionalNumber(values.dias_para_concluir);
+  const percentualConclusao = coerceOptionalNumber(values.percentual_conclusao);
+  const tempoTotal = coerceNonNegativeNumber(values.tempo_total, 0);
+
+  if (!projectId) {
+    errors.project_id = { type: 'required', message: 'Projeto obrigatório' };
+  } else if (!UUID_REGEX.test(projectId)) {
+    errors.project_id = { type: 'pattern', message: 'Projeto inválido' };
+  }
+
+  if (!taskId) {
+    errors.task_id = { type: 'min', message: 'Código da tarefa é obrigatório' };
+  }
+
+  if (!nome) {
+    errors.nome = { type: 'min', message: 'Nome da tarefa é obrigatório' };
+  }
+
+  if (percentualConclusao !== null && (percentualConclusao < 0 || percentualConclusao > 100)) {
+    errors.percentual_conclusao = {
+      type: 'validate',
+      message: 'O percentual deve estar entre 0 e 100',
+    };
+  }
+
+  const sanitizedValues: TaskDialogFormValues = {
+    ...values,
+    project_id: projectId,
+    task_id: taskId,
+    nome,
+    dias_para_concluir: diasParaConcluir,
+    percentual_conclusao:
+      percentualConclusao === null || percentualConclusao === undefined
+        ? null
+        : Math.min(Math.max(percentualConclusao, 0), 100),
+    tempo_total: tempoTotal,
+  };
+
+  return {
+    values: Object.keys(errors).length ? {} : sanitizedValues,
+    errors,
+  };
+};
 
 type TaskDialogFieldType =
   | 'text'
@@ -1086,7 +1160,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [projectId],
   );
   const taskDialogForm = useForm<TaskDialogFormValues>({
-    resolver: zodResolver(taskDialogSchema),
+    resolver: taskDialogResolver,
     defaultValues: taskDialogDefaultValues,
   });
   const [taskDialogState, setTaskDialogState] = useState<{
