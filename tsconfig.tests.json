@@ -15,6 +15,7 @@
   "include": [
     "tests/**/*.ts",
     "src/hooks/utils/timeLogPayload.ts",
-    "src/types/time-log.ts"
+    "src/types/time-log.ts",
+    "src/components/projects/taskActionGuards.ts"
   ]
 }
