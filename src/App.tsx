@@ -1,7 +1,7 @@
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -47,6 +47,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   return <>{children}</>;
+}
+
+function ProjectTasksRedirect() {
+  const { id } = useParams<{ id: string }>();
+  const location = useLocation();
+
+  if (!id) {
+    return <Navigate to="/projects-tap" replace />;
+  }
+
+  const params = new URLSearchParams(location.search);
+  params.set("tab", "tasks");
+
+  const search = params.toString();
+  const target = `/projects-tap/${id}${search ? `?${search}` : ""}`;
+
+  return <Navigate to={target} replace />;
 }
 
 function AppRoutes() {
@@ -123,6 +140,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProjectDetails />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects-tap/:id/tasks"
+        element={
+          <ProtectedRoute>
+            <ProjectTasksRedirect />
           </ProtectedRoute>
         }
       />
