@@ -209,6 +209,8 @@ const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
   'aprovacao_hora',
 ];
 
+const LEGACY_SCHEMA_ERROR_CODES = new Set(['42703', 'PGRST204']);
+
 const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, TimeLog['approval_status']> = {
   pendente: 'Aguarda Aprovação',
   aprovado: 'Aprovado',
@@ -717,15 +719,32 @@ export function useTimeLogs(projectId?: string) {
         approved_at: null,
       };
 
-      const { data, error } = await supabase
-        .from('time_logs')
-        .insert(buildSupabasePayload(payload) as TimeLogInsert)
-        .select()
-        .single();
+      const attemptInsert = async (allowRetry: boolean): Promise<TimeLogRow> => {
+        const { data, error } = await supabase
+          .from('time_logs')
+          .insert(buildSupabasePayload(payload) as TimeLogInsert)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) {
+          if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(error.code ?? '')) {
+            legacyApprovalSchemaRef.current = true;
+            return attemptInsert(false);
+          }
 
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+          throw error;
+        }
+
+        if (!data) {
+          throw new Error('Nenhum dado retornado ao iniciar o log de tempo.');
+        }
+
+        return data as TimeLogRow;
+      };
+
+      const insertedRow = await attemptInsert(true);
+
+      const normalized = normalizeTimeLogRecord(insertedRow);
 
       setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
@@ -924,18 +943,32 @@ export function useTimeLogs(projectId?: string) {
           approved_at: null,
         };
 
-        const { data: insertedData, error: insertError } = await supabase
-          .from('time_logs')
-          .insert(buildSupabasePayload(insertPayload) as TimeLogInsert)
-          .select()
-          .single();
+        const attemptInsert = async (allowRetry: boolean): Promise<TimeLogRow> => {
+          const { data: insertedData, error: insertError } = await supabase
+            .from('time_logs')
+            .insert(buildSupabasePayload(insertPayload) as TimeLogInsert)
+            .select()
+            .single();
 
-        if (insertError) throw insertError;
-        if (!insertedData) {
-          throw new Error('Nenhum dado retornado ao registrar novo log de tempo.');
-        }
+          if (insertError) {
+            if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(insertError.code ?? '')) {
+              legacyApprovalSchemaRef.current = true;
+              return attemptInsert(false);
+            }
 
-        const normalized = normalizeTimeLogRecord(insertedData as TimeLogRow);
+            throw insertError;
+          }
+
+          if (!insertedData) {
+            throw new Error('Nenhum dado retornado ao registrar novo log de tempo.');
+          }
+
+          return insertedData as TimeLogRow;
+        };
+
+        const insertedRow = await attemptInsert(true);
+
+        const normalized = normalizeTimeLogRecord(insertedRow);
 
         setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
@@ -962,27 +995,43 @@ export function useTimeLogs(projectId?: string) {
         atividade: normalizedActivityValue,
       };
 
-      const { data, error: updateError } = await supabase
-        .from('time_logs')
-        .update(buildSupabasePayload(updatePayload) as TimeLogUpdate)
-        .eq('id', logIdToUpdate)
-        .eq('task_id', taskId)
-        .eq('user_id', user.id)
-        .select()
-        .single();
+      const attemptUpdate = async (allowRetry: boolean): Promise<TimeLogRow | 'fallback'> => {
+        const { data, error: updateError } = await supabase
+          .from('time_logs')
+          .update(buildSupabasePayload(updatePayload) as TimeLogUpdate)
+          .eq('id', logIdToUpdate)
+          .eq('task_id', taskId)
+          .eq('user_id', user.id)
+          .select()
+          .single();
 
-      if (updateError) {
-        if (updateError.code === 'PGRST116') {
-          return await createLogFromFallback();
+        if (updateError) {
+          if (updateError.code === 'PGRST116') {
+            return 'fallback';
+          }
+
+          if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(updateError.code ?? '')) {
+            legacyApprovalSchemaRef.current = true;
+            return attemptUpdate(false);
+          }
+
+          throw updateError;
         }
-        throw updateError;
+
+        if (!data) {
+          throw new Error('Nenhum dado retornado ao finalizar o log de tempo.');
+        }
+
+        return data as TimeLogRow;
+      };
+
+      const updatedRowOrFallback = await attemptUpdate(true);
+
+      if (updatedRowOrFallback === 'fallback') {
+        return await createLogFromFallback();
       }
 
-      if (!data) {
-        throw new Error('Nenhum dado retornado ao finalizar o log de tempo.');
-      }
-
-      const normalized = normalizeTimeLogRecord(data as TimeLogRow);
+      const normalized = normalizeTimeLogRecord(updatedRowOrFallback);
 
       setTimeLogs(prev => {
         const hasLog = prev.some(log => log.id === normalized.id);
