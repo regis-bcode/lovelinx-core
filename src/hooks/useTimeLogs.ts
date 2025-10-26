@@ -1441,9 +1441,18 @@ export function useTimeLogs(projectId?: string) {
   };
 
   const getLogDurationSeconds = (log: TimeLog): number => {
-    if (typeof log.data_inicio === 'string' && typeof log.data_fim === 'string') {
-      const startMs = Date.parse(log.data_inicio);
-      const endMs = Date.parse(log.data_fim);
+    const startIso =
+      (typeof log.started_at === 'string' && log.started_at?.trim()) ||
+      (typeof log.data_inicio === 'string' && log.data_inicio?.trim()) ||
+      null;
+    const endIso =
+      (typeof log.ended_at === 'string' && log.ended_at?.trim()) ||
+      (typeof log.data_fim === 'string' && log.data_fim?.trim()) ||
+      null;
+
+    if (startIso && endIso) {
+      const startMs = Date.parse(startIso);
+      const endMs = Date.parse(endIso);
       if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
         return Math.max(0, Math.round((endMs - startMs) / 1000));
       }
