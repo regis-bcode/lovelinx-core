@@ -1115,6 +1115,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     getTaskTotalTime,
     getResponsibleTotalTime,
     refreshTimeLogs,
+    loading: timeLogsLoading,
   } = useTimeLogs(projectId);
   const tasksWithTimeLogs = useMemo(() => {
     const set = new Set<string>();
@@ -1435,6 +1436,64 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     });
     return map;
   }, [subStages]);
+
+  useEffect(() => {
+    if (timeLogsLoading) {
+      return;
+    }
+
+    const tasksWithLogs = new Set<string>();
+    const runningLogStartTimes = new Map<string, number>();
+
+    timeLogs.forEach(log => {
+      if (typeof log.task_id !== 'string' || log.task_id.length === 0) {
+        return;
+      }
+
+      const taskId = log.task_id;
+      tasksWithLogs.add(taskId);
+
+      if (log.data_fim) {
+        return;
+      }
+
+      const startedAt =
+        typeof log.data_inicio === 'string' ? new Date(log.data_inicio).getTime() : Number.NaN;
+
+      if (Number.isFinite(startedAt) && startedAt > 0) {
+        runningLogStartTimes.set(taskId, startedAt);
+      }
+    });
+
+    if (runningLogStartTimes.size === 0 && tasksWithLogs.size === 0) {
+      return;
+    }
+
+    applyActiveTimersUpdate(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      runningLogStartTimes.forEach((startTimestamp, taskId) => {
+        if (next[taskId] !== startTimestamp) {
+          next[taskId] = startTimestamp;
+          changed = true;
+        }
+      });
+
+      Object.keys(prev).forEach(taskId => {
+        if (!runningLogStartTimes.has(taskId) && tasksWithLogs.has(taskId)) {
+          delete next[taskId];
+          changed = true;
+        }
+      });
+
+      if (!changed) {
+        return prev;
+      }
+
+      return next;
+    });
+  }, [timeLogs, timeLogsLoading, applyActiveTimersUpdate]);
 
   useEffect(() => {
     const validIds = new Set(
