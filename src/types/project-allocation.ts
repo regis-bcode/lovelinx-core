@@ -26,6 +26,7 @@ export interface ProjectAllocationWithDetails extends ProjectAllocation {
     nome_completo: string;
     email: string;
     client_id?: string;
+    horas_liberadas_por_dia?: number;
   };
   client?: {
     nome: string;

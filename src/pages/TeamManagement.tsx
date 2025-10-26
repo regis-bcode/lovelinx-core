@@ -454,6 +454,7 @@ export default function TeamManagement() {
                                 <TableHead>Membro</TableHead>
                                 <TableHead>Cliente</TableHead>
                                 <TableHead>Função</TableHead>
+                                <TableHead>Horas liberadas/dia</TableHead>
                                 <TableHead>Valor/Hora</TableHead>
                                 <TableHead>Período</TableHead>
                                 <TableHead>Status</TableHead>
@@ -473,6 +474,17 @@ export default function TeamManagement() {
                                     {allocation.client?.nome || 'N/A'}
                                   </TableCell>
                                   <TableCell>{allocation.funcao_projeto}</TableCell>
+                                  <TableCell>
+                                    {allocation.user?.horas_liberadas_por_dia != null &&
+                                    !Number.isNaN(Number(allocation.user.horas_liberadas_por_dia)) ? (
+                                      `${Number(allocation.user.horas_liberadas_por_dia).toLocaleString("pt-BR", {
+                                        minimumFractionDigits: 0,
+                                        maximumFractionDigits: 2,
+                                      })}h`
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    )}
+                                  </TableCell>
                                   <TableCell>R$ {allocation.valor_hora.toFixed(2)}</TableCell>
                                   <TableCell>
                                     <div className="text-sm">

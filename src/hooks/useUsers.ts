@@ -28,6 +28,7 @@ export interface User {
   observacoes?: string;
   client_id?: string;
   horas_diarias_aprovadas?: number;
+  horas_liberadas_por_dia?: number;
   client?: {
     id: string;
     nome: string;
@@ -47,6 +48,7 @@ export interface CreateUserData {
   client_id?: string;
   observacoes?: string;
   horas_diarias_aprovadas?: number;
+  horas_liberadas_por_dia?: number;
 }
 
 export const useUsers = () => {
@@ -88,6 +90,8 @@ export const useUsers = () => {
           ...userData,
           horas_diarias_aprovadas:
             userData.horas_diarias_aprovadas != null ? Number(userData.horas_diarias_aprovadas) : null,
+          horas_liberadas_por_dia:
+            userData.horas_liberadas_por_dia != null ? Number(userData.horas_liberadas_por_dia) : null,
           user_id: user.id,
           tipo_usuario: userData.tipo_usuario as any, // Casting temporário
         })
@@ -120,6 +124,10 @@ export const useUsers = () => {
       if (Object.prototype.hasOwnProperty.call(updateData, "horas_diarias_aprovadas")) {
         updateData.horas_diarias_aprovadas =
           updateData.horas_diarias_aprovadas != null ? Number(updateData.horas_diarias_aprovadas) : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(updateData, "horas_liberadas_por_dia")) {
+        updateData.horas_liberadas_por_dia =
+          updateData.horas_liberadas_por_dia != null ? Number(updateData.horas_liberadas_por_dia) : null;
       }
       if (updateData.tipo_usuario) {
         updateData.tipo_usuario = updateData.tipo_usuario as any; // Casting temporário

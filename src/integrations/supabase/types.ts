@@ -1620,6 +1620,7 @@ export type Database = {
           created_at: string
           custo_hora: number | null
           horas_diarias_aprovadas: number | null
+          horas_liberadas_por_dia: number | null
           email: string
           id: string
           nome_completo: string
@@ -1638,6 +1639,7 @@ export type Database = {
           created_at?: string
           custo_hora?: number | null
           horas_diarias_aprovadas?: number | null
+          horas_liberadas_por_dia?: number | null
           email: string
           id?: string
           nome_completo: string
@@ -1656,6 +1658,7 @@ export type Database = {
           created_at?: string
           custo_hora?: number | null
           horas_diarias_aprovadas?: number | null
+          horas_liberadas_por_dia?: number | null
           email?: string
           id?: string
           nome_completo?: string
