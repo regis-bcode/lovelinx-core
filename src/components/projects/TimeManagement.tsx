@@ -2433,7 +2433,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 const taskTime = getTaskTotalTime(task.id);
                 const isTimerActive = Boolean(activeTimers[task.id]);
                 const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
-                const manualOverrideMinutes = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
+                const manualOverrideMinutes = (() => {
+                  const rawOverride = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
+                  if (rawOverride === null || rawOverride === undefined) {
+                    return undefined;
+                  }
+
+                  const numericOverride = typeof rawOverride === 'number'
+                    ? rawOverride
+                    : Number.parseFloat(String(rawOverride));
+
+                  if (!Number.isFinite(numericOverride) || numericOverride <= 0) {
+                    return undefined;
+                  }
+
+                  return numericOverride;
+                })();
                 const runningSeconds = elapsedSeconds[task.id] || 0;
                 const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
                 const startButtonTitle = manualOverrideMinutes !== undefined
