@@ -157,6 +157,14 @@ type GroupedTask = {
   items: TaskRow[];
 };
 
+type ResponsibleTimeSummary = {
+  label: string;
+  seconds: number;
+  minutes: number;
+  formatted: string;
+  isActive: boolean;
+};
+
 const GROUP_BY_STORAGE_KEY = 'task-grid.groupBy';
 const EXPANDED_GROUPS_STORAGE_PREFIX = 'task-grid.expanded.';
 
@@ -1566,13 +1574,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   const preferencesStorageKey = useMemo(() => `task-table-preferences-${projectId}`, [projectId]);
 
-  const { responsibleTimeSummaries, responsibleTimeSummaryMap } = useMemo(() => {
+  const { responsibleTimeSummaries, responsibleTimeSummaryMap } = useMemo<{
+    responsibleTimeSummaries: ResponsibleTimeSummary[];
+    responsibleTimeSummaryMap: Map<string, ResponsibleTimeSummary>;
+  }>(() => {
     const assignments = editableRows
       .filter(row => row.id && typeof row.responsavel === 'string' && row.responsavel.trim().length > 0)
       .map(row => ({ taskId: row.id as string, responsavel: row.responsavel as string }));
 
     const baseMinutesByResponsavel = getResponsibleTotalTime(assignments);
-    const aggregated = new Map<string, { label: string; seconds: number }>();
+    const aggregated = new Map<string, { label: string; seconds: number; isActive: boolean }>();
 
     Object.entries(baseMinutesByResponsavel).forEach(([label, minutes]) => {
       const normalized = label.trim().toLowerCase();
@@ -1581,7 +1592,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       }
 
       const safeMinutes = Number.isFinite(minutes) ? Math.max(0, minutes) : 0;
-      aggregated.set(normalized, { label, seconds: Math.round(safeMinutes * 60) });
+      aggregated.set(normalized, { label, seconds: Math.round(safeMinutes * 60), isActive: false });
     });
 
     editableRows.forEach(row => {
@@ -1599,9 +1610,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const referenceNow = timerTick || Date.now();
       const runningSeconds = runningStart ? Math.max(0, Math.round((referenceNow - runningStart) / 1000)) : 0;
       const extras = runningSeconds;
+      const isRunning = Boolean(runningStart);
 
       if (!aggregated.has(normalized)) {
-        aggregated.set(normalized, { label: responsavelName, seconds: extras });
+        aggregated.set(normalized, { label: responsavelName, seconds: extras, isActive: isRunning });
         return;
       }
 
@@ -1610,27 +1622,42 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       aggregated.set(normalized, {
         label: responsavelName || existing.label,
         seconds: nextSeconds,
+        isActive: existing.isActive || isRunning,
       });
     });
 
-    const allEntries = Array.from(aggregated.values()).map(entry => {
+    const allEntries = Array.from(aggregated.entries()).map(([normalized, entry]) => {
       const safeSeconds = Number.isFinite(entry.seconds) ? Math.max(0, Math.floor(entry.seconds)) : 0;
       return {
+        normalized,
         label: entry.label,
         seconds: safeSeconds,
         minutes: Math.max(0, Math.round(safeSeconds / 60)),
         formatted: formatDuration(safeSeconds),
+        isActive: entry.isActive,
       };
     });
 
-    const summaryMap = new Map<string, { label: string; seconds: number; minutes: number; formatted: string }>();
+    const summaryMap = new Map<string, ResponsibleTimeSummary>();
     allEntries.forEach(entry => {
-      summaryMap.set(entry.label.trim().toLowerCase(), entry);
+      summaryMap.set(entry.normalized, {
+        label: entry.label,
+        seconds: entry.seconds,
+        minutes: entry.minutes,
+        formatted: entry.formatted,
+        isActive: entry.isActive,
+      });
     });
 
     const summaryArray = allEntries
       .filter(entry => entry.seconds > 0)
-      .sort((a, b) => b.seconds - a.seconds);
+      .sort((a, b) => {
+        if (a.isActive !== b.isActive) {
+          return Number(b.isActive) - Number(a.isActive);
+        }
+        return b.seconds - a.seconds;
+      })
+      .map(({ normalized: _normalized, ...entry }) => entry);
 
     return { responsibleTimeSummaries: summaryArray, responsibleTimeSummaryMap: summaryMap };
   }, [
@@ -1642,7 +1669,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
   ]);
 
   const getResponsibleTimeSummary = useCallback(
-    (responsavel: string) => {
+    (responsavel: string): ResponsibleTimeSummary | null => {
       const normalized = typeof responsavel === 'string' ? responsavel.trim().toLowerCase() : '';
       if (!normalized) {
         return null;
@@ -4348,6 +4375,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       const responsavelOptions = activeTeamMembers;
       const currentValue = typeof value === 'string' ? value : '';
       const hasMatchingMember = responsavelOptions.some(member => member.name === currentValue);
+      const isRunning = Boolean(row.id && activeTimers[row.id]);
 
       return (
         <Select
@@ -4360,8 +4388,17 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
             updateResponsavel(rowIndex, val);
           }}
         >
-          <SelectTrigger className="h-8 text-xs">
-            <SelectValue placeholder={responsavelOptions.length ? 'Selecione' : 'Sem membros disponíveis'} />
+          <SelectTrigger
+            className={cn(
+              'h-8 text-xs',
+              isRunning &&
+                'border border-amber-300/80 bg-amber-50 text-amber-900 shadow-sm dark:border-amber-400/60 dark:bg-amber-400/20 dark:text-amber-100'
+            )}
+          >
+            <SelectValue
+              placeholder={responsavelOptions.length ? 'Selecione' : 'Sem membros disponíveis'}
+              className={cn(isRunning && 'text-amber-900 dark:text-amber-100')}
+            />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="unassigned">Sem responsável</SelectItem>
@@ -5168,7 +5205,12 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                 {responsibleTimeSummaries.slice(0, 4).map(summary => (
                   <span
                     key={summary.label}
-                    className="rounded-full bg-muted px-2 py-1 text-[10px] text-foreground"
+                    className={cn(
+                      'rounded-full px-2 py-1 text-[10px]',
+                      summary.isActive
+                        ? 'border border-amber-200 bg-amber-100/90 text-amber-900 shadow-sm dark:border-amber-400/60 dark:bg-amber-400/15 dark:text-amber-200'
+                        : 'bg-muted text-foreground'
+                    )}
                   >
                     {summary.label}: {summary.formatted}
                   </span>
@@ -5718,7 +5760,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
                                           {group.count} tarefa{group.count === 1 ? '' : 's'}
                                         </Badge>
                                         {summary ? (
-                                          <span className="text-[11px] text-slate-200/80">
+                                          <span
+                                            className={cn(
+                                              'text-[11px]',
+                                              summary.isActive
+                                                ? 'text-amber-200 font-semibold'
+                                                : 'text-slate-200/80'
+                                            )}
+                                          >
                                             Tempo: {summary.formatted}
                                           </span>
                                         ) : null}
