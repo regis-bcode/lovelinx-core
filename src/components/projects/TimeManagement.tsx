@@ -2503,7 +2503,55 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   return resolvedUsageDateIso;
                 })();
                 const formattedLogDate = formatLogDateOnly(logDateIso);
-                const tempoDoLogDisplay = displayedTime;
+                const normalizedTaskStatus = typeof task.status === 'string' ? task.status.trim() : '';
+                const taskStatusBadgeClass = (() => {
+                  if (!normalizedTaskStatus) {
+                    return 'border-muted bg-muted text-muted-foreground';
+                  }
+
+                  const lowered = normalizedTaskStatus.toLowerCase();
+                  if (lowered.includes('atras')) {
+                    return 'border-red-200 bg-red-50 text-red-600';
+                  }
+
+                  if (lowered.includes('dia')) {
+                    return 'border-emerald-200 bg-emerald-50 text-emerald-600';
+                  }
+
+                  return 'border-muted bg-muted text-muted-foreground';
+                })();
+                const tempoDoLogDisplay = (() => {
+                  if (isTimerActive) {
+                    return formatTime(runningSeconds);
+                  }
+
+                  if (runningLog) {
+                    const baseMinutes = Number.isFinite(runningLog.tempo_trabalhado)
+                      ? runningLog.tempo_trabalhado
+                      : 0;
+                    const startIso =
+                      runningLog.started_at ??
+                      runningLog.data_inicio ??
+                      runningLog.created_at ??
+                      null;
+
+                    if (startIso) {
+                      const startTimestamp = Date.parse(startIso);
+                      if (Number.isFinite(startTimestamp)) {
+                        const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+                        const safeElapsed = elapsed >= 0 ? elapsed : 0;
+                        const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
+                        return formatTime(baseSeconds + safeElapsed);
+                      }
+                    }
+
+                    if (baseMinutes > 0) {
+                      return formatMinutes(baseMinutes);
+                    }
+                  }
+
+                  return formatMinutes(taskTime);
+                })();
 
                 return (
                   <TableRow key={task.id}>
@@ -2531,24 +2579,29 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       </Tooltip>
                     </TableCell>
                     <TableCell className={highlightClass}>
-                      {isTimerActive ? (
-                        <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
-                          CRONOMETRANDO
-                        </Badge>
-                      ) : (
+                      {normalizedTaskStatus ? (
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span>{statusLabel}</span>
+                            <Badge
+                              variant="outline"
+                              className={`w-fit uppercase tracking-wide ${taskStatusBadgeClass}`}
+                            >
+                              {normalizedTaskStatus}
+                            </Badge>
                           </TooltipTrigger>
                           <TooltipContent>{statusTooltip}</TooltipContent>
                         </Tooltip>
+                      ) : (
+                        <span className="text-muted-foreground">Sem status</span>
                       )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-2">
-                        <div>
-                          <Badge variant="outline">{task.status || 'Sem status'}</Badge>
-                        </div>
+                        {isTimerActive && (
+                          <Badge className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
+                            CRONOMETRANDO
+                          </Badge>
+                        )}
                         <div className="flex items-center justify-between gap-4">
                           <span className="font-mono text-sm">{displayedTime}</span>
                           <div className="flex gap-2">
