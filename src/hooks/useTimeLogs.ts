@@ -1433,6 +1433,14 @@ export function useTimeLogs(projectId?: string) {
     return log.status_aprovacao !== 'reprovado';
   };
 
+  const isApprovedLog = (log: TimeLog): boolean => {
+    return log.status_aprovacao === 'aprovado';
+  };
+
+  const isPendingLog = (log: TimeLog): boolean => {
+    return log.status_aprovacao === 'pendente';
+  };
+
   const normalizeMinutes = (minutes: number): number => {
     if (!Number.isFinite(minutes)) {
       return 0;
@@ -1476,6 +1484,18 @@ export function useTimeLogs(projectId?: string) {
   const getProjectTotalTime = (): number => {
     return timeLogs
       .filter(shouldCountLogTime)
+      .reduce((total, log) => total + getLogDurationMinutes(log), 0);
+  };
+
+  const getProjectTotalApprovedTime = (): number => {
+    return timeLogs
+      .filter(isApprovedLog)
+      .reduce((total, log) => total + getLogDurationMinutes(log), 0);
+  };
+
+  const getProjectTotalPendingTime = (): number => {
+    return timeLogs
+      .filter(isPendingLog)
       .reduce((total, log) => total + getLogDurationMinutes(log), 0);
   };
 
@@ -1554,6 +1574,8 @@ export function useTimeLogs(projectId?: string) {
     deleteTimeLog,
     getTaskTotalTime,
     getProjectTotalTime,
+    getProjectTotalApprovedTime,
+    getProjectTotalPendingTime,
     getResponsibleTotalTime,
     refreshTimeLogs: loadTimeLogs,
     dailyUsageByUserDate: dailyUsageMap,

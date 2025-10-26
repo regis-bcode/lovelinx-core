@@ -124,7 +124,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     updateTimeLog,
     approveTimeLog,
     getTaskTotalTime,
-    getProjectTotalTime,
+    getProjectTotalApprovedTime,
+    getProjectTotalPendingTime,
     startTimerLog,
     stopTimerLog,
     ensureDailyUsageForDate,
@@ -1698,7 +1699,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return format(parsed, 'dd/MM/yyyy HH:mm', { locale: ptBR });
   };
 
-  const totalProjectTime = getProjectTotalTime();
+  const totalProjectApprovedTime = getProjectTotalApprovedTime();
+  const totalProjectPendingTime = getProjectTotalPendingTime();
   const timeLog = selectedLogForDetails;
   const detailTask = timeLog?.task_id
     ? detailTaskData ?? taskById.get(timeLog.task_id) ?? null
@@ -2364,8 +2366,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            Total Aprovado: {formatMinutes(totalProjectTime)}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-baseline sm:gap-6">
+            <div className="text-2xl font-bold">
+              Total Aprovado: {formatMinutes(totalProjectApprovedTime)}
+            </div>
+            <div className="text-lg font-semibold text-muted-foreground sm:text-xl">
+              Total Pendente: {formatMinutes(totalProjectPendingTime)}
+            </div>
           </div>
         </CardContent>
       </Card>
