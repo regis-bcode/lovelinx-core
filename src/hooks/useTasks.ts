@@ -211,6 +211,7 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
         delete legacyPayload.duration_minutes;
         delete legacyPayload.started_at;
         delete legacyPayload.ended_at;
+        delete legacyPayload.tempo_trabalhado;
         return attemptInsert(legacyPayload, false);
       }
 
@@ -281,6 +282,7 @@ export const stopTimer = async (activeLogId: string, atividade: string) => {
         const legacyPayload = { ...payload };
         delete legacyPayload.duration_minutes;
         delete legacyPayload.ended_at;
+        delete legacyPayload.tempo_trabalhado;
         await attemptUpdate(legacyPayload, false);
         return;
       }
