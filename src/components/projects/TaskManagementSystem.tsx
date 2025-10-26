@@ -1457,8 +1457,16 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         return;
       }
 
-      const startedAt =
-        typeof log.data_inicio === 'string' ? new Date(log.data_inicio).getTime() : Number.NaN;
+      const startIso =
+        (typeof log.started_at === 'string' && log.started_at?.trim()) ||
+        (typeof log.data_inicio === 'string' && log.data_inicio?.trim()) ||
+        null;
+
+      if (!startIso) {
+        return;
+      }
+
+      const startedAt = Date.parse(startIso);
 
       if (Number.isFinite(startedAt) && startedAt > 0) {
         runningLogStartTimes.set(taskId, startedAt);
