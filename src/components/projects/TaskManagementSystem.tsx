@@ -3197,6 +3197,69 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     setHasChanges(true);
   };
 
+  const applyResponsavelToRow = useCallback(
+    (row: TaskRow, value: string | undefined, preservedUserId?: string | null): TaskRow => {
+      const trimmed = typeof value === 'string' ? value.trim() : '';
+
+      if (!trimmed) {
+        return { ...row, responsavel: undefined, user_id: null };
+      }
+
+      const matchingMember = activeTeamMembers.find(member => member.name === trimmed);
+
+      if (matchingMember?.id) {
+        return { ...row, responsavel: trimmed, user_id: matchingMember.id };
+      }
+
+      return {
+        ...row,
+        responsavel: trimmed,
+        user_id: preservedUserId ?? (typeof row.user_id === 'string' ? row.user_id : null),
+      };
+    },
+    [activeTeamMembers],
+  );
+
+  const updateResponsavel = useCallback(
+    (index: number, value: string | undefined, preservedUserId?: string | null) => {
+      let didChange = false;
+
+      setEditableRows(prev => {
+        if (index < 0 || index >= prev.length) {
+          return prev;
+        }
+
+        const next = [...prev];
+        const currentRow = next[index];
+
+        if (!currentRow) {
+          return prev;
+        }
+
+        const fallbackUserId =
+          preservedUserId ?? (typeof currentRow.user_id === 'string' ? currentRow.user_id : null);
+
+        const updatedRow = applyResponsavelToRow(currentRow, value, fallbackUserId);
+
+        if (
+          currentRow.responsavel === updatedRow.responsavel &&
+          currentRow.user_id === updatedRow.user_id
+        ) {
+          return prev;
+        }
+
+        next[index] = updatedRow;
+        didChange = true;
+        return next;
+      });
+
+      if (didChange) {
+        setHasChanges(true);
+      }
+    },
+    [applyResponsavelToRow],
+  );
+
   const closeResponsavelDialog = useCallback(() => {
     setPendingResponsavelAssignment(null);
     setSelectedResponsavelForTimer(null);
@@ -3472,17 +3535,10 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
     const { row, rowIndex } = pendingResponsavelAssignment;
     const previousResponsavel = typeof row.responsavel === 'string' ? row.responsavel : null;
+    const previousUserId = typeof row.user_id === 'string' ? row.user_id : null;
 
-    const applyLocalResponsavelUpdate = (value: string | null) => {
-      setEditableRows(prev => {
-        if (rowIndex < 0 || rowIndex >= prev.length) {
-          return prev;
-        }
-
-        const next = [...prev];
-        next[rowIndex] = { ...next[rowIndex], responsavel: value ?? undefined };
-        return next;
-      });
+    const applyLocalResponsavelUpdate = (value: string | null, userIdOverride?: string | null) => {
+      updateResponsavel(rowIndex, value ?? undefined, userIdOverride ?? previousUserId ?? null);
     };
 
     setIsSavingResponsavelForTimer(true);
@@ -3493,7 +3549,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       if (row.id) {
         const updated = await updateTask(row.id, { responsavel: trimmedResponsavel });
         if (!updated) {
-          applyLocalResponsavelUpdate(previousResponsavel);
+          applyLocalResponsavelUpdate(previousResponsavel, previousUserId);
           return;
         }
       }
@@ -3502,7 +3558,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       closeResponsavelDialog();
     } catch (error) {
       console.error('Erro ao associar responsável antes de iniciar o cronômetro:', error);
-      applyLocalResponsavelUpdate(previousResponsavel);
+      applyLocalResponsavelUpdate(previousResponsavel, previousUserId);
       toast({
         title: 'Erro ao definir responsável',
         description: 'Não foi possível associar o responsável selecionado. Tente novamente.',
@@ -4296,20 +4352,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       return (
         <Select
           value={hasMatchingMember ? currentValue : currentValue ? 'custom' : 'unassigned'}
-          onValueChange={(val) =>
-            updateCell(
-              rowIndex,
-              column.key,
-              val === 'unassigned' || val === 'custom' ? undefined : val
-            )
-          }
+          onValueChange={val => {
+            if (val === 'unassigned' || val === 'custom') {
+              updateResponsavel(rowIndex, undefined);
+              return;
+            }
+            updateResponsavel(rowIndex, val);
+          }}
         >
           <SelectTrigger className="h-8 text-xs">
             <SelectValue placeholder={responsavelOptions.length ? 'Selecione' : 'Sem membros disponíveis'} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="unassigned">Sem responsável</SelectItem>
-            {responsavelOptions.map((member) => (
+            {responsavelOptions.map(member => (
               <SelectItem key={member.id} value={member.name}>
                 {member.name}
               </SelectItem>
