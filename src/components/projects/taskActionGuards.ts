@@ -5,11 +5,16 @@ import type { Task } from '@/types/task';
  */
 export type TaskActionRow = Pick<Partial<Task>, 'tarefa' | 'user_id' | 'responsavel'>;
 
+export interface ResponsibleGuardOptions {
+  allowedResponsibleNames?: string[];
+}
+
 export type StartTimerDisableReason = 'saving' | 'running' | 'missingName' | 'noResponsible';
 
 export interface StartTimerGuardOptions {
   isSaving: boolean;
   isRunning: boolean;
+  allowedResponsibleNames?: string[];
 }
 
 export interface StartTimerButtonState {
@@ -20,7 +25,17 @@ export interface StartTimerButtonState {
 /**
  * Determines whether a task row has a responsible assigned.
  */
-export const hasAssignedResponsible = (row: TaskActionRow): boolean => {
+const normalizeString = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+
+export const hasAssignedResponsible = (
+  row: TaskActionRow,
+  options?: ResponsibleGuardOptions,
+): boolean => {
   if (typeof row.user_id === 'string' && row.user_id.trim().length > 0) {
     return true;
   }
@@ -36,8 +51,23 @@ export const hasAssignedResponsible = (row: TaskActionRow): boolean => {
     return false;
   }
 
-  const normalized = trimmed.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return normalized !== 'sem responsavel';
+  const normalized = normalizeString(trimmed);
+  if (normalized === 'sem responsavel') {
+    return false;
+  }
+
+  const allowedResponsibleNames = options?.allowedResponsibleNames;
+  if (Array.isArray(allowedResponsibleNames) && allowedResponsibleNames.length > 0) {
+    const normalizedAllowed = allowedResponsibleNames
+      .map(name => (typeof name === 'string' ? normalizeString(name) : ''))
+      .filter(Boolean);
+
+    if (normalizedAllowed.length > 0) {
+      return normalizedAllowed.includes(normalized);
+    }
+  }
+
+  return true;
 };
 
 const hasValidTaskName = (row: TaskActionRow): boolean => {
@@ -64,7 +94,7 @@ export const getStartTimerButtonState = (
     return { disabled: true, reason: 'missingName' };
   }
 
-  if (!hasAssignedResponsible(row)) {
+  if (!hasAssignedResponsible(row, { allowedResponsibleNames: options.allowedResponsibleNames })) {
     return { disabled: true, reason: 'noResponsible' };
   }
 

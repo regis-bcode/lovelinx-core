@@ -1782,6 +1782,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return Array.from(membersMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [projectAllocations, projectId, defaultClient]);
 
+  const responsibleNameOptions = useMemo(
+    () =>
+      activeTeamMembers
+        .map(member => member.name)
+        .filter((name): name is string => typeof name === 'string' && name.trim().length > 0),
+    [activeTeamMembers],
+  );
+
   const baseColumns = useMemo<ColumnDefinition[]>(() => ([
     { key: 'task_id', label: 'ID', width: '80px' },
     { key: 'tarefa', label: 'Tarefa', width: '220px' },
@@ -3796,7 +3804,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         };
       }
 
-      if (!hasAssignedResponsible(targetRow)) {
+      if (!hasAssignedResponsible(targetRow, { allowedResponsibleNames: responsibleNameOptions })) {
         setPendingResponsavelAssignment({ row: targetRow, rowIndex });
         setSelectedResponsavelForTimer(null);
         return;
@@ -3807,6 +3815,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [
       handleSaveRow,
       hasAssignedResponsible,
+      responsibleNameOptions,
       setPendingResponsavelAssignment,
       setSelectedResponsavelForTimer,
       startTimer,
@@ -4839,6 +4848,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     const startButtonState = getStartTimerButtonState(row, {
       isSaving: isSavingRow,
       isRunning,
+      allowedResponsibleNames: responsibleNameOptions,
     });
 
     return (
