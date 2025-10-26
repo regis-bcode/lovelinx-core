@@ -24,6 +24,7 @@ export interface User {
   observacoes?: string;
   custo_hora?: number;
   horas_diarias_aprovadas?: number;
+  horas_liberadas_por_dia?: number;
   created_at: string;
   updated_at: string;
 }
@@ -37,6 +38,7 @@ export interface CreateUserData {
   tipo_perfil: ProfileType;
   observacoes?: string;
   horas_diarias_aprovadas?: number;
+  horas_liberadas_por_dia?: number;
 }
 
 export const userTypeLabels: Record<UserType, string> = {

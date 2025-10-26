@@ -63,7 +63,8 @@ export default function Users() {
     tipo_perfil: "visualizador",
     client_id: undefined,
     observacoes: "",
-    horas_diarias_aprovadas: undefined
+    horas_diarias_aprovadas: undefined,
+    horas_liberadas_por_dia: undefined
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -102,6 +103,18 @@ export default function Users() {
       return;
     }
 
+    if (
+      formData.horas_liberadas_por_dia !== undefined &&
+      (formData.horas_liberadas_por_dia < 0 || formData.horas_liberadas_por_dia > 24)
+    ) {
+      toast({
+        title: "Valor inválido",
+        description: "Informe um valor de horas liberadas entre 0 e 24.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (editingUser) {
       updateUser({ id: editingUser.id, updates: formData });
     } else {
@@ -122,7 +135,8 @@ export default function Users() {
       tipo_perfil: "visualizador",
       client_id: undefined,
       observacoes: "",
-      horas_diarias_aprovadas: undefined
+      horas_diarias_aprovadas: undefined,
+      horas_liberadas_por_dia: undefined
     });
     setEditingUser(null);
   };
@@ -141,6 +155,10 @@ export default function Users() {
       horas_diarias_aprovadas:
         user.horas_diarias_aprovadas != null && !Number.isNaN(Number(user.horas_diarias_aprovadas))
           ? Number(user.horas_diarias_aprovadas)
+          : undefined,
+      horas_liberadas_por_dia:
+        user.horas_liberadas_por_dia != null && !Number.isNaN(Number(user.horas_liberadas_por_dia))
+          ? Number(user.horas_liberadas_por_dia)
           : undefined
     });
     setIsDialogOpen(true);
@@ -329,6 +347,25 @@ export default function Users() {
                         });
                       }}
                       placeholder="Ex: 8"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="horas_liberadas_por_dia">Horas liberadas por dia</Label>
+                    <Input
+                      id="horas_liberadas_por_dia"
+                      type="number"
+                      min={0}
+                      max={24}
+                      step={0.5}
+                      value={formData.horas_liberadas_por_dia ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          horas_liberadas_por_dia: value === "" ? undefined : Number(value)
+                        });
+                      }}
+                      placeholder="Ex: 4"
                     />
                   </div>
                 </div>
@@ -525,7 +562,8 @@ export default function Users() {
                           <TableHead>Cliente</TableHead>
                           <TableHead>Tipo Usuário</TableHead>
                           <TableHead>Perfil</TableHead>
-                          <TableHead>Horas/dia</TableHead>
+                          <TableHead>Horas aprov./dia</TableHead>
+                          <TableHead>Horas liberadas/dia</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
@@ -556,6 +594,16 @@ export default function Users() {
                             <TableCell>
                               {user.horas_diarias_aprovadas != null && !Number.isNaN(Number(user.horas_diarias_aprovadas)) ? (
                                 `${Number(user.horas_diarias_aprovadas).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 2
+                                })}h`
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {user.horas_liberadas_por_dia != null && !Number.isNaN(Number(user.horas_liberadas_por_dia)) ? (
+                                `${Number(user.horas_liberadas_por_dia).toLocaleString("pt-BR", {
                                   minimumFractionDigits: 0,
                                   maximumFractionDigits: 2
                                 })}h`
