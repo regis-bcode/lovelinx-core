@@ -128,8 +128,23 @@ export const resolveResponsibleUserId = async (task: TasksRow): Promise<string> 
   return data[0].id;
 };
 
+const normalizeResponsible = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
 export const canStartTimer = (task: TasksRow): boolean => {
   if (!task || !task.id) {
+    return false;
+  }
+
+  const responsavelRaw = typeof task.responsavel === 'string' ? task.responsavel : '';
+  const normalizedResponsavel = responsavelRaw ? normalizeResponsible(responsavelRaw) : '';
+
+  if (normalizedResponsavel === 'sem responsavel') {
     return false;
   }
 
@@ -137,7 +152,7 @@ export const canStartTimer = (task: TasksRow): boolean => {
     return true;
   }
 
-  return typeof task.responsavel === 'string' && task.responsavel.trim().length > 0;
+  return normalizedResponsavel.length > 0;
 };
 
 export const startTimer = async (taskId: string, projectId: string, userId: string) => {
