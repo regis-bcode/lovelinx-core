@@ -36,38 +36,38 @@ export const hasAssignedResponsible = (
   row: TaskActionRow,
   options?: ResponsibleGuardOptions,
 ): boolean => {
+  const responsavel = row.responsavel;
+
+  if (typeof responsavel === 'string') {
+    const trimmed = responsavel.trim();
+
+    if (trimmed.length > 0) {
+      const normalized = normalizeString(trimmed);
+
+      if (normalized === 'sem responsavel') {
+        return false;
+      }
+
+      const allowedResponsibleNames = options?.allowedResponsibleNames;
+      if (Array.isArray(allowedResponsibleNames) && allowedResponsibleNames.length > 0) {
+        const normalizedAllowed = allowedResponsibleNames
+          .map(name => (typeof name === 'string' ? normalizeString(name) : ''))
+          .filter(Boolean);
+
+        if (normalizedAllowed.length > 0) {
+          return normalizedAllowed.includes(normalized);
+        }
+      }
+
+      return true;
+    }
+  }
+
   if (typeof row.user_id === 'string' && row.user_id.trim().length > 0) {
     return true;
   }
 
-  const responsavel = row.responsavel;
-
-  if (typeof responsavel !== 'string') {
-    return false;
-  }
-
-  const trimmed = responsavel.trim();
-  if (!trimmed) {
-    return false;
-  }
-
-  const normalized = normalizeString(trimmed);
-  if (normalized === 'sem responsavel') {
-    return false;
-  }
-
-  const allowedResponsibleNames = options?.allowedResponsibleNames;
-  if (Array.isArray(allowedResponsibleNames) && allowedResponsibleNames.length > 0) {
-    const normalizedAllowed = allowedResponsibleNames
-      .map(name => (typeof name === 'string' ? normalizeString(name) : ''))
-      .filter(Boolean);
-
-    if (normalizedAllowed.length > 0) {
-      return normalizedAllowed.includes(normalized);
-    }
-  }
-
-  return true;
+  return false;
 };
 
 const hasValidTaskName = (row: TaskActionRow): boolean => {
