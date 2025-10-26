@@ -16,6 +16,17 @@ describe('hasAssignedResponsible', () => {
     );
   });
 
+  it('returns false when responsavel is explicitly set to sem responsável', () => {
+    assert.equal(
+      hasAssignedResponsible({
+        user_id: 'user-1',
+        responsavel: 'Sem Responsável',
+        tarefa: 'Planejar sprint',
+      }),
+      false,
+    );
+  });
+
   it('returns false when responsavel is missing', () => {
     assert.equal(hasAssignedResponsible({ responsavel: '   ', tarefa: 'Planejar sprint' }), false);
   });
