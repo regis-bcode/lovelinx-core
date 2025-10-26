@@ -18,6 +18,8 @@ import { useUsers } from "@/hooks/useUsers";
 import { ProjectAllocationFormData, FUNCOES_PROJETO } from "@/types/project-allocation";
 import { Plus, Edit, Trash2, Users, Filter, X } from "lucide-react";
 import { format } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TeamManagement() {
   const [showDialog, setShowDialog] = useState(false);
@@ -26,6 +28,7 @@ export default function TeamManagement() {
     status_participacao: 'Ativo',
     valor_hora: 0,
   });
+  const [horasDia, setHorasDia] = useState<string>("");
 
   // Filtros
   const [filterProject, setFilterProject] = useState<string>("");
@@ -35,6 +38,7 @@ export default function TeamManagement() {
   const { projects } = useProjects();
   const { tap } = useTAP();
   const { users } = useUsers();
+  const { toast } = useToast();
   
   // Converter TAP único para array para compatibilidade
   const taps = tap ? [tap] : [];
@@ -76,7 +80,7 @@ export default function TeamManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.project_id || !formData.allocated_user_id || !formData.funcao_projeto || !formData.data_inicio) {
       return;
     }
@@ -84,6 +88,24 @@ export default function TeamManagement() {
     const success = editingId
       ? await updateAllocation(editingId, formData)
       : await createAllocation(formData as ProjectAllocationFormData);
+
+    if (success && formData.allocated_user_id) {
+      const parsedHoras = Number(horasDia);
+      const horasValue = horasDia.trim() === "" || Number.isNaN(parsedHoras) ? null : parsedHoras;
+      const { error: horasError } = await supabase
+        .from('users')
+        .update({ horas_liberadas_por_dia: horasValue })
+        .eq('id', formData.allocated_user_id);
+
+      if (horasError) {
+        console.error('Erro ao atualizar horas por dia do usuário:', horasError);
+        toast({
+          title: "Erro ao atualizar horas do usuário",
+          description: horasError.message || "Não foi possível atualizar as horas liberadas por dia.",
+          variant: "destructive",
+        });
+      }
+    }
 
     if (success) {
       setShowDialog(false);
@@ -104,6 +126,11 @@ export default function TeamManagement() {
       status_participacao: allocation.status_participacao,
       observacoes: allocation.observacoes,
     });
+    setHorasDia(
+      allocation.user?.horas_liberadas_por_dia != null && !Number.isNaN(Number(allocation.user.horas_liberadas_por_dia))
+        ? String(allocation.user.horas_liberadas_por_dia)
+        : ""
+    );
     setShowDialog(true);
   };
 
@@ -118,6 +145,7 @@ export default function TeamManagement() {
       status_participacao: 'Ativo',
       valor_hora: 0,
     });
+    setHorasDia("");
     setEditingId(null);
   };
 
@@ -223,7 +251,15 @@ export default function TeamManagement() {
                     <Label htmlFor="user">Analista (Usuário) *</Label>
                     <Select
                       value={formData.allocated_user_id}
-                      onValueChange={(value) => setFormData({ ...formData, allocated_user_id: value })}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, allocated_user_id: value });
+                        const selectedUser = usersWithClient.find((user) => user.id === value);
+                        setHorasDia(
+                          selectedUser?.horas_liberadas_por_dia != null && !Number.isNaN(Number(selectedUser.horas_liberadas_por_dia))
+                            ? String(selectedUser.horas_liberadas_por_dia)
+                            : ""
+                        );
+                      }}
                       required
                     >
                       <SelectTrigger>
@@ -269,6 +305,19 @@ export default function TeamManagement() {
                       value={formData.valor_hora ?? ''}
                       onChange={(value) => setFormData({ ...formData, valor_hora: value ? Number(value) : undefined })}
                       required
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="horas_dia">Horas Dia</Label>
+                    <Input
+                      id="horas_dia"
+                      type="number"
+                      min="0"
+                      step="0.25"
+                      value={horasDia}
+                      onChange={(e) => setHorasDia(e.target.value)}
+                      placeholder="Informe as horas liberadas por dia"
                     />
                   </div>
 
