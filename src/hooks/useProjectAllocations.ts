@@ -49,7 +49,7 @@ export function useProjectAllocations(projectId?: string, tapId?: string) {
           *,
           projects!project_allocations_project_id_fkey(nome_projeto, cliente),
           tap!project_allocations_tap_id_fkey(nome_projeto),
-          users!project_allocations_allocated_user_id_fkey(id, nome_completo, email, client_id)
+          users!project_allocations_allocated_user_id_fkey(id, nome_completo, email, client_id, horas_liberadas_por_dia)
         `)
         .order('created_at', { ascending: false });
 
