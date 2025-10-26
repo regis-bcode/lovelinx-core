@@ -1270,6 +1270,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const activeTimerEntries = useMemo(() => Object.entries(activeTimers), [activeTimers]);
 
+  const totalActiveTimerSeconds = useMemo(
+    () =>
+      activeTimerEntries.reduce((total, [taskId]) => {
+        const taskSeconds = elapsedSeconds[taskId] ?? 0;
+        return total + (Number.isFinite(taskSeconds) ? taskSeconds : 0);
+      }, 0),
+    [activeTimerEntries, elapsedSeconds],
+  );
+
   const tasksWithLoggedTime = useMemo(() => {
     const trackedTaskIds = new Set<string>();
     timeLogs.forEach(log => {
@@ -2372,6 +2381,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </div>
             <div className="text-lg font-semibold text-muted-foreground sm:text-xl">
               Total Pendente: {formatMinutes(totalProjectPendingTime)}
+            </div>
+            <div className="text-lg font-semibold text-destructive sm:text-xl">
+              Total em andamento: {formatTime(totalActiveTimerSeconds)}
             </div>
           </div>
         </CardContent>
