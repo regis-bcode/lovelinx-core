@@ -27,6 +27,7 @@ export interface User {
   ativo: boolean;
   observacoes?: string;
   client_id?: string;
+  horas_diarias_aprovadas?: number;
   client?: {
     id: string;
     nome: string;
@@ -45,6 +46,7 @@ export interface CreateUserData {
   tipo_perfil: ProfileType;
   client_id?: string;
   observacoes?: string;
+  horas_diarias_aprovadas?: number;
 }
 
 export const useUsers = () => {

@@ -62,7 +62,8 @@ export default function Users() {
     tipo_usuario: "cliente",
     tipo_perfil: "visualizador",
     client_id: undefined,
-    observacoes: ""
+    observacoes: "",
+    horas_diarias_aprovadas: undefined
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -89,6 +90,18 @@ export default function Users() {
       return;
     }
 
+    if (
+      formData.horas_diarias_aprovadas !== undefined &&
+      (formData.horas_diarias_aprovadas < 0 || formData.horas_diarias_aprovadas > 24)
+    ) {
+      toast({
+        title: "Valor inválido",
+        description: "Informe um valor de horas entre 0 e 24.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (editingUser) {
       updateUser({ id: editingUser.id, updates: formData });
     } else {
@@ -108,7 +121,8 @@ export default function Users() {
       tipo_usuario: "cliente",
       tipo_perfil: "visualizador",
       client_id: undefined,
-      observacoes: ""
+      observacoes: "",
+      horas_diarias_aprovadas: undefined
     });
     setEditingUser(null);
   };
@@ -123,7 +137,11 @@ export default function Users() {
       tipo_usuario: user.tipo_usuario,
       tipo_perfil: user.tipo_perfil,
       client_id: user.client_id,
-      observacoes: user.observacoes || ""
+      observacoes: user.observacoes || "",
+      horas_diarias_aprovadas:
+        user.horas_diarias_aprovadas != null && !Number.isNaN(Number(user.horas_diarias_aprovadas))
+          ? Number(user.horas_diarias_aprovadas)
+          : undefined
     });
     setIsDialogOpen(true);
   };
@@ -292,6 +310,25 @@ export default function Users() {
                       }}
                       placeholder="(00) 00000-0000"
                       required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="horas_diarias_aprovadas">Horas diárias aprovadas</Label>
+                    <Input
+                      id="horas_diarias_aprovadas"
+                      type="number"
+                      min={0}
+                      max={24}
+                      step={0.5}
+                      value={formData.horas_diarias_aprovadas ?? ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setFormData({
+                          ...formData,
+                          horas_diarias_aprovadas: value === "" ? undefined : Number(value)
+                        });
+                      }}
+                      placeholder="Ex: 8"
                     />
                   </div>
                 </div>
@@ -478,7 +515,7 @@ export default function Users() {
                     </div>
                   )}
                   <div className="overflow-x-auto rounded-md border">
-                    <Table className="min-w-[720px] w-full">
+                    <Table className="min-w-[820px] w-full">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Nome</TableHead>
@@ -488,6 +525,7 @@ export default function Users() {
                           <TableHead>Cliente</TableHead>
                           <TableHead>Tipo Usuário</TableHead>
                           <TableHead>Perfil</TableHead>
+                          <TableHead>Horas/dia</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
@@ -514,6 +552,16 @@ export default function Users() {
                               <Badge variant={user.tipo_perfil === "administrador" ? "default" : "secondary"}>
                                 {profileTypeLabels[user.tipo_perfil]}
                               </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {user.horas_diarias_aprovadas != null && !Number.isNaN(Number(user.horas_diarias_aprovadas)) ? (
+                                `${Number(user.horas_diarias_aprovadas).toLocaleString("pt-BR", {
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 2
+                                })}h`
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
                             </TableCell>
                             <TableCell>
                               <Badge variant={user.ativo ? "default" : "destructive"}>
