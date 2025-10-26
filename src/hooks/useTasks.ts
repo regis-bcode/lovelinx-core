@@ -157,6 +157,8 @@ export const canStartTimer = (task: TasksRow): boolean => {
   return normalizedResponsavel.length > 0;
 };
 
+const LEGACY_SCHEMA_ERROR_CODES = new Set(['42703', 'PGRST204']);
+
 export const startTimer = async (taskId: string, projectId: string, userId: string) => {
   const nowIso = nowUTC();
 
@@ -177,7 +179,7 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
     return { data: existing as Pick<TimeLogsRow, 'id' | 'data_inicio'>, error: null };
   }
 
-  const insertPayload = {
+  const baseInsertPayload = {
     task_id: taskId,
     project_id: projectId,
     user_id: userId,
@@ -193,17 +195,42 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
     comissionado: 'não',
   } satisfies Partial<TimeLogsRow>;
 
-  const { data, error } = await supabase
-    .from('time_logs')
-    .insert([insertPayload])
-    .select('id, data_inicio')
-    .single();
+  const attemptInsert = async (
+    payload: Partial<TimeLogsRow>,
+    allowRetry: boolean,
+  ): Promise<Pick<TimeLogsRow, 'id' | 'data_inicio'>> => {
+    const { data, error } = await supabase
+      .from('time_logs')
+      .insert([payload])
+      .select('id, data_inicio')
+      .single();
 
-  if (error) {
-    logAndThrow('Erro ao iniciar apontamento de tempo', error);
-  }
+    if (error) {
+      if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(error.code ?? '')) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.duration_minutes;
+        delete legacyPayload.started_at;
+        delete legacyPayload.ended_at;
+        return attemptInsert(legacyPayload, false);
+      }
 
-  return { data, error: null };
+      logAndThrow('Erro ao iniciar apontamento de tempo', error);
+    }
+
+    if (!data) {
+      const nullDataError = new Error(
+        'A resposta do Supabase não retornou dados para o apontamento.',
+      );
+      console.error(nullDataError.message);
+      throw nullDataError;
+    }
+
+    return data as Pick<TimeLogsRow, 'id' | 'data_inicio'>;
+  };
+
+  const inserted = await attemptInsert(baseInsertPayload, true);
+
+  return { data: inserted, error: null };
 };
 
 export const stopTimer = async (activeLogId: string, atividade: string) => {
@@ -231,21 +258,38 @@ export const stopTimer = async (activeLogId: string, atividade: string) => {
     Math.ceil((new Date(endIso).getTime() - new Date(startIso).getTime()) / 60000),
   );
 
-  const { error } = await supabase
-    .from('time_logs')
-    .update({
-      data_fim: endIso,
-      ended_at: endIso,
-      tempo_minutos: durationMinutes,
-      tempo_trabalhado: durationMinutes,
-      duration_minutes: durationMinutes,
-      atividade,
-    })
-    .eq('id', activeLogId);
+  const baseUpdatePayload = {
+    data_fim: endIso,
+    ended_at: endIso,
+    tempo_minutos: durationMinutes,
+    tempo_trabalhado: durationMinutes,
+    duration_minutes: durationMinutes,
+    atividade,
+  } satisfies Partial<TimeLogsRow>;
 
-  if (error) {
-    logAndThrow('Erro ao finalizar apontamento de tempo', error);
-  }
+  const attemptUpdate = async (
+    payload: Partial<TimeLogsRow>,
+    allowRetry: boolean,
+  ): Promise<void> => {
+    const { error } = await supabase
+      .from('time_logs')
+      .update(payload)
+      .eq('id', activeLogId);
+
+    if (error) {
+      if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(error.code ?? '')) {
+        const legacyPayload = { ...payload };
+        delete legacyPayload.duration_minutes;
+        delete legacyPayload.ended_at;
+        await attemptUpdate(legacyPayload, false);
+        return;
+      }
+
+      logAndThrow('Erro ao finalizar apontamento de tempo', error);
+    }
+  };
+
+  await attemptUpdate(baseUpdatePayload, true);
 
   return { data: { tempo_minutos: durationMinutes }, error: null };
 };
