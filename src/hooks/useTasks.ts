@@ -7,10 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 import type { PostgrestError } from '@supabase/supabase-js';
+import { SAO_PAULO_TIMEZONE, getIsoDateInTimeZone } from '@/utils/timezone';
 
 export type TasksRow = Database['public']['Tables']['tasks']['Row'];
 export type TimeLogsRow = Database['public']['Tables']['time_logs']['Row'];
 export type UsersRow = Database['public']['Tables']['users']['Row'];
+type TimeDailyUsageRow = Database['public']['Functions']['get_time_daily_usage']['Returns'][number];
 
 export type TaskInsertPayload = Omit<TasksRow, 'id' | 'created_at' | 'updated_at'>;
 
@@ -181,7 +183,11 @@ export const startTimer = async (taskId: string, projectId: string, userId: stri
     user_id: userId,
     data_inicio: nowIso,
     data_fim: null,
+    started_at: nowIso,
+    ended_at: null,
+    duration_minutes: null,
     tempo_minutos: 0,
+    tempo_trabalhado: 0,
     status_aprovacao: 'pendente',
     aprovado: 'não',
     comissionado: 'não',
@@ -229,7 +235,10 @@ export const stopTimer = async (activeLogId: string, atividade: string) => {
     .from('time_logs')
     .update({
       data_fim: endIso,
+      ended_at: endIso,
       tempo_minutos: durationMinutes,
+      tempo_trabalhado: durationMinutes,
+      duration_minutes: durationMinutes,
       atividade,
     })
     .eq('id', activeLogId);
@@ -243,35 +252,25 @@ export const stopTimer = async (activeLogId: string, atividade: string) => {
 
 export const sumDailyMinutes = async (userId: string, dayUTC: string) => {
   const reference = new Date(dayUTC);
-  const startDayUTC = new Date(Date.UTC(
-    reference.getUTCFullYear(),
-    reference.getUTCMonth(),
-    reference.getUTCDate(),
-    0,
-    0,
-    0,
-  ));
-  const endDayUTC = new Date(Date.UTC(
-    reference.getUTCFullYear(),
-    reference.getUTCMonth(),
-    reference.getUTCDate(),
-    23,
-    59,
-    59,
-  ));
 
-  const { data, error } = await supabase
-    .from('time_logs')
-    .select('tempo_minutos, data_inicio, data_fim')
-    .eq('user_id', userId)
-    .gte('data_inicio', startDayUTC.toISOString())
-    .lte('data_inicio', endDayUTC.toISOString());
+  if (Number.isNaN(reference.getTime())) {
+    return { data: 0, error: null };
+  }
+
+  const logDate = getIsoDateInTimeZone(reference, SAO_PAULO_TIMEZONE);
+
+  const { data, error } = await supabase.rpc('get_time_daily_usage', {
+    p_date_from: logDate,
+    p_date_to: logDate,
+  });
 
   if (error) {
     logAndThrow('Erro ao somar minutos diários de apontamentos', error);
   }
 
-  const totalMinutes = (data ?? []).reduce((acc, row) => acc + (row.tempo_minutos ?? 0), 0);
+  const rows = (data as TimeDailyUsageRow[] | null) ?? [];
+  const usage = rows.find(row => row.user_id === userId);
+  const totalMinutes = usage?.total_minutes ?? 0;
 
   return { data: totalMinutes, error: null };
 };

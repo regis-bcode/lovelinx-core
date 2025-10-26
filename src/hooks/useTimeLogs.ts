@@ -9,6 +9,39 @@ type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
 type TimeLogUpdate = Database['public']['Tables']['time_logs']['Update'];
 type TaskActivityInsert = Database['public']['Tables']['task_activities']['Insert'];
+type TimeDailyUsageRow = Database['public']['Functions']['get_time_daily_usage']['Returns'][number];
+
+const DAILY_USAGE_KEY_SEPARATOR = '::';
+
+const buildDailyUsageKey = (userId: string, logDate: string) =>
+  `${userId}${DAILY_USAGE_KEY_SEPARATOR}${logDate}`;
+
+const normalizeDateParam = (value: string | Date | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+
+    if (trimmed.length === 0) {
+      return null;
+    }
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString().slice(0, 10);
+  }
+
+  return null;
+};
 
 export type StopTimerLogResult =
   | { status: 'success'; log: TimeLog }
@@ -184,6 +217,38 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
 
   const approvalParts = extractApprovalDateTimeParts(approvalIso);
 
+  const normalizedStartedAt = log.started_at ?? log.data_inicio ?? null;
+  const normalizedEndedAt = log.ended_at ?? log.data_fim ?? null;
+  const normalizedDurationMinutes = (() => {
+    if (typeof log.duration_minutes === 'number' && Number.isFinite(log.duration_minutes)) {
+      return Math.max(0, log.duration_minutes);
+    }
+
+    if (normalizedStartedAt && normalizedEndedAt) {
+      const derived = Math.ceil((Date.parse(normalizedEndedAt) - Date.parse(normalizedStartedAt)) / 60000);
+      return Number.isFinite(derived) ? Math.max(0, derived) : null;
+    }
+
+    const rounded = Math.round(safeMinutes);
+    return Number.isFinite(rounded) ? Math.max(0, rounded) : null;
+  })();
+
+  const normalizedLogDate = (() => {
+    const candidate = (log as { log_date?: string | null }).log_date;
+    if (typeof candidate === 'string' && candidate.length > 0) {
+      return candidate;
+    }
+
+    if (normalizedStartedAt) {
+      const date = new Date(normalizedStartedAt);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toISOString().slice(0, 10);
+      }
+    }
+
+    return null;
+  })();
+
   return {
     ...log,
     comissionado,
@@ -201,6 +266,10 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     data_aprovacao: approvalIso,
     observacoes: normalizedObservacoes,
     atividade: normalizedActivity,
+    started_at: normalizedStartedAt,
+    ended_at: normalizedEndedAt,
+    duration_minutes: normalizedDurationMinutes,
+    log_date: normalizedLogDate,
   } satisfies TimeLog;
 };
 
@@ -230,8 +299,47 @@ const APPROVED_FLAG_MAP: Record<ApprovalStatus, TimeLog['aprovado']> = {
 export function useTimeLogs(projectId?: string) {
   const [timeLogs, setTimeLogs] = useState<TimeLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dailyUsageMap, setDailyUsageMap] = useState<Record<string, TimeDailyUsageRow>>({});
   const { toast } = useToast();
   const legacyApprovalSchemaRef = useRef(false);
+
+  const storeDailyUsageRows = useCallback((rows: TimeDailyUsageRow[]) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return;
+    }
+
+    setDailyUsageMap(prev => {
+      let changed = false;
+      const next = { ...prev };
+
+      for (const row of rows) {
+        if (!row || !row.user_id || !row.log_date) {
+          continue;
+        }
+
+        const key = buildDailyUsageKey(row.user_id, row.log_date);
+        const existing = next[key];
+
+        if (
+          !existing ||
+          existing.total_minutes !== row.total_minutes ||
+          existing.tempo_estourado_minutes !== row.tempo_estourado_minutes ||
+          existing.over_user_limit !== row.over_user_limit ||
+          existing.over_hard_cap_16h !== row.over_hard_cap_16h ||
+          existing.horas_liberadas_por_dia !== row.horas_liberadas_por_dia
+        ) {
+          next[key] = row;
+          changed = true;
+        }
+      }
+
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const clearDailyUsageMap = useCallback(() => {
+    setDailyUsageMap({});
+  }, []);
 
   const buildSupabasePayload = useCallback(
     (payload: Partial<TimeLogFormData>): Record<string, unknown> => {
@@ -252,9 +360,38 @@ export function useTimeLogs(projectId?: string) {
     [legacyApprovalSchemaRef],
   );
 
+  const loadDailyUsageRange = useCallback(
+    async (dateFrom: string | Date, dateTo: string | Date): Promise<TimeDailyUsageRow[]> => {
+      const normalizedFrom = normalizeDateParam(dateFrom);
+      const normalizedTo = normalizeDateParam(dateTo);
+
+      if (!normalizedFrom || !normalizedTo) {
+        return [];
+      }
+
+      const [rangeStart, rangeEnd] = [normalizedFrom, normalizedTo].sort();
+
+      const { data, error } = await supabase.rpc('get_time_daily_usage', {
+        p_date_from: rangeStart,
+        p_date_to: rangeEnd,
+      });
+
+      if (error) {
+        console.error('Erro ao carregar uso diário de tempo:', error);
+        throw error;
+      }
+
+      const rows = (Array.isArray(data) ? data : []) as TimeDailyUsageRow[];
+      storeDailyUsageRows(rows);
+      return rows;
+    },
+    [storeDailyUsageRows],
+  );
+
   useEffect(() => {
     if (!projectId) {
       setTimeLogs([]);
+      clearDailyUsageMap();
       setLoading(false);
       return;
     }
@@ -280,11 +417,12 @@ export function useTimeLogs(projectId?: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [projectId]);
+  }, [projectId, clearDailyUsageMap]);
 
   const loadTimeLogs = async () => {
     if (!projectId) {
       setTimeLogs([]);
+      clearDailyUsageMap();
       return;
     }
 
@@ -308,9 +446,44 @@ export function useTimeLogs(projectId?: string) {
       const normalized = (data as TimeLogRow[] | null)?.map(normalizeTimeLogRecord) ?? [];
 
       setTimeLogs(normalized);
+
+      if (normalized.length > 0) {
+        const dateRange = normalized.reduce<{ min: string | null; max: string | null }>((acc, log) => {
+          const rawDate = normalizeDateParam(log.log_date ?? log.data_inicio ?? null);
+          if (!rawDate) {
+            return acc;
+          }
+
+          if (!acc.min || rawDate < acc.min) {
+            acc.min = rawDate;
+          }
+
+          if (!acc.max || rawDate > acc.max) {
+            acc.max = rawDate;
+          }
+
+          return acc;
+        }, { min: null, max: null });
+
+        if (dateRange.min && dateRange.max) {
+          try {
+            await loadDailyUsageRange(dateRange.min, dateRange.max);
+          } catch (usageError) {
+            console.error('Falha ao atualizar agregados diários de tempo:', usageError);
+            toast({
+              title: 'Erro ao calcular limites diários',
+              description: 'Não foi possível atualizar os limites de tempo deste período.',
+              variant: 'destructive',
+            });
+          }
+        }
+      } else {
+        clearDailyUsageMap();
+      }
     } catch (error) {
       console.error('Erro ao carregar logs de tempo:', error);
       setTimeLogs([]);
+      clearDailyUsageMap();
       toast({
         title: 'Erro',
         description: 'Não foi possível carregar os logs de tempo',
@@ -357,6 +530,31 @@ export function useTimeLogs(projectId?: string) {
         justificativa_reprovacao: null,
       };
 
+      if (!payload.started_at && payload.data_inicio) {
+        payload.started_at = payload.data_inicio;
+      }
+
+      if (!payload.ended_at && payload.data_fim) {
+        payload.ended_at = payload.data_fim;
+      }
+
+      if (
+        payload.started_at &&
+        payload.ended_at &&
+        payload.duration_minutes == null
+      ) {
+        const startTs = Date.parse(payload.started_at);
+        const endTs = Date.parse(payload.ended_at);
+
+        if (Number.isFinite(startTs) && Number.isFinite(endTs) && endTs >= startTs) {
+          const derivedMinutes = Math.max(0, Math.ceil((endTs - startTs) / 60000));
+          payload.duration_minutes = derivedMinutes;
+          if (payload.tempo_trabalhado == null) {
+            payload.tempo_trabalhado = derivedMinutes;
+          }
+        }
+      }
+
       const { data, error } = await supabase
         .from('time_logs')
         .insert(buildSupabasePayload(payload) as TimeLogInsert)
@@ -376,6 +574,20 @@ export function useTimeLogs(projectId?: string) {
         const next = prev.filter(log => log.id !== normalized.id);
         return [normalized, ...next];
       });
+
+      if (normalized.user_id) {
+        const usageDate = normalizeDateParam(
+          normalized.log_date ?? normalized.data_fim ?? normalized.ended_at ?? null,
+        );
+
+        if (usageDate) {
+          try {
+            await loadDailyUsageRange(usageDate, usageDate);
+          } catch (usageError) {
+            console.error('Erro ao atualizar agregados diários após criação de log:', usageError);
+          }
+        }
+      }
 
       return normalized;
     } catch (error) {
@@ -410,6 +622,20 @@ export function useTimeLogs(projectId?: string) {
       const normalized = normalizeTimeLogRecord(data as TimeLogRow);
 
       setTimeLogs(prev => prev.map(log => (log.id === normalized.id ? normalized : log)));
+
+      if (normalized.user_id) {
+        const usageDate = normalizeDateParam(
+          normalized.log_date ?? normalized.data_fim ?? normalized.ended_at ?? null,
+        );
+
+        if (usageDate && normalized.ended_at) {
+          try {
+            await loadDailyUsageRange(usageDate, usageDate);
+          } catch (usageError) {
+            console.error('Erro ao atualizar agregados diários após atualização de log:', usageError);
+          }
+        }
+      }
 
       return normalized;
     } catch (error) {
@@ -712,7 +938,10 @@ export function useTimeLogs(projectId?: string) {
         user_id: user.id,
         tipo_inclusao: effectiveEntryType,
         data_inicio: isoStart,
+        started_at: isoStart,
         data_fim: null,
+        ended_at: null,
+        duration_minutes: null,
         status_aprovacao: 'pendente',
         approval_status: 'Aguarda Aprovação',
         observacoes: options?.observacoes ?? null,
@@ -935,6 +1164,7 @@ export function useTimeLogs(projectId?: string) {
         }
 
         const startIso = new Date(fallbackStartedAtMs).toISOString();
+        const fallbackDurationMinutes = Math.max(1, Math.ceil((nowMs - fallbackStartedAtMs) / 60000));
 
         const insertPayload: Partial<TimeLogFormData> = {
           task_id: taskId,
@@ -942,7 +1172,11 @@ export function useTimeLogs(projectId?: string) {
           user_id: user.id,
           tipo_inclusao: 'timer',
           data_inicio: startIso,
+          started_at: startIso,
           data_fim: isoNow,
+          ended_at: isoNow,
+          duration_minutes: fallbackDurationMinutes,
+          tempo_trabalhado: fallbackDurationMinutes,
           atividade: normalizedActivityValue,
           status_aprovacao: 'pendente',
           approval_status: 'Aguarda Aprovação',
@@ -983,6 +1217,20 @@ export function useTimeLogs(projectId?: string) {
 
         setTimeLogs(prev => [normalized, ...prev.filter(log => log.id !== normalized.id)]);
 
+        if (normalized.user_id) {
+          const usageDate = normalizeDateParam(
+            normalized.log_date ?? normalized.data_fim ?? normalized.ended_at ?? isoNow,
+          );
+
+          if (usageDate) {
+            try {
+              await loadDailyUsageRange(usageDate, usageDate);
+            } catch (usageError) {
+              console.error('Erro ao atualizar agregados diários após registro fallback:', usageError);
+            }
+          }
+        }
+
         await registerTimeLogActivity(normalized);
 
         if (shouldShowSuccessToast) {
@@ -1001,10 +1249,53 @@ export function useTimeLogs(projectId?: string) {
         return await createLogFromFallback();
       }
 
+      const resolvedStartTimestamp = (() => {
+        if (typeof openLog?.started_at === 'string') {
+          const parsed = Date.parse(openLog.started_at);
+          if (Number.isFinite(parsed)) {
+            return Math.min(parsed, nowMs);
+          }
+        }
+
+        if (typeof openLog?.data_inicio === 'string') {
+          const parsed = Date.parse(openLog.data_inicio);
+          if (Number.isFinite(parsed)) {
+            return Math.min(parsed, nowMs);
+          }
+        }
+
+        if (typeof options?.startedAtMs === 'number' && Number.isFinite(options.startedAtMs)) {
+          return Math.min(options.startedAtMs, nowMs);
+        }
+
+        if (fallbackStartedAtMs) {
+          return fallbackStartedAtMs;
+        }
+
+        return null;
+      })();
+
+      const resolvedStartIso =
+        resolvedStartTimestamp !== null ? new Date(resolvedStartTimestamp).toISOString() : null;
+      const computedDurationMinutes =
+        resolvedStartTimestamp !== null
+          ? Math.max(0, Math.ceil((nowMs - resolvedStartTimestamp) / 60000))
+          : null;
+
       const updatePayload: Partial<TimeLogFormData> = {
         data_fim: isoNow,
+        ended_at: isoNow,
         atividade: normalizedActivityValue,
       };
+
+      if (resolvedStartIso && !openLog?.started_at) {
+        updatePayload.started_at = resolvedStartIso;
+      }
+
+      if (computedDurationMinutes !== null) {
+        updatePayload.duration_minutes = computedDurationMinutes;
+        updatePayload.tempo_trabalhado = computedDurationMinutes;
+      }
 
       const attemptUpdate = async (allowRetry: boolean): Promise<TimeLogRow | 'fallback'> => {
         const { data, error: updateError } = await supabase
@@ -1052,6 +1343,20 @@ export function useTimeLogs(projectId?: string) {
         return [normalized, ...prev];
       });
 
+      if (normalized.user_id) {
+        const usageDate = normalizeDateParam(
+          normalized.log_date ?? normalized.data_fim ?? normalized.ended_at ?? isoNow,
+        );
+
+        if (usageDate) {
+          try {
+            await loadDailyUsageRange(usageDate, usageDate);
+          } catch (usageError) {
+            console.error('Erro ao atualizar agregados diários após finalização de log:', usageError);
+          }
+        }
+      }
+
       await registerTimeLogActivity(normalized);
 
       if (shouldShowSuccessToast) {
@@ -1080,6 +1385,8 @@ export function useTimeLogs(projectId?: string) {
     },
   ): Promise<boolean> => {
     try {
+      const targetLog = timeLogs.find(log => log.id === id) ?? null;
+
       const { error } = await supabase
         .from('time_logs')
         .delete()
@@ -1088,6 +1395,20 @@ export function useTimeLogs(projectId?: string) {
       if (error) throw error;
 
       setTimeLogs(prev => prev.filter(log => log.id !== id));
+
+      if (targetLog?.user_id) {
+        const usageDate = normalizeDateParam(
+          targetLog.log_date ?? targetLog.data_fim ?? targetLog.ended_at ?? null,
+        );
+
+        if (usageDate && targetLog.ended_at) {
+          try {
+            await loadDailyUsageRange(usageDate, usageDate);
+          } catch (usageError) {
+            console.error('Erro ao atualizar agregados diários após exclusão de log:', usageError);
+          }
+        }
+      }
 
       if (options?.suppressToast !== true) {
         toast({
@@ -1149,6 +1470,37 @@ export function useTimeLogs(projectId?: string) {
       .reduce((total, log) => total + getLogDurationMinutes(log), 0);
   };
 
+  const getDailyUsageFor = useCallback(
+    (userId: string, date: string | Date | null | undefined): TimeDailyUsageRow | null => {
+      const normalizedDate = normalizeDateParam(date);
+      if (!userId || !normalizedDate) {
+        return null;
+      }
+
+      const key = buildDailyUsageKey(userId, normalizedDate);
+      return dailyUsageMap[key] ?? null;
+    },
+    [dailyUsageMap],
+  );
+
+  const ensureDailyUsageForDate = useCallback(
+    async (userId: string, date: string | Date): Promise<TimeDailyUsageRow | null> => {
+      const normalizedDate = normalizeDateParam(date);
+      if (!userId || !normalizedDate) {
+        return null;
+      }
+
+      const existing = getDailyUsageFor(userId, normalizedDate);
+      if (existing) {
+        return existing;
+      }
+
+      const rows = await loadDailyUsageRange(normalizedDate, normalizedDate);
+      return rows.find(row => row?.user_id === userId) ?? null;
+    },
+    [getDailyUsageFor, loadDailyUsageRange],
+  );
+
   const getResponsibleTotalTime = useCallback(
     (assignments: Array<{ taskId: string; responsavel?: string | null }>): Record<string, number> => {
       if (!Array.isArray(assignments) || assignments.length === 0) {
@@ -1195,6 +1547,10 @@ export function useTimeLogs(projectId?: string) {
     getProjectTotalTime,
     getResponsibleTotalTime,
     refreshTimeLogs: loadTimeLogs,
+    dailyUsageByUserDate: dailyUsageMap,
+    getDailyUsageFor,
+    ensureDailyUsageForDate,
+    loadDailyUsageRange,
   };
 }
 
