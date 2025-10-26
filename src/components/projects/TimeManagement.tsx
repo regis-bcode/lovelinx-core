@@ -868,6 +868,61 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return map;
   }, [timeLogs]);
 
+  const runningTimeLogByTask = useMemo(() => {
+    const map = new Map<string, TimeLog>();
+
+    timeLogs.forEach(log => {
+      if (!log?.task_id) {
+        return;
+      }
+
+      if (log?.ended_at || log?.data_fim) {
+        return;
+      }
+
+      if (!map.has(log.task_id)) {
+        map.set(log.task_id, log);
+      }
+    });
+
+    return map;
+  }, [timeLogs]);
+
+  const latestLogReferenceByTask = useMemo(() => {
+    const map = new Map<string, { iso: string; timestamp: number }>();
+
+    timeLogs.forEach(log => {
+      if (!log?.task_id) {
+        return;
+      }
+
+      const referenceIso =
+        log.log_date ??
+        log.data_inicio ??
+        log.started_at ??
+        log.data_fim ??
+        log.ended_at ??
+        log.created_at ??
+        null;
+
+      if (!referenceIso) {
+        return;
+      }
+
+      const timestamp = Date.parse(referenceIso);
+      if (!Number.isFinite(timestamp)) {
+        return;
+      }
+
+      const existing = map.get(log.task_id);
+      if (!existing || timestamp > existing.timestamp) {
+        map.set(log.task_id, { iso: referenceIso, timestamp });
+      }
+    });
+
+    return map;
+  }, [timeLogs]);
+
   const teamMembers = useMemo(() => {
     if (!projectAllocations.length) {
       return [] as Array<{ id: string; name: string }>;
@@ -1619,6 +1674,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     return format(parsed, 'HH:mm');
+  };
+
+  const formatLogDateOnly = (value?: string | null) => {
+    if (!value) {
+      return '-';
+    }
+
+    const parsed = parseIsoDate(value) ?? parseIsoDate(`${value}T00:00:00`);
+    if (!parsed) {
+      return '-';
+    }
+
+    return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
   };
 
   const formatLogCreatedAt = (value?: string | null) => {
@@ -2393,8 +2461,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   : fallbackUsageRow
                     ? todaySaoPauloDate
                     : null;
-                const totalDailyMinutes = resolvedUsageRow?.total_minutes ?? 0;
-                const formattedDailyMinutes = formatMinutesShort(totalDailyMinutes);
                 const tempoEstouradoMinutes = resolvedUsageRow?.tempo_estourado_minutes ?? 0;
                 const formattedTempoEstourado = tempoEstouradoMinutes > 0
                   ? formatMinutesShort(tempoEstouradoMinutes)
@@ -2414,34 +2480,38 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   : 'Nenhum registro finalizado para calcular limites neste dia.';
                 const statusTooltip = resolvedUsageRow
                   ? overUserLimit
-                    ? `Excedeu o limite de ${userLimitHours}h do usuário.`
-                    : `Dentro do limite diário de ${userLimitHours}h.`
+                  ? `Excedeu o limite de ${userLimitHours}h do usuário.`
+                  : `Dentro do limite diário de ${userLimitHours}h.`
                   : 'Nenhum registro finalizado para calcular limites neste dia.';
-                const formattedUsageDate = (() => {
-                  if (!resolvedUsageDateIso) {
-                    return '-';
+                const runningLog = runningTimeLogByTask.get(task.id) ?? null;
+                const latestLogReference = latestLogReferenceByTask.get(task.id) ?? null;
+                const logDateIso = (() => {
+                  if (runningLog) {
+                    return (
+                      runningLog.log_date ??
+                      runningLog.data_inicio ??
+                      runningLog.started_at ??
+                      runningLog.created_at ??
+                      null
+                    );
                   }
 
-                  const parsed = new Date(`${resolvedUsageDateIso}T00:00:00`);
-                  if (Number.isNaN(parsed.getTime())) {
-                    return '-';
+                  if (latestLogReference) {
+                    return latestLogReference.iso;
                   }
 
-                  try {
-                    return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
-                  } catch (error) {
-                    console.error('Erro ao formatar data de uso diário:', error);
-                    return '-';
-                  }
+                  return resolvedUsageDateIso;
                 })();
+                const formattedLogDate = formatLogDateOnly(logDateIso);
+                const tempoDoLogDisplay = displayedTime;
 
                 return (
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.tarefa}</TableCell>
                     <TableCell className={highlightClass}>{task.responsavel || '-'}</TableCell>
-                    <TableCell className={highlightClass}>{formattedUsageDate}</TableCell>
+                    <TableCell className={highlightClass}>{formattedLogDate}</TableCell>
                     <TableCell>
-                      <span className="font-mono text-sm">{formattedDailyMinutes}</span>
+                      <span className="font-mono text-sm">{tempoDoLogDisplay}</span>
                     </TableCell>
                     <TableCell>
                       <Tooltip>
@@ -2461,23 +2531,23 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       </Tooltip>
                     </TableCell>
                     <TableCell className={highlightClass}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span>{statusLabel}</span>
-                        </TooltipTrigger>
-                        <TooltipContent>{statusTooltip}</TooltipContent>
-                      </Tooltip>
+                      {isTimerActive ? (
+                        <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
+                          CRONOMETRANDO
+                        </Badge>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>{statusLabel}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>{statusTooltip}</TooltipContent>
+                        </Tooltip>
+                      )}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-2">
                         <div>
-                          {isTimerActive ? (
-                            <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
-                              CRONOMETRANDO
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">{task.status || 'Sem status'}</Badge>
-                          )}
+                          <Badge variant="outline">{task.status || 'Sem status'}</Badge>
                         </div>
                         <div className="flex items-center justify-between gap-4">
                           <span className="font-mono text-sm">{displayedTime}</span>
