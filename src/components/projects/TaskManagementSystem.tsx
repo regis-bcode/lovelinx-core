@@ -1250,6 +1250,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     [groupBy]
   );
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const hasHydratedActiveTimersRef = useRef(false);
   const [timerTick, setTimerTick] = useState(0);
   const [successDialogData, setSuccessDialogData] = useState<{ task: Task; wasDraft: boolean } | null>(null);
   const [isSuccessDialogOpen, setIsSuccessDialogOpen] = useState(false);
@@ -1300,6 +1301,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
 
   useEffect(() => {
     if (typeof window === 'undefined') {
+      hasHydratedActiveTimersRef.current = true;
       return;
     }
 
@@ -1379,13 +1381,20 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return prev;
         }
 
-        persistActiveTimerRecord(activeTimersStorageKey, sanitizedNext);
-        notifyProjectActiveTimersChange(projectId, Object.keys(sanitizedNext).length > 0);
         return sanitizedNext;
       });
     },
-    [activeTimersStorageKey, projectId],
+    [],
   );
+
+  useEffect(() => {
+    if (!hasHydratedActiveTimersRef.current) {
+      return;
+    }
+
+    persistActiveTimerRecord(activeTimersStorageKey, activeTimers);
+    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
+  }, [activeTimers, activeTimersStorageKey, projectId]);
 
   const defaultClient = useMemo(() => {
     if (projectClient) {
@@ -1738,6 +1747,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       try {
         const restoredActive = readActiveTimerRecord(activeTimersStorageKey);
         applyActiveTimersUpdate(restoredActive);
+        hasHydratedActiveTimersRef.current = true;
+        persistActiveTimerRecord(activeTimersStorageKey, restoredActive);
+        notifyProjectActiveTimersChange(projectId, Object.keys(restoredActive).length > 0);
       } catch (error) {
         console.error('Erro ao restaurar temporizadores ativos:', error);
         try {
@@ -1746,6 +1758,8 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           console.warn('Não foi possível limpar registros de temporizadores de tarefas:', error);
         }
         applyActiveTimersUpdate({});
+        hasHydratedActiveTimersRef.current = true;
+        notifyProjectActiveTimersChange(projectId, false);
       }
     };
 
@@ -1763,7 +1777,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate, projectId]);
 
   const activeTeamMembers = useMemo(() => {
     if (!projectAllocations.length) {
