@@ -1619,6 +1619,7 @@ export type Database = {
           cpf: string
           created_at: string
           custo_hora: number | null
+          horas_diarias_aprovadas: number | null
           email: string
           id: string
           nome_completo: string
@@ -1636,6 +1637,7 @@ export type Database = {
           cpf: string
           created_at?: string
           custo_hora?: number | null
+          horas_diarias_aprovadas?: number | null
           email: string
           id?: string
           nome_completo: string
@@ -1653,6 +1655,7 @@ export type Database = {
           cpf?: string
           created_at?: string
           custo_hora?: number | null
+          horas_diarias_aprovadas?: number | null
           email?: string
           id?: string
           nome_completo?: string

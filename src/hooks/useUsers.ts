@@ -86,6 +86,8 @@ export const useUsers = () => {
         .from("users")
         .insert({
           ...userData,
+          horas_diarias_aprovadas:
+            userData.horas_diarias_aprovadas != null ? Number(userData.horas_diarias_aprovadas) : null,
           user_id: user.id,
           tipo_usuario: userData.tipo_usuario as any, // Casting temporário
         })
@@ -115,10 +117,14 @@ export const useUsers = () => {
   const updateUserMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<CreateUserData> }) => {
       const updateData: any = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(updateData, "horas_diarias_aprovadas")) {
+        updateData.horas_diarias_aprovadas =
+          updateData.horas_diarias_aprovadas != null ? Number(updateData.horas_diarias_aprovadas) : null;
+      }
       if (updateData.tipo_usuario) {
         updateData.tipo_usuario = updateData.tipo_usuario as any; // Casting temporário
       }
-      
+
       const { data, error } = await supabase
         .from("users")
         .update(updateData)
