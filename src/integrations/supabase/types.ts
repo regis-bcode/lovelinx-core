@@ -1493,8 +1493,11 @@ export type Database = {
           data_aprovacao: string | null
           data_fim: string | null
           data_inicio: string | null
+          duration_minutes: number | null
+          ended_at: string | null
           id: string
           is_billable: boolean | null
+          log_date: string | null
           justificativa_reprovacao: string | null
           observacoes: string | null
           project_id: string
@@ -1504,6 +1507,7 @@ export type Database = {
           tipo_inclusao: Database["public"]["Enums"]["time_entry_type"]
           updated_at: string
           user_id: string
+          started_at: string | null
         }
         Insert: {
           aprovado?: string | null
@@ -1520,8 +1524,11 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
           id?: string
           is_billable?: boolean | null
+          log_date?: string | null
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id: string
@@ -1531,6 +1538,7 @@ export type Database = {
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
           user_id: string
+          started_at?: string | null
         }
         Update: {
           aprovado?: string | null
@@ -1547,8 +1555,11 @@ export type Database = {
           data_aprovacao?: string | null
           data_fim?: string | null
           data_inicio?: string | null
+          duration_minutes?: number | null
+          ended_at?: string | null
           id?: string
           is_billable?: boolean | null
+          log_date?: string | null
           justificativa_reprovacao?: string | null
           observacoes?: string | null
           project_id?: string
@@ -1558,6 +1569,7 @@ export type Database = {
           tipo_inclusao?: Database["public"]["Enums"]["time_entry_type"]
           updated_at?: string
           user_id?: string
+          started_at?: string | null
         }
         Relationships: []
       }
@@ -1722,7 +1734,14 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_time_daily_usage: {
+        Row: {
+          log_date: string | null
+          total_minutes: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       approve_time_log: {
@@ -1752,6 +1771,21 @@ export type Database = {
           _task_snapshot?: Json | null
         }
         Returns: Database["public"]["Tables"]["log_audit_tasks"]["Row"]
+      },
+      get_time_daily_usage: {
+        Args: {
+          p_date_from: string
+          p_date_to: string
+        }
+        Returns: {
+          horas_liberadas_por_dia: number | null
+          log_date: string | null
+          over_hard_cap_16h: boolean | null
+          over_user_limit: boolean | null
+          tempo_estourado_minutes: number | null
+          total_minutes: number | null
+          user_id: string | null
+        }[]
       }
     }
     Enums: {

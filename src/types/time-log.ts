@@ -12,6 +12,10 @@ export interface TimeLog {
   tempo_formatado?: string | null;
   data_inicio?: string;
   data_fim?: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  duration_minutes?: number | null;
+  log_date?: string | null;
   status_aprovacao: ApprovalStatus;
   aprovador_id?: string | null;
   aprovador_nome?: string | null;

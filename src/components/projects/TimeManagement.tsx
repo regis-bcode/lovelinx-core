@@ -41,6 +41,7 @@ import {
   type ActiveTimerRecord,
 } from '@/lib/active-timers';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
+import { SAO_PAULO_TIMEZONE, getIsoDateInTimeZone } from '@/utils/timezone';
 
 type TaskFieldDefinition = {
   key: keyof Task;
@@ -126,6 +127,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     getProjectTotalTime,
     startTimerLog,
     stopTimerLog,
+    ensureDailyUsageForDate,
+    getDailyUsageFor,
     deleteTimeLog,
     refreshTimeLogs,
     loading: logsLoading,
@@ -150,6 +153,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
   const hasHydratedActiveTimersRef = useRef(false);
+  const autoStopTimeoutsRef = useRef<Record<string, number>>({});
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
@@ -182,6 +186,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [logPendingDeletion, setLogPendingDeletion] = useState<TimeLog | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingLog, setIsDeletingLog] = useState(false);
+  const todaySaoPauloDate = useMemo(
+    () => getIsoDateInTimeZone(new Date(), SAO_PAULO_TIMEZONE),
+    [],
+  );
   const approvalDialogTask = useMemo(() => {
     if (!approvalDialogLog?.task_id) {
       return null;
@@ -228,6 +236,18 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     [],
   );
 
+  const clearAutoStopTimeout = useCallback((taskId: string) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const timeoutId = autoStopTimeoutsRef.current[taskId];
+    if (typeof timeoutId === 'number') {
+      window.clearTimeout(timeoutId);
+      delete autoStopTimeoutsRef.current[taskId];
+    }
+  }, []);
+
   useEffect(() => {
     if (!hasHydratedActiveTimersRef.current) {
       return;
@@ -236,6 +256,23 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     persistActiveTimerRecord(activeTimersStorageKey, activeTimers);
     notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
   }, [activeTimers, activeTimersStorageKey, projectId]);
+
+  useEffect(() => {
+    return () => {
+      if (typeof window === 'undefined') {
+        autoStopTimeoutsRef.current = {};
+        return;
+      }
+
+      Object.values(autoStopTimeoutsRef.current).forEach(timeoutId => {
+        if (typeof timeoutId === 'number') {
+          window.clearTimeout(timeoutId);
+        }
+      });
+
+      autoStopTimeoutsRef.current = {};
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -301,49 +338,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return () => clearInterval(interval);
   }, [activeTimers]);
 
-  const startTimer = async (taskId: string) => {
-    if (activeTimers[taskId]) {
-      return;
-    }
-
-    const tentativeStart = Date.now();
-    const startedLog = await startTimerLog(taskId, {
-      tipo_inclusao: 'timer',
-      data_inicio: new Date(tentativeStart).toISOString(),
-      observacoes: 'Registro automático pela Gestão de Tempo',
-    });
-
-    if (!startedLog) {
-      return;
-    }
-
-    const normalizedStart =
-      typeof startedLog.data_inicio === 'string' && startedLog.data_inicio
-        ? new Date(startedLog.data_inicio).getTime()
-        : tentativeStart;
-
-    applyActiveTimersUpdate(prev => {
-      if (prev[taskId]) {
-        return prev;
-      }
-      return { ...prev, [taskId]: normalizedStart };
-    });
-
-    setElapsedSeconds(prev => ({
-      ...prev,
-      [taskId]: Math.max(0, Math.floor((Date.now() - normalizedStart) / 1000)),
-    }));
-
-    setManualOverrides(prev => {
-      if (!(taskId in prev)) return prev;
-      const updated = { ...prev };
-      delete updated[taskId];
-      return updated;
-    });
-  };
-
   const removeLocalTimerState = useCallback(
     (taskId: string) => {
+      clearAutoStopTimeout(taskId);
       applyActiveTimersUpdate(prev => {
         if (!prev[taskId]) {
           return prev;
@@ -362,7 +359,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         return updated;
       });
     },
-    [applyActiveTimersUpdate],
+    [applyActiveTimersUpdate, clearAutoStopTimeout],
   );
 
   useEffect(() => {
@@ -441,6 +438,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   }, [activeTimers, timeLogs, removeLocalTimerState, logsLoading]);
 
+  useEffect(() => {
+    if (Object.keys(activeTimers).length === 0) {
+      return;
+    }
+
+    Object.entries(activeTimers).forEach(([taskId, startTimestamp]) => {
+      ensureAutoStopForTimer(taskId, startTimestamp);
+    });
+  }, [activeTimers, ensureAutoStopForTimer]);
+
   const updateTimerActionState = useCallback((taskId: string, inFlight: boolean) => {
     setTimerActionsInFlight(prev => {
       if (inFlight) {
@@ -460,9 +467,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   }, []);
 
-  const stopTimer = async (taskId: string, options?: { discard?: boolean }) => {
+  const stopTimer = async (
+    taskId: string,
+    options?: { discard?: boolean; forcedByDailyCap?: boolean },
+  ) => {
     const hasActiveTimers = Object.keys(activeTimers).length > 0;
-    if (!hasActiveTimers) {
+    if (!hasActiveTimers && !options?.forcedByDailyCap) {
       toast({
         title: 'Nenhum cronômetro em andamento',
         description: 'Inicie um cronômetro antes de tentar parar ou zerar o tempo.',
@@ -470,8 +480,29 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return false;
     }
 
-    const startTimestamp = activeTimers[taskId];
-    if (typeof startTimestamp !== 'number' || !Number.isFinite(startTimestamp)) {
+    clearAutoStopTimeout(taskId);
+
+    const activeStartFromState = activeTimers[taskId];
+    const fallbackOpenLog = timeLogs.find(
+      log => log.task_id === taskId && !log.data_fim,
+    );
+    const fallbackStartIso = fallbackOpenLog?.started_at ?? fallbackOpenLog?.data_inicio ?? null;
+    const resolvedStartTimestamp = (() => {
+      if (typeof activeStartFromState === 'number' && Number.isFinite(activeStartFromState)) {
+        return activeStartFromState;
+      }
+
+      if (fallbackStartIso) {
+        const parsed = Date.parse(fallbackStartIso);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+
+      return Number.NaN;
+    })();
+
+    if ((Number.isNaN(resolvedStartTimestamp) || resolvedStartTimestamp <= 0) && !options?.forcedByDailyCap) {
       toast({
         title: 'Cronômetro não encontrado',
         description: 'Não encontramos um cronômetro ativo para esta tarefa.',
@@ -484,9 +515,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     try {
       const result = await stopTimerLog(taskId, {
-        startedAtMs: startTimestamp,
+        startedAtMs: Number.isNaN(resolvedStartTimestamp) ? undefined : resolvedStartTimestamp,
         allowCreateIfMissing: options?.discard ? false : true,
-        suppressSuccessToast: options?.discard === true,
+        suppressSuccessToast: options?.discard === true || options?.forcedByDailyCap === true,
       });
 
       if (!result) {
@@ -540,10 +571,179 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       }
 
       await refreshTimeLogs();
+
+      if (options?.forcedByDailyCap) {
+        toast({
+          title: 'Cronômetro encerrado automaticamente',
+          description: 'Limite diário de 16h atingido para hoje.',
+        });
+      }
+
       return true;
     } finally {
       updateTimerActionState(taskId, false);
     }
+  };
+
+  const scheduleAutoStop = useCallback(
+    (taskId: string, remainingMinutes: number) => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+
+      const safeRemaining = Math.max(0, remainingMinutes);
+      const timeoutMs = Math.round(safeRemaining * 60 * 1000);
+
+      clearAutoStopTimeout(taskId);
+
+      if (timeoutMs <= 0) {
+        void stopTimer(taskId, { forcedByDailyCap: true });
+        return;
+      }
+
+      const timeoutId = window.setTimeout(async () => {
+        delete autoStopTimeoutsRef.current[taskId];
+        await stopTimer(taskId, { forcedByDailyCap: true });
+      }, timeoutMs);
+
+      autoStopTimeoutsRef.current[taskId] = timeoutId;
+    },
+    [clearAutoStopTimeout, stopTimer],
+  );
+
+  const ensureAutoStopForTimer = useCallback(
+    async (taskId: string, startTimestamp: number) => {
+      if (!user?.id) {
+        return;
+      }
+
+      if (typeof startTimestamp !== 'number' || !Number.isFinite(startTimestamp)) {
+        return;
+      }
+
+      if (autoStopTimeoutsRef.current[taskId]) {
+        return;
+      }
+
+      try {
+        const logDate = getIsoDateInTimeZone(new Date(startTimestamp), SAO_PAULO_TIMEZONE);
+        const usage = await ensureDailyUsageForDate(user.id, logDate);
+        const usedMinutes = usage?.total_minutes ?? 0;
+        const elapsedMinutes = Math.max(0, Math.ceil((Date.now() - startTimestamp) / 60000));
+        const remaining = Math.max(0, 960 - usedMinutes - elapsedMinutes);
+
+        if (remaining <= 0) {
+          await stopTimer(taskId, { forcedByDailyCap: true });
+          return;
+        }
+
+        scheduleAutoStop(taskId, remaining);
+      } catch (error) {
+        console.error('Erro ao programar auto-stop do cronômetro:', error);
+      }
+    },
+    [ensureDailyUsageForDate, scheduleAutoStop, stopTimer, user?.id],
+  );
+
+  const startTimer = async (taskId: string) => {
+    if (activeTimers[taskId]) {
+      return;
+    }
+
+    if (!user?.id) {
+      toast({
+        title: 'Erro ao iniciar cronômetro',
+        description: 'Você precisa estar autenticado para iniciar um cronômetro.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const now = new Date();
+    const logDate = getIsoDateInTimeZone(now, SAO_PAULO_TIMEZONE);
+
+    let remainingToCap = 960;
+    try {
+      const usage = await ensureDailyUsageForDate(user.id, logDate);
+      const usedMinutes = usage?.total_minutes ?? 0;
+      remainingToCap = Math.max(0, 960 - usedMinutes);
+    } catch (error) {
+      console.error('Erro ao verificar limite diário de 16h:', error);
+      toast({
+        title: 'Erro ao iniciar cronômetro',
+        description: 'Não foi possível verificar o limite diário de 16h. Tente novamente.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (remainingToCap <= 0) {
+      toast({
+        title: 'Limite diário de 16h atingido para hoje.',
+        description: 'Finalize registros existentes antes de iniciar um novo cronômetro.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const tentativeStart = Date.now();
+    const startIso = new Date(tentativeStart).toISOString();
+    const startedLog = await startTimerLog(taskId, {
+      tipo_inclusao: 'timer',
+      data_inicio: startIso,
+      observacoes: 'Registro automático pela Gestão de Tempo',
+    });
+
+    if (!startedLog) {
+      return;
+    }
+
+    const normalizedStart = (() => {
+      if (typeof startedLog.started_at === 'string' && startedLog.started_at) {
+        const parsed = Date.parse(startedLog.started_at);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+
+      if (typeof startedLog.data_inicio === 'string' && startedLog.data_inicio) {
+        const parsed = Date.parse(startedLog.data_inicio);
+        if (Number.isFinite(parsed)) {
+          return parsed;
+        }
+      }
+
+      return tentativeStart;
+    })();
+
+    applyActiveTimersUpdate(prev => {
+      if (prev[taskId]) {
+        return prev;
+      }
+      return { ...prev, [taskId]: normalizedStart };
+    });
+
+    setElapsedSeconds(prev => ({
+      ...prev,
+      [taskId]: Math.max(0, Math.floor((Date.now() - normalizedStart) / 1000)),
+    }));
+
+    setManualOverrides(prev => {
+      if (!(taskId in prev)) return prev;
+      const updated = { ...prev };
+      delete updated[taskId];
+      return updated;
+    });
+
+    const elapsedMinutes = Math.max(0, Math.ceil((Date.now() - normalizedStart) / 60000));
+    const remainingAfterElapsed = Math.max(0, remainingToCap - elapsedMinutes);
+
+    if (remainingAfterElapsed <= 0) {
+      await stopTimer(taskId, { forcedByDailyCap: true });
+      return;
+    }
+
+    scheduleAutoStop(taskId, remainingAfterElapsed);
   };
 
   const resetTimer = (taskId: string) => stopTimer(taskId, { discard: true });
@@ -598,6 +798,31 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return formatHMS(totalSeconds);
   };
 
+  const formatMinutesShort = (minutes: number): string => {
+    if (!Number.isFinite(minutes)) {
+      return '00:00';
+    }
+
+    const safeMinutes = Math.max(0, Math.round(minutes));
+    const hours = Math.floor(safeMinutes / 60);
+    const mins = safeMinutes % 60;
+
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  const getLogDailyUsage = useCallback(
+    (log: TimeLog) => {
+      if (!log?.user_id) {
+        return null;
+      }
+
+      const usageDate = log.log_date ?? log.data_inicio ?? null;
+
+      return getDailyUsageFor(log.user_id, usageDate);
+    },
+    [getDailyUsageFor],
+  );
+
   const manualOverridesFromLogs = useMemo(() => {
     const overrides: Record<string, number> = {};
     timeLogs.forEach((log) => {
@@ -606,6 +831,41 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       }
     });
     return overrides;
+  }, [timeLogs]);
+
+  const latestFinalizedLogByTask = useMemo(() => {
+    const map = new Map<string, { logDate: string | null; timestamp: number; userId: string | null }>();
+
+    timeLogs.forEach(log => {
+      if (!log?.task_id) {
+        return;
+      }
+
+      if (!log?.ended_at && !log?.data_fim) {
+        return;
+      }
+
+      const referenceIso = log.ended_at ?? log.data_fim ?? log.created_at ?? null;
+      if (!referenceIso) {
+        return;
+      }
+
+      const timestamp = Date.parse(referenceIso);
+      if (!Number.isFinite(timestamp)) {
+        return;
+      }
+
+      const existing = map.get(log.task_id);
+      if (!existing || timestamp > existing.timestamp) {
+        map.set(log.task_id, {
+          logDate: log.log_date ?? null,
+          timestamp,
+          userId: log.user_id ?? null,
+        });
+      }
+    });
+
+    return map;
   }, [timeLogs]);
 
   const teamMembers = useMemo(() => {
@@ -2091,10 +2351,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>Tarefa</TableHead>
-                <TableHead>Responsável</TableHead>
+                <TableHead>Usuário</TableHead>
+                <TableHead>Data</TableHead>
+                <TableHead>Tempo do Log</TableHead>
+                <TableHead>Tempo Estourado</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Tempo Total</TableHead>
-                <TableHead>Adicionar Manual</TableHead>
+                <TableHead>Cronômetro</TableHead>
+                <TableHead>Tempo Manual</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -2115,57 +2378,144 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   : isTimerActive
                     ? formatTime(taskTime * 60 + runningSeconds)
                     : formatMinutes(taskTime);
+                const latestLogInfo = latestFinalizedLogByTask.get(task.id) ?? null;
+                const usageLogDateIso = latestLogInfo?.logDate ?? null;
+                const usageUserId = latestLogInfo?.userId ?? task.user_id ?? null;
+                const usageRowFromLog = usageUserId && usageLogDateIso
+                  ? getDailyUsageFor(usageUserId, usageLogDateIso)
+                  : null;
+                const fallbackUsageRow = !usageRowFromLog && usageUserId && todaySaoPauloDate
+                  ? getDailyUsageFor(usageUserId, todaySaoPauloDate)
+                  : null;
+                const resolvedUsageRow = usageRowFromLog ?? fallbackUsageRow ?? null;
+                const resolvedUsageDateIso = usageRowFromLog
+                  ? usageLogDateIso
+                  : fallbackUsageRow
+                    ? todaySaoPauloDate
+                    : null;
+                const totalDailyMinutes = resolvedUsageRow?.total_minutes ?? 0;
+                const formattedDailyMinutes = formatMinutesShort(totalDailyMinutes);
+                const tempoEstouradoMinutes = resolvedUsageRow?.tempo_estourado_minutes ?? 0;
+                const formattedTempoEstourado = tempoEstouradoMinutes > 0
+                  ? formatMinutesShort(tempoEstouradoMinutes)
+                  : '–';
+                const overUserLimit = resolvedUsageRow?.over_user_limit ?? false;
+                const userLimitHours = resolvedUsageRow?.horas_liberadas_por_dia ?? 8;
+                const statusLabel = resolvedUsageRow
+                  ? overUserLimit
+                    ? 'Ultrapassado o valor de horas limite'
+                    : 'OK'
+                  : 'Sem registros';
+                const highlightClass = overUserLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                const tempoEstouradoTooltip = resolvedUsageRow
+                  ? overUserLimit
+                    ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
+                    : `Dentro do limite diário de ${userLimitHours}h.`
+                  : 'Nenhum registro finalizado para calcular limites neste dia.';
+                const statusTooltip = resolvedUsageRow
+                  ? overUserLimit
+                    ? `Excedeu o limite de ${userLimitHours}h do usuário.`
+                    : `Dentro do limite diário de ${userLimitHours}h.`
+                  : 'Nenhum registro finalizado para calcular limites neste dia.';
+                const formattedUsageDate = (() => {
+                  if (!resolvedUsageDateIso) {
+                    return '-';
+                  }
+
+                  const parsed = new Date(`${resolvedUsageDateIso}T00:00:00`);
+                  if (Number.isNaN(parsed.getTime())) {
+                    return '-';
+                  }
+
+                  try {
+                    return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
+                  } catch (error) {
+                    console.error('Erro ao formatar data de uso diário:', error);
+                    return '-';
+                  }
+                })();
 
                 return (
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.tarefa}</TableCell>
-                    <TableCell>{task.responsavel || '-'}</TableCell>
+                    <TableCell className={highlightClass}>{task.responsavel || '-'}</TableCell>
+                    <TableCell className={highlightClass}>{formattedUsageDate}</TableCell>
                     <TableCell>
-                      {isTimerActive ? (
-                        <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
-                          CRONOMETRANDO
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">{task.status || 'Sem status'}</Badge>
-                      )}
+                      <span className="font-mono text-sm">{formattedDailyMinutes}</span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center justify-between gap-4">
-                        <span className="font-mono text-sm">{displayedTime}</span>
-                        <div className="flex gap-2">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Badge
+                            variant="outline"
+                            className={
+                              tempoEstouradoMinutes > 0
+                                ? 'border-red-200 bg-red-50 text-red-600'
+                                : 'border-muted bg-muted text-muted-foreground'
+                            }
+                          >
+                            {tempoEstouradoMinutes > 0 ? formattedTempoEstourado : '–'}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>{tempoEstouradoTooltip}</TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell className={highlightClass}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span>{statusLabel}</span>
+                        </TooltipTrigger>
+                        <TooltipContent>{statusTooltip}</TooltipContent>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-2">
+                        <div>
                           {isTimerActive ? (
-                            <>
+                            <Badge className="border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
+                              CRONOMETRANDO
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">{task.status || 'Sem status'}</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="font-mono text-sm">{displayedTime}</span>
+                          <div className="flex gap-2">
+                            {isTimerActive ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => stopTimer(task.id)}
+                                  disabled={Boolean(timerActionsInFlight[task.id])}
+                                >
+                                  Parar
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => resetTimer(task.id)}
+                                  disabled={Boolean(timerActionsInFlight[task.id])}
+                                >
+                                  Zerar
+                                </Button>
+                              </>
+                            ) : (
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => stopTimer(task.id)}
-                                disabled={Boolean(timerActionsInFlight[task.id])}
+                                onClick={() => handleStartTimerRequest(task)}
+                                disabled={manualOverrideMinutes !== undefined}
+                                title={startButtonTitle}
                               >
-                                Parar
+                                {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => resetTimer(task.id)}
-                                disabled={Boolean(timerActionsInFlight[task.id])}
-                              >
-                                Zerar
-                              </Button>
-                            </>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleStartTimerRequest(task)}
-                              disabled={manualOverrideMinutes !== undefined}
-                              title={startButtonTitle}
-                            >
-                              {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
-                            </Button>
-                          )}
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Input
@@ -2259,13 +2609,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <TableHead>Tarefa</TableHead>
             <TableHead>Responsável</TableHead>
             <TableHead>Tipo</TableHead>
-            <TableHead>Tempo</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Aprovador</TableHead>
-                <TableHead>Data da Aprovação</TableHead>
-                <TableHead>Hora da Aprovação</TableHead>
-                {canManageApprovals ? <TableHead>Ação</TableHead> : null}
-                <TableHead>Atividades</TableHead>
+            <TableHead>Tempo do Log</TableHead>
+            <TableHead>Tempo Estourado</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Status de Aprovação</TableHead>
+            <TableHead>Aprovador</TableHead>
+            <TableHead>Data da Aprovação</TableHead>
+            <TableHead>Hora da Aprovação</TableHead>
+            {canManageApprovals ? <TableHead>Ação</TableHead> : null}
+            <TableHead>Atividades</TableHead>
               </TableRow>
             </TableHeader>
           <TableBody>
@@ -2279,6 +2631,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const approvalActionsDisabled = processingApprovalId !== null;
                   const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
                   const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
+                  const usage = getLogDailyUsage(log);
+                  const tempoEstouradoMinutes = usage?.tempo_estourado_minutes ?? 0;
+                  const formattedTempoEstourado =
+                    tempoEstouradoMinutes > 0 ? formatMinutesShort(tempoEstouradoMinutes) : '00:00';
+                  const overUserLimit = usage?.over_user_limit ?? false;
+                  const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
+                  const limitStatusLabel = overUserLimit ? 'Tempo Limite Ultrapassado' : 'OK';
+                  const highlightClass = overUserLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                  const tempoEstouradoTooltip = overUserLimit
+                    ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
+                    : `Dentro do limite diário de ${userLimitHours}h.`;
+                  const statusTooltip = overUserLimit
+                    ? `Excedeu o limite de ${userLimitHours}h do usuário.`
+                    : `Dentro do limite diário de ${userLimitHours}h.`;
 
                   return (
                     <TableRow key={log.id}>
@@ -2343,9 +2709,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           </Tooltip>
                         </div>
                       </TableCell>
-                      <TableCell>{formatLogCreatedAt(log.created_at)}</TableCell>
+                      <TableCell className={highlightClass}>{formatLogCreatedAt(log.created_at)}</TableCell>
                       <TableCell>{task?.tarefa || 'Tarefa não encontrada'}</TableCell>
-                      <TableCell>{task?.responsavel || '-'}</TableCell>
+                      <TableCell className={highlightClass}>{task?.responsavel || '-'}</TableCell>
                       <TableCell>
                         <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
@@ -2353,9 +2719,32 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       </TableCell>
                       <TableCell>{getFormattedLogDuration(log)}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(log)}
-                        </div>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge
+                              variant="outline"
+                              className={
+                                tempoEstouradoMinutes > 0
+                                  ? 'border-red-200 bg-red-50 text-red-600'
+                                  : 'border-muted bg-muted text-muted-foreground'
+                              }
+                            >
+                              {tempoEstouradoMinutes > 0 ? formattedTempoEstourado : '–'}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>{tempoEstouradoTooltip}</TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell className={highlightClass}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>{limitStatusLabel}</span>
+                          </TooltipTrigger>
+                          <TooltipContent>{statusTooltip}</TooltipContent>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">{getStatusBadge(log)}</div>
                       </TableCell>
                       <TableCell>{approverDisplayName}</TableCell>
                       <TableCell>
