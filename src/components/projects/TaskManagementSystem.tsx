@@ -1092,6 +1092,7 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
     refreshTasks,
   } = useTasks(projectId);
   const { user } = useAuth();
+  const authenticatedUserId = user?.id ?? null;
   const { tap } = useTAP(projectId);
   const { statuses } = useStatus();
   const statusColorMap = useMemo(() => {
@@ -3599,7 +3600,9 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
       try {
         const { data: taskRecord } = await getTaskById(row.id);
 
-        if (!canStartTimer(taskRecord)) {
+        const hasFallbackUser = Boolean(authenticatedUserId);
+
+        if (!canStartTimer(taskRecord) && !hasFallbackUser) {
           toast({
             title: 'Responsável obrigatório',
             description: 'Defina o user_id da tarefa ou um responsável vinculado a um usuário válido.',
@@ -3608,7 +3611,39 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
           return;
         }
 
-        const resolvedUserId = await resolveResponsibleUserId(taskRecord);
+        let resolvedUserId: string | null = null;
+
+        const normalizedUserId = typeof taskRecord.user_id === 'string' ? taskRecord.user_id.trim() : '';
+        if (normalizedUserId) {
+          resolvedUserId = normalizedUserId;
+        } else {
+          try {
+            resolvedUserId = await resolveResponsibleUserId(taskRecord);
+          } catch (resolutionError) {
+            if (authenticatedUserId) {
+              resolvedUserId = authenticatedUserId;
+            } else {
+              console.error('Erro ao resolver usuário responsável para o cronômetro:', resolutionError);
+              toast({
+                title: 'Responsável obrigatório',
+                description:
+                  'Associe a tarefa a um usuário válido ou utilize um usuário autenticado para registrar o tempo.',
+                variant: 'destructive',
+              });
+              return;
+            }
+          }
+        }
+
+        if (!resolvedUserId) {
+          toast({
+            title: 'Erro ao iniciar cronômetro',
+            description: 'Não foi possível identificar o usuário responsável pelo apontamento.',
+            variant: 'destructive',
+          });
+          return;
+        }
+
         const { data: startedLog } = await startTaskTimer(taskRecord.id, taskRecord.project_id, resolvedUserId);
 
         const referenceStart = startedLog?.data_inicio
@@ -3628,7 +3663,14 @@ export function TaskManagementSystem({ projectId, projectClient }: TaskManagemen
         toast({ title: 'Erro ao iniciar apontamento', description, variant: 'destructive' });
       }
     },
-    [applyActiveTimersUpdate, getTaskById, resolveResponsibleUserId, startTaskTimer, toast],
+    [
+      applyActiveTimersUpdate,
+      authenticatedUserId,
+      getTaskById,
+      resolveResponsibleUserId,
+      startTaskTimer,
+      toast,
+    ],
   );
 
   const handleConfirmResponsavelAssignment = async () => {
