@@ -438,16 +438,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     });
   }, [activeTimers, timeLogs, removeLocalTimerState, logsLoading]);
 
-  useEffect(() => {
-    if (Object.keys(activeTimers).length === 0) {
-      return;
-    }
-
-    Object.entries(activeTimers).forEach(([taskId, startTimestamp]) => {
-      ensureAutoStopForTimer(taskId, startTimestamp);
-    });
-  }, [activeTimers, ensureAutoStopForTimer]);
-
   const updateTimerActionState = useCallback((taskId: string, inFlight: boolean) => {
     setTimerActionsInFlight(prev => {
       if (inFlight) {
@@ -644,6 +634,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     },
     [ensureDailyUsageForDate, scheduleAutoStop, stopTimer, user?.id],
   );
+
+  useEffect(() => {
+    if (Object.keys(activeTimers).length === 0) {
+      return;
+    }
+
+    Object.entries(activeTimers).forEach(([taskId, startTimestamp]) => {
+      ensureAutoStopForTimer(taskId, startTimestamp);
+    });
+  }, [activeTimers, ensureAutoStopForTimer]);
 
   const startTimer = async (taskId: string) => {
     if (activeTimers[taskId]) {
