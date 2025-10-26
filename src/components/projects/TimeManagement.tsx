@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -149,6 +149,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [user?.name, user?.email]);
 
   const [activeTimers, setActiveTimers] = useState<Record<string, number>>({});
+  const hasHydratedActiveTimersRef = useRef(false);
   const [elapsedSeconds, setElapsedSeconds] = useState<Record<string, number>>({});
   const [manualTime, setManualTime] = useState<{ [taskId: string]: { hours: number; minutes: number } }>({});
   const [manualOverrides, setManualOverrides] = useState<Record<string, number>>({});
@@ -221,16 +222,24 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           return prev;
         }
 
-        persistActiveTimerRecord(activeTimersStorageKey, sanitizedNext);
-        notifyProjectActiveTimersChange(projectId, Object.keys(sanitizedNext).length > 0);
         return sanitizedNext;
       });
     },
-    [activeTimersStorageKey, projectId],
+    [],
   );
 
   useEffect(() => {
+    if (!hasHydratedActiveTimersRef.current) {
+      return;
+    }
+
+    persistActiveTimerRecord(activeTimersStorageKey, activeTimers);
+    notifyProjectActiveTimersChange(projectId, Object.keys(activeTimers).length > 0);
+  }, [activeTimers, activeTimersStorageKey, projectId]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
+      hasHydratedActiveTimersRef.current = true;
       return;
     }
 
@@ -238,6 +247,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       try {
         const restored = readActiveTimerRecord(activeTimersStorageKey);
         applyActiveTimersUpdate(restored);
+        hasHydratedActiveTimersRef.current = true;
+        persistActiveTimerRecord(activeTimersStorageKey, restored);
+        notifyProjectActiveTimersChange(projectId, Object.keys(restored).length > 0);
         setElapsedSeconds(() => {
           const now = Date.now();
           return Object.entries(restored).reduce<Record<string, number>>((acc, [taskId, start]) => {
@@ -251,6 +263,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         window.localStorage.removeItem(activeTimersStorageKey);
         applyActiveTimersUpdate({});
         setElapsedSeconds({});
+        hasHydratedActiveTimersRef.current = true;
+        notifyProjectActiveTimersChange(projectId, false);
       }
     };
 
@@ -267,7 +281,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return () => {
       window.removeEventListener('storage', handleStorage);
     };
-  }, [activeTimersStorageKey, applyActiveTimersUpdate]);
+  }, [activeTimersStorageKey, applyActiveTimersUpdate, projectId]);
 
   // Timer effect
   useEffect(() => {
@@ -352,7 +366,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   );
 
   useEffect(() => {
-    if (Object.keys(activeTimers).length === 0) {
+    if (logsLoading || Object.keys(activeTimers).length === 0) {
       return;
     }
 
@@ -367,7 +381,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         removeLocalTimerState(taskId);
       }
     });
-  }, [activeTimers, timeLogs, removeLocalTimerState]);
+  }, [activeTimers, timeLogs, removeLocalTimerState, logsLoading]);
 
   const updateTimerActionState = useCallback((taskId: string, inFlight: boolean) => {
     setTimerActionsInFlight(prev => {
