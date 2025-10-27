@@ -1217,8 +1217,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       const runningSeconds = Math.max(0, Math.round(entry.runningSeconds));
       const approvedMinutes = Math.max(0, entry.approvedMinutes);
       const pendingMinutes = Math.max(0, entry.pendingMinutes);
-      const runningMinutes = runningSeconds / 60;
-      const totalMinutes = Math.max(0, approvedMinutes + pendingMinutes + runningMinutes);
+      const totalMinutes = Math.max(0, approvedMinutes + pendingMinutes);
       const overMinutes = Math.max(0, totalMinutes - limitMinutes);
 
       return {
@@ -2697,7 +2696,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         <CardContent className="space-y-4">
           {dailyUserTimeSummaries.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhum tempo aprovado ou cronômetro ativo para exibir no período carregado.
+              Nenhum tempo apontado para exibir no período carregado.
             </p>
           ) : (
             <>
@@ -2713,9 +2712,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           {' '}
                           {formatMinutes(summary.totalMinutes)} (aprovado {formatMinutes(summary.approvedMinutes)}
                           {' '}
-                          + pendente {formatMinutes(summary.pendingMinutes)} + cronômetro
-                          {' '}
-                          {formatTime(summary.runningSeconds)}) e excedeu o limite diário de
+                          + pendente {formatMinutes(summary.pendingMinutes)}) e excedeu o limite diário de
                           {' '}
                           {formatMinutes(summary.limitMinutes)} em {formatMinutes(summary.overMinutes)}.
                         </li>
@@ -2733,7 +2730,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       <TableHead>Data</TableHead>
                       <TableHead>Tempo aprovado</TableHead>
                       <TableHead>Tempo em cronômetro</TableHead>
-                      <TableHead>Total contabilizado</TableHead>
+                      <TableHead>Total apontado</TableHead>
                       <TableHead>Limite diário</TableHead>
                       <TableHead>Excedente</TableHead>
                     </TableRow>
@@ -3249,7 +3246,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={logTypeBadgeClass}>
-                          {isTimedEntry ? 'Cronometrado' : 'Manual'}
+                          {isTimedEntry ? 'CRONOMETRADO' : 'MANUAL'}
                         </Badge>
                       </TableCell>
                       <TableCell>{getFormattedLogDuration(log)}</TableCell>
