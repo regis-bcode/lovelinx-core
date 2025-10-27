@@ -409,6 +409,7 @@ export function useTimeLogs(projectId?: string) {
   const [dailyUsageMap, setDailyUsageMap] = useState<Record<string, TimeDailyUsageRow>>({});
   const { toast } = useToast();
   const legacyApprovalSchemaRef = useRef(false);
+  const legacyApprovalAttemptedRef = useRef(false);
 
   const storeDailyUsageRows = useCallback((rows: TimeDailyUsageRow[]) => {
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -670,6 +671,7 @@ export function useTimeLogs(projectId?: string) {
       return;
     }
 
+    legacyApprovalAttemptedRef.current = false;
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -903,6 +905,7 @@ export function useTimeLogs(projectId?: string) {
       approverName?: string | null;
     },
   ): Promise<TimeLog | null> => {
+    legacyApprovalAttemptedRef.current = false;
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -1006,6 +1009,7 @@ export function useTimeLogs(projectId?: string) {
       if (rpcError) {
         if (rpcError.code === 'PGRST202') {
           console.warn('Função approve_time_log indisponível. Aplicando fallback de compatibilidade.', rpcError);
+          legacyApprovalAttemptedRef.current = true;
 
           const effectiveCommissioned = status === 'aprovado' ? commissionedBool : false;
           const normalizedApproverName =
@@ -1333,10 +1337,12 @@ export function useTimeLogs(projectId?: string) {
     } catch (error) {
       console.error('Erro ao aprovar/reprovar tempo:', error);
       if (isLegacyApprovalPermissionError(error)) {
+        const attemptedLegacyFallback = legacyApprovalAttemptedRef.current;
         toast({
-          title: 'Permissão necessária',
-          description:
-            'A aprovação foi bloqueada pelas políticas de segurança. Solicite a atualização do banco para disponibilizar a função approve_time_log.',
+          title: attemptedLegacyFallback ? 'Atualização necessária' : 'Permissão necessária',
+          description: attemptedLegacyFallback
+            ? 'Não foi possível concluir a aprovação porque o ambiente atual ainda não possui a função approve_time_log. Execute as migrações mais recentes do banco de dados ou peça suporte ao time responsável.'
+            : 'Você não tem permissão para aprovar ou reprovar registros de tempo. Entre em contato com um gestor ou administrador caso precise dessa liberação.',
           variant: 'destructive',
         });
       } else if (isApproveTimeLogUnavailableError(error)) {
@@ -1354,6 +1360,8 @@ export function useTimeLogs(projectId?: string) {
         });
       }
       return null;
+    } finally {
+      legacyApprovalAttemptedRef.current = false;
     }
   };
 
