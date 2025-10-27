@@ -2900,6 +2900,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     : 'OK'
                   : 'Sem registros';
                 const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
                 const tempoEstouradoTooltip = resolvedUsageRow
                   ? isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
@@ -2981,7 +2982,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 })();
 
                 return (
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} className={highlightRowClass}>
                     <TableCell className="font-medium">{task.tarefa}</TableCell>
                     <TableCell className={highlightClass}>
                       {isOverLimit ? (
@@ -3196,6 +3197,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
                   const limitStatusLabel = isOverLimit ? 'Tempo Limite Ultrapassado' : 'OK';
                   const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                  const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
                   const tempoEstouradoTooltip = isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
                     : `Dentro do limite diário de ${userLimitHours}h.`;
@@ -3204,7 +3206,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     : `Dentro do limite diário de ${userLimitHours}h.`;
 
                   return (
-                    <TableRow key={log.id}>
+                    <TableRow key={log.id} className={highlightRowClass}>
                       {canManageApprovals ? (
                         <TableCell>
                           <Checkbox
