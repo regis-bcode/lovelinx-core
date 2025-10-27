@@ -2863,7 +2863,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 const runningSeconds = elapsedSeconds[task.id] || 0;
                 const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
                 const startButtonTitle = manualOverrideMinutes !== undefined
-                  ? 'Tempo manual aplicado. Remova ou ajuste o registro manual para iniciar o cronômetro.'
+                  ? 'Cronômetro bloqueado por registro existente. Remova ou ajuste o registro para iniciar o cronômetro.'
                   : requiresResponsavel
                     ? 'Associe um responsável antes de iniciar o cronômetro.'
                     : undefined;
@@ -2983,7 +2983,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 return (
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">{task.tarefa}</TableCell>
-                    <TableCell className={highlightClass}>{task.responsavel || '-'}</TableCell>
+                    <TableCell className={highlightClass}>
+                      {isOverLimit ? (
+                        <span className="text-red-600 font-semibold">{task.responsavel || '-'}</span>
+                      ) : (
+                        task.responsavel || '-'
+                      )}
+                    </TableCell>
                     <TableCell className={highlightClass}>{formattedLogDate}</TableCell>
                     <TableCell>
                       <span className="font-mono text-sm">{tempoDoLogDisplay}</span>
@@ -3262,7 +3268,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                       </TableCell>
                       <TableCell className={highlightClass}>{formatLogCreatedAt(log.created_at)}</TableCell>
                       <TableCell>{task?.tarefa || 'Tarefa não encontrada'}</TableCell>
-                      <TableCell className={highlightClass}>{task?.responsavel || '-'}</TableCell>
+                      <TableCell className={highlightClass}>
+                        {isOverLimit ? (
+                          <span className="text-red-600 font-semibold">{task?.responsavel || '-'}</span>
+                        ) : (
+                          task?.responsavel || '-'
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
                           {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
