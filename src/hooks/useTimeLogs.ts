@@ -819,7 +819,7 @@ export function useTimeLogs(projectId?: string) {
               .single();
 
             if (updateError) {
-              if (allowRetry && updateError.code === '42703') {
+              if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(updateError.code ?? '')) {
                 const trimmedPayload = { ...payload };
                 for (const column of LEGACY_INCOMPATIBLE_COLUMNS) {
                   if (column in trimmedPayload) {
