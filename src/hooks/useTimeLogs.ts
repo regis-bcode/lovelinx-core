@@ -351,6 +351,7 @@ const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
 
 const LEGACY_SCHEMA_ERROR_CODES = new Set(['42703', 'PGRST204']);
 const LEGACY_APPROVAL_PERMISSION_ERROR = 'LEGACY_APPROVAL_PERMISSION_DENIED';
+const LEGACY_APPROVAL_FUNCTION_MISSING_ERROR = 'LEGACY_APPROVAL_FUNCTION_MISSING';
 
 type ErrorWithCode = { code?: string; cause?: unknown };
 
@@ -370,6 +371,25 @@ const isLegacyApprovalPermissionError = (value: unknown): value is Error & Error
   value !== null &&
   'code' in value &&
   (value as ErrorWithCode).code === LEGACY_APPROVAL_PERMISSION_ERROR;
+
+const createApproveTimeLogUnavailableError = (originalError: unknown) => {
+  const error = new Error(
+    'A função approve_time_log não está disponível no banco de dados atual.',
+  );
+
+  (error as ErrorWithCode).code = LEGACY_APPROVAL_FUNCTION_MISSING_ERROR;
+  (error as ErrorWithCode).cause = originalError;
+
+  return error;
+};
+
+const isApproveTimeLogUnavailableError = (
+  value: unknown,
+): value is Error & ErrorWithCode =>
+  typeof value === 'object' &&
+  value !== null &&
+  'code' in value &&
+  (value as ErrorWithCode).code === LEGACY_APPROVAL_FUNCTION_MISSING_ERROR;
 
 const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, TimeLog['approval_status']> = {
   pendente: 'Aguarda Aprovação',
@@ -1036,6 +1056,26 @@ export function useTimeLogs(projectId?: string) {
             return refreshed as TimeLogRow;
           };
 
+          let legacyTargetUserId: string | null = existingLog?.user_id ?? null;
+          if (!legacyTargetUserId && status !== 'pendente') {
+            try {
+              const fetchedLog = await fetchLatestTimeLog();
+              legacyTargetUserId = fetchedLog.user_id ?? null;
+            } catch (lookupError) {
+              console.error(
+                'Erro ao consultar registro de tempo antes de aplicar fallback de aprovação:',
+                lookupError,
+              );
+            }
+          }
+
+          const canAttemptLegacyApproval =
+            status === 'pendente' || (legacyTargetUserId !== null && legacyTargetUserId === user.id);
+
+          if (!canAttemptLegacyApproval) {
+            throw createApproveTimeLogUnavailableError(rpcError);
+          }
+
           const attemptLegacyRpcApproval = async (): Promise<TimeLogRow | null> => {
             const removeUndefined = (input: Record<string, unknown>) => {
               const entries = Object.entries(input).filter(([, value]) => value !== undefined);
@@ -1297,6 +1337,13 @@ export function useTimeLogs(projectId?: string) {
           title: 'Permissão necessária',
           description:
             'A aprovação foi bloqueada pelas políticas de segurança. Solicite a atualização do banco para disponibilizar a função approve_time_log.',
+          variant: 'destructive',
+        });
+      } else if (isApproveTimeLogUnavailableError(error)) {
+        toast({
+          title: 'Atualização necessária',
+          description:
+            'Não foi possível concluir a aprovação porque a função approve_time_log não está instalada. Execute as migrações mais recentes do banco de dados.',
           variant: 'destructive',
         });
       } else {
