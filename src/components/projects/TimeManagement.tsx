@@ -43,7 +43,6 @@ import {
 } from '@/lib/active-timers';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import { SAO_PAULO_TIMEZONE, getIsoDateInTimeZone } from '@/utils/timezone';
-import { ApprovalConfirmationDialog } from './ApprovalConfirmationDialog';
 
 type TaskFieldDefinition = {
   key: keyof Task;
@@ -2591,16 +2590,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
   );
   const [isSaving, setIsSaving] = useState(false);
-  const [approvalConfirmation, setApprovalConfirmation] = useState<
-    {
-      action: 'approve' | 'reject';
-      commissioned: boolean;
-      approverName: string | null;
-      performedAt: Date;
-      justification: string;
-    } | null
-  >(null);
-  const [approvalConfirmationError, setApprovalConfirmationError] = useState<string | null>(null);
+  const [pendingApprovalAction, setPendingApprovalAction] = useState<'approve' | 'reject' | null>(null);
+  const [hasPendingApprovalChanges, setHasPendingApprovalChanges] = useState(false);
   const approvalTargetLogRef = useRef<TimeLog | null>(null);
 
   useEffect(() => {
@@ -2612,6 +2603,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setIsCommissioned(
       parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
     );
+    setPendingApprovalAction(null);
+    setHasPendingApprovalChanges(false);
   }, [
     timeLog?.id,
     timeLog?.approval_status,
@@ -2675,15 +2668,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return approverName.length > 0 && approvalDateRaw.length > 0 && approvalTimeRaw.length > 0;
   }, []);
-  const confirmationPerformedAt = approvalConfirmation?.performedAt ?? null;
-  const confirmationApproverName = (() => {
-    if (approvalConfirmation?.approverName) {
-      const trimmed = approvalConfirmation.approverName.trim();
-      if (trimmed.length > 0) {
-        return trimmed;
-      }
-    }
-
+  const isApprovalInfoComplete = isLogApprovalInfoComplete(timeLog);
+  const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
+  const defaultApproverName = useMemo(() => {
     if (hasApprovalName) {
       return normalizedApproverName;
     }
@@ -2694,47 +2681,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     return '';
-  })();
-  const approvalConfirmationApproverDisplay =
-    confirmationApproverName.length > 0 ? confirmationApproverName : '—';
-  const approvalConfirmationDateDisplay = confirmationPerformedAt
-    ? format(confirmationPerformedAt, 'dd/MM/yyyy', { locale: ptBR })
-    : normalizedApprovalDate.length > 0
-      ? formatApprovalDate(normalizedApprovalDate)
-      : '—';
-  const approvalConfirmationTimeDisplay = confirmationPerformedAt
-    ? format(confirmationPerformedAt, 'HH:mm')
-    : normalizedApprovalTime.length > 0
-      ? formatApprovalTime(normalizedApprovalTime)
-      : '—';
-  const isApprovalInfoComplete = isLogApprovalInfoComplete(timeLog);
-  const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
-
-  const isApprovalConfirmationOpen = approvalConfirmation !== null;
-  const approvalConfirmationTitle = approvalConfirmation
-    ? approvalConfirmation.action === 'approve'
-      ? 'Confirmar aprovação'
-      : 'Confirmar reprovação'
-    : 'Confirmar ação';
-  const approvalConfirmationActionLabel = approvalConfirmation
-    ? approvalConfirmation.action === 'approve'
-      ? 'Aprovar registro'
-      : 'Reprovar registro'
-    : null;
-  const approvalConfirmationAprovadoValue: 'Sim' | 'Não' | null = approvalConfirmation
-    ? approvalConfirmation.action === 'approve'
-      ? 'Sim'
-      : 'Não'
-    : null;
-  const approvalConfirmationComissionadoValue: 'Sim' | 'Não' | null = approvalConfirmation
-    ? approvalConfirmation.commissioned
-      ? 'Sim'
-      : 'Não'
-    : null;
-  const approvalConfirmationJustification = approvalConfirmation?.justification ?? '';
-  const trimmedApprovalConfirmationJustification = approvalConfirmationJustification.trim();
-  const isApprovalRejection = approvalConfirmation?.action === 'reject';
-  const isApprovalConfirmationActionDisabled = isSaving || !approvalConfirmation;
+  }, [getLoggedUserDisplayName, hasApprovalName, normalizedApproverName]);
+  const isApprovalOkButtonDisabled = isApprovalActionDisabled || !hasPendingApprovalChanges;
 
   async function saveApproval(
     targetLog: TimeLog,
@@ -2770,7 +2718,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       const approverOverrideValue =
         normalizedApproverOverride.length > 0 ? normalizedApproverOverride : null;
       const confirmationApproverValue = (() => {
-        const trimmed = confirmationApproverName.trim();
+        const trimmed = defaultApproverName.trim();
         return trimmed.length > 0 ? trimmed : null;
       })();
       const approverNameForPersistence =
@@ -2842,29 +2790,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    const now = new Date();
     approvalTargetLogRef.current = timeLog;
-    const approverDisplayName = (() => {
-      const loggedUserName = getLoggedUserDisplayName();
-      if (loggedUserName.length > 0) {
-        return loggedUserName;
-      }
-
-      if (hasApprovalName) {
-        return normalizedApproverName;
-      }
-
-      return null;
-    })();
-
-    setApprovalConfirmationError(null);
-    setApprovalConfirmation({
-      action: 'approve',
-      commissioned: isCommissioned,
-      approverName: approverDisplayName,
-      performedAt: now,
-      justification: '',
-    });
+    setPendingApprovalAction('approve');
+    setHasPendingApprovalChanges(true);
   }
 
   function handleReject() {
@@ -2873,29 +2801,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     setIsCommissioned(false);
-    const now = new Date();
     approvalTargetLogRef.current = timeLog;
-    const approverDisplayName = (() => {
-      const loggedUserName = getLoggedUserDisplayName();
-      if (loggedUserName.length > 0) {
-        return loggedUserName;
-      }
-
-      if (hasApprovalName) {
-        return normalizedApproverName;
-      }
-
-      return null;
-    })();
-
-    setApprovalConfirmationError(null);
-    setApprovalConfirmation({
-      action: 'reject',
-      commissioned: false,
-      approverName: approverDisplayName,
-      performedAt: now,
-      justification: '',
-    });
+    setPendingApprovalAction('reject');
+    setHasPendingApprovalChanges(true);
   }
 
   function handleToggleCommissioned() {
@@ -2905,62 +2813,35 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     const nextValue = !isCommissioned;
     setIsCommissioned(nextValue);
-
-    if (approvalStatus === 'Aprovado') {
-      void saveApproval(timeLog, 'Aprovado', nextValue);
-    }
+    setHasPendingApprovalChanges(true);
+    setPendingApprovalAction(prev => prev ?? 'approve');
   }
 
-  async function handleConfirmApprovalConfirmation() {
-    const confirmation = approvalConfirmation;
+  async function handleConfirmApprovalAction() {
     const targetLog = approvalTargetLogRef.current ?? timeLog;
 
-    if (!confirmation || !targetLog) {
-      setApprovalConfirmation(null);
+    if (!targetLog || isSaving || isApprovalInfoComplete || !hasPendingApprovalChanges) {
       return;
     }
 
-    if (isSaving) {
-      return;
-    }
-
-    if (confirmation.action === 'reject') {
-      if (trimmedApprovalConfirmationJustification.length === 0) {
-        setApprovalConfirmationError('Obrigatório informar a justificativa da reprovação.');
-        return;
-      }
-
-      setApprovalConfirmationError(null);
-    }
+    const action = pendingApprovalAction ?? 'approve';
+    const performedAt = new Date();
+    const approverName = defaultApproverName.length > 0 ? defaultApproverName : null;
 
     const wasSuccessful = await (async () => {
-      if (confirmation.action === 'approve') {
-        return saveApproval(
-          targetLog,
-          'Aprovado',
-          confirmation.commissioned,
-          confirmation.performedAt,
-          confirmation.approverName ?? null,
-        );
+      if (action === 'reject') {
+        return saveApproval(targetLog, 'Reprovado', false, performedAt, approverName, null);
       }
 
-      return saveApproval(
-        targetLog,
-        'Reprovado',
-        false,
-        confirmation.performedAt,
-        confirmation.approverName ?? null,
-        trimmedApprovalConfirmationJustification,
-      );
+      return saveApproval(targetLog, 'Aprovado', isCommissioned, performedAt, approverName, null);
     })();
 
     if (!wasSuccessful) {
-      setApprovalConfirmationError('Não foi possível salvar a aprovação. Tente novamente.');
       return;
     }
 
-    setApprovalConfirmationError(null);
-    setApprovalConfirmation(null);
+    setPendingApprovalAction(null);
+    setHasPendingApprovalChanges(false);
     handleLogDetailsDialogOpenChange(false);
     await refreshTimeLogs();
   }
@@ -4371,7 +4252,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </section>
           </div>
           <DialogFooter className="w-full">
-            <div className="flex w-full justify-end">
+            <div className="flex w-full justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -4379,53 +4260,18 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               >
                 Fechar
               </Button>
+              <Button
+                type="button"
+                className="bg-green-600 text-white hover:bg-green-700"
+                disabled={isApprovalOkButtonDisabled}
+                onClick={() => void handleConfirmApprovalAction()}
+              >
+                OK
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <ApprovalConfirmationDialog
-        open={isApprovalConfirmationOpen}
-        title={approvalConfirmationTitle}
-        actionLabel={approvalConfirmationActionLabel}
-        aprovadoValue={approvalConfirmationAprovadoValue}
-        comissionadoValue={approvalConfirmationComissionadoValue}
-        approverDisplay={approvalConfirmationApproverDisplay}
-        dateDisplay={approvalConfirmationDateDisplay}
-        timeDisplay={approvalConfirmationTimeDisplay}
-        justification={approvalConfirmationJustification}
-        errorMessage={approvalConfirmationError}
-        isRejecting={isApprovalRejection}
-        isSaving={isSaving}
-        isConfirmDisabled={isApprovalConfirmationActionDisabled}
-        onJustificationChange={(value) => {
-          setApprovalConfirmation(prev => {
-            if (!prev) {
-              return prev;
-            }
-
-            return {
-              ...prev,
-              justification: value,
-            };
-          });
-
-          if (approvalConfirmationError && value.trim().length > 0) {
-            setApprovalConfirmationError(null);
-          }
-        }}
-        onConfirm={handleConfirmApprovalConfirmation}
-        onCancel={() => {
-          setApprovalConfirmation(null);
-          setApprovalConfirmationError(null);
-        }}
-        onOpenChange={(open) => {
-          if (!open) {
-            setApprovalConfirmation(null);
-            setApprovalConfirmationError(null);
-          }
-        }}
-      />
 
       <Dialog open={isLogEditDialogOpen} onOpenChange={handleLogEditDialogOpenChange}>
         <DialogContent className="sm:max-w-[520px]">
