@@ -14,8 +14,12 @@
   },
   "include": [
     "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "tests/setup-dom.ts",
     "src/hooks/utils/timeLogPayload.ts",
     "src/types/time-log.ts",
-    "src/components/projects/taskActionGuards.ts"
+    "src/components/projects/taskActionGuards.ts",
+    "src/components/projects/ApprovalConfirmationDialog.tsx",
+    "src/components/projects/TimeManagement.tsx"
   ]
 }
