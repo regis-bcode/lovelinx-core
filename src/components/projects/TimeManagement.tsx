@@ -141,18 +141,6 @@ const formatMinutes = (minutes: number): string => {
   return formatHMS(totalSeconds);
 };
 
-const formatMinutesShort = (minutes: number): string => {
-  if (!Number.isFinite(minutes)) {
-    return '00:00';
-  }
-
-  const safeMinutes = Math.max(0, Math.round(minutes));
-  const hours = Math.floor(safeMinutes / 60);
-  const mins = safeMinutes % 60;
-
-  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
-};
-
 interface TimeManagementProps {
   projectId: string;
 }
@@ -2843,7 +2831,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <TableHead>Usuário</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Tempo do Log</TableHead>
-                <TableHead>Tempo Estourado</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Cronômetro</TableHead>
                 <TableHead>Tempo Manual</TableHead>
@@ -2898,9 +2885,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     ? todaySaoPauloDate
                     : null;
                 const tempoEstouradoMinutes = resolvedUsageRow?.tempo_estourado_minutes ?? 0;
-                const formattedTempoEstourado = tempoEstouradoMinutes > 0
-                  ? formatMinutesShort(tempoEstouradoMinutes)
-                  : '–';
                 const overUserLimit = resolvedUsageRow?.over_user_limit ?? false;
                 const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
                 const userLimitHours = resolvedUsageRow?.horas_liberadas_por_dia ?? 8;
@@ -2911,11 +2895,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   : 'Sem registros';
                 const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
                 const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
-                const tempoEstouradoTooltip = resolvedUsageRow
-                  ? isOverLimit
-                    ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
-                    : `Dentro do limite diário de ${userLimitHours}h.`
-                  : 'Nenhum registro finalizado para calcular limites neste dia.';
                 const statusTooltip = resolvedUsageRow
                   ? isOverLimit
                   ? `Excedeu o limite de ${userLimitHours}h do usuário.`
@@ -3004,23 +2983,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     <TableCell className={highlightClass}>{formattedLogDate}</TableCell>
                     <TableCell>
                       <span className="font-mono text-sm">{tempoDoLogDisplay}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Badge
-                            variant="outline"
-                            className={
-                              tempoEstouradoMinutes > 0
-                                ? 'border-red-200 bg-red-50 text-red-600'
-                                : 'border-muted bg-muted text-muted-foreground'
-                            }
-                          >
-                            {tempoEstouradoMinutes > 0 ? formattedTempoEstourado : '–'}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent>{tempoEstouradoTooltip}</TooltipContent>
-                      </Tooltip>
                     </TableCell>
                     <TableCell className={highlightClass}>
                       {normalizedTaskStatus ? (
@@ -3177,7 +3139,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <TableHead>Responsável</TableHead>
             <TableHead>Tipo</TableHead>
             <TableHead>Tempo do Log</TableHead>
-            <TableHead>Tempo Estourado</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Status de Aprovação</TableHead>
             <TableHead>Aprovador</TableHead>
@@ -3200,17 +3161,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
                   const usage = getLogDailyUsage(log);
                   const tempoEstouradoMinutes = usage?.tempo_estourado_minutes ?? 0;
-                  const formattedTempoEstourado =
-                    tempoEstouradoMinutes > 0 ? formatMinutesShort(tempoEstouradoMinutes) : '00:00';
                   const overUserLimit = usage?.over_user_limit ?? false;
                   const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
                   const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
                   const limitStatusLabel = isOverLimit ? 'Tempo Limite Ultrapassado' : 'OK';
                   const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
                   const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
-                  const tempoEstouradoTooltip = isOverLimit
-                    ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
-                    : `Dentro do limite diário de ${userLimitHours}h.`;
                   const statusTooltip = isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário.`
                     : `Dentro do limite diário de ${userLimitHours}h.`;
@@ -3293,23 +3249,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         </Badge>
                       </TableCell>
                       <TableCell>{getFormattedLogDuration(log)}</TableCell>
-                      <TableCell>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge
-                              variant="outline"
-                              className={
-                                tempoEstouradoMinutes > 0
-                                  ? 'border-red-200 bg-red-50 text-red-600'
-                                  : 'border-muted bg-muted text-muted-foreground'
-                              }
-                            >
-                              {tempoEstouradoMinutes > 0 ? formattedTempoEstourado : '–'}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>{tempoEstouradoTooltip}</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
                       <TableCell className={highlightClass}>
                         <Tooltip>
                           <TooltipTrigger asChild>
