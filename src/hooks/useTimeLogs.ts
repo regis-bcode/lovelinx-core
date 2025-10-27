@@ -12,6 +12,8 @@ type TaskActivityInsert = Database['public']['Tables']['task_activities']['Inser
 type TimeDailyUsageRow = Database['public']['Functions']['get_time_daily_usage']['Returns'][number];
 
 const DAILY_USAGE_KEY_SEPARATOR = '::';
+const DEFAULT_USER_DAILY_LIMIT_HOURS = 8;
+const HARD_CAP_MINUTES = 16 * 60;
 
 const buildDailyUsageKey = (userId: string, logDate: string) =>
   `${userId}${DAILY_USAGE_KEY_SEPARATOR}${logDate}`;
@@ -62,6 +64,56 @@ const parseNumericValue = (value: unknown, fallback = 0): number => {
   }
 
   return fallback;
+};
+
+const parseNullableNumber = (value: unknown): number | null => {
+  const parsed = parseNumericValue(value, Number.NaN);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getNormalizedTimestamp = (value: unknown): string | null => {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  return null;
+};
+
+const computeDurationMinutesFromRow = (row: TimeLogRow): number | null => {
+  const endedIso =
+    getNormalizedTimestamp(row.ended_at) ??
+    getNormalizedTimestamp((row as { data_fim?: string | null }).data_fim);
+
+  if (!endedIso) {
+    return null;
+  }
+
+  const durationColumn = parseNullableNumber(row.duration_minutes);
+  if (durationColumn !== null) {
+    return Math.max(0, durationColumn);
+  }
+
+  const tempoTrabalhado = parseNullableNumber(row.tempo_trabalhado);
+  if (tempoTrabalhado !== null) {
+    return Math.max(0, tempoTrabalhado);
+  }
+
+  const startedIso =
+    getNormalizedTimestamp(row.started_at) ??
+    getNormalizedTimestamp((row as { data_inicio?: string | null }).data_inicio);
+
+  if (startedIso) {
+    const startMs = Date.parse(startedIso);
+    const endMs = Date.parse(endedIso);
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs >= startMs) {
+      return Math.max(0, Math.round((endMs - startMs) / 60000));
+    }
+  }
+
+  return 0;
 };
 
 export function formatHMS(totalSeconds: number): string {
@@ -406,12 +458,149 @@ export function useTimeLogs(projectId?: string) {
 
       const [rangeStart, rangeEnd] = [normalizedFrom, normalizedTo].sort();
 
+      const fetchDailyUsageFallback = async (): Promise<TimeDailyUsageRow[]> => {
+        const { data: rawLogs, error: rawLogsError } = await supabase
+          .from('time_logs')
+          .select('*')
+          .gte('log_date', rangeStart)
+          .lte('log_date', rangeEnd);
+
+        if (rawLogsError) {
+          throw rawLogsError;
+        }
+
+        const logs = (Array.isArray(rawLogs) ? rawLogs : []) as TimeLogRow[];
+
+        const usageAccumulator = new Map<
+          string,
+          { userId: string; logDate: string; totalMinutes: number }
+        >();
+
+        logs.forEach(row => {
+          if (!row?.user_id) {
+            return;
+          }
+
+          const endedTimestamp =
+            getNormalizedTimestamp(row.ended_at) ??
+            getNormalizedTimestamp((row as { data_fim?: string | null }).data_fim);
+
+          if (!endedTimestamp) {
+            return;
+          }
+
+          const usageDate =
+            normalizeDateParam(row.log_date) ?? normalizeDateParam(endedTimestamp);
+
+          if (!usageDate) {
+            return;
+          }
+
+          const durationMinutes = computeDurationMinutesFromRow(row);
+          if (durationMinutes === null) {
+            return;
+          }
+
+          const key = buildDailyUsageKey(row.user_id, usageDate);
+          const existing = usageAccumulator.get(key);
+
+          if (existing) {
+            existing.totalMinutes += durationMinutes;
+          } else {
+            usageAccumulator.set(key, {
+              userId: row.user_id,
+              logDate: usageDate,
+              totalMinutes: durationMinutes,
+            });
+          }
+        });
+
+        if (usageAccumulator.size === 0) {
+          return [];
+        }
+
+        const userIds = Array.from(new Set(Array.from(usageAccumulator.values()).map(item => item.userId)));
+
+        let userLimits = new Map<string, number | null>();
+        try {
+          if (userIds.length > 0) {
+            const { data: usersData, error: usersError } = await supabase
+              .from('users')
+              .select('id, horas_liberadas_por_dia')
+              .in('id', userIds);
+
+            if (usersError) {
+              throw usersError;
+            }
+
+            userLimits = new Map(
+              (Array.isArray(usersData) ? usersData : [])
+                .filter((user): user is { id: string; horas_liberadas_por_dia: unknown } =>
+                  Boolean(user?.id),
+                )
+                .map(user => [user.id, parseNullableNumber(user.horas_liberadas_por_dia)]),
+            );
+          }
+        } catch (limitError) {
+          console.error('Erro ao buscar limites de horas diárias (fallback):', limitError);
+        }
+
+        const results: TimeDailyUsageRow[] = Array.from(usageAccumulator.values()).map(item => {
+          const storedLimit = userLimits.get(item.userId);
+          const hasCustomLimit = typeof storedLimit === 'number' && Number.isFinite(storedLimit);
+          const rawLimitHours = hasCustomLimit ? storedLimit : null;
+          const effectiveLimitHours = hasCustomLimit
+            ? Math.max(0, storedLimit)
+            : DEFAULT_USER_DAILY_LIMIT_HOURS;
+          const totalMinutesRounded = Math.max(0, Math.round(item.totalMinutes));
+          const tempoEstouradoMinutes = Math.max(
+            0,
+            totalMinutesRounded - Math.round(effectiveLimitHours * 60),
+          );
+
+          const totalHours = totalMinutesRounded / 60;
+          const limitForComparison = hasCustomLimit ? storedLimit : DEFAULT_USER_DAILY_LIMIT_HOURS;
+
+          return {
+            user_id: item.userId,
+            log_date: item.logDate,
+            total_minutes: totalMinutesRounded,
+            horas_liberadas_por_dia: rawLimitHours,
+            over_user_limit:
+              limitForComparison <= 0 ? totalHours > 0 : totalHours > limitForComparison,
+            over_hard_cap_16h: totalMinutesRounded >= HARD_CAP_MINUTES,
+            tempo_estourado_minutes: tempoEstouradoMinutes,
+          } as TimeDailyUsageRow;
+        });
+
+        results.sort((a, b) => {
+          const dateComparison = (b.log_date ?? '').localeCompare(a.log_date ?? '');
+          if (dateComparison !== 0) {
+            return dateComparison;
+          }
+          return (a.user_id ?? '').localeCompare(b.user_id ?? '');
+        });
+
+        return results;
+      };
+
       const { data, error } = await supabase.rpc('get_time_daily_usage', {
         p_date_from: rangeStart,
         p_date_to: rangeEnd,
       });
 
       if (error) {
+        if (error.code === 'PGRST202') {
+          console.warn(
+            'Função get_time_daily_usage indisponível. Aplicando fallback de compatibilidade.',
+            error,
+          );
+
+          const fallbackRows = await fetchDailyUsageFallback();
+          storeDailyUsageRows(fallbackRows);
+          return fallbackRows;
+        }
+
         console.error('Erro ao carregar uso diário de tempo:', error);
         throw error;
       }
