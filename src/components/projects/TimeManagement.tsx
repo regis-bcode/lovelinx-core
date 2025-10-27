@@ -1683,6 +1683,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const handleOpenLogDetails = (log: TimeLog) => {
     setSelectedLogForDetails(log);
+    approvalTargetLogRef.current = log;
     const relatedTask = log.task_id ? taskById.get(log.task_id) ?? null : null;
     setDetailTaskData(relatedTask);
     setIsDetailTaskLoading(!relatedTask && Boolean(log.task_id));
@@ -1694,6 +1695,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     if (!open) {
       setIsLogDetailsDialogOpen(false);
       setSelectedLogForDetails(null);
+      approvalTargetLogRef.current = null;
       setDetailTaskData(null);
       setIsDetailTaskLoading(false);
       setIsTaskDetailsVisible(false);
@@ -2599,6 +2601,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     } | null
   >(null);
   const [approvalConfirmationError, setApprovalConfirmationError] = useState<string | null>(null);
+  const approvalTargetLogRef = useRef<TimeLog | null>(null);
+
+  useEffect(() => {
+    approvalTargetLogRef.current = selectedLogForDetails ?? null;
+  }, [selectedLogForDetails]);
 
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
@@ -2644,6 +2651,30 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const normalizedApprovalTime =
     typeof rawApprovalTime === 'string' ? rawApprovalTime.trim() : '';
   const hasApprovalName = normalizedApproverName.length > 0;
+  const isLogApprovalInfoComplete = useCallback((log: TimeLog | null | undefined) => {
+    if (!log) {
+      return false;
+    }
+
+    const approverName =
+      typeof log.aprovador_nome === 'string' ? log.aprovador_nome.trim() : '';
+    const approvalDateRaw = (() => {
+      const raw = log.aprovacao_data ?? log.data_aprovacao ?? null;
+      if (typeof raw === 'string') {
+        return raw.trim();
+      }
+      return '';
+    })();
+    const approvalTimeRaw = (() => {
+      const raw = log.aprovacao_hora ?? log.data_aprovacao ?? null;
+      if (typeof raw === 'string') {
+        return raw.trim();
+      }
+      return '';
+    })();
+
+    return approverName.length > 0 && approvalDateRaw.length > 0 && approvalTimeRaw.length > 0;
+  }, []);
   const confirmationPerformedAt = approvalConfirmation?.performedAt ?? null;
   const confirmationApproverName = (() => {
     if (approvalConfirmation?.approverName) {
@@ -2676,9 +2707,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     : normalizedApprovalTime.length > 0
       ? formatApprovalTime(normalizedApprovalTime)
       : '—';
-  const hasApprovalDate = normalizedApprovalDate.length > 0 && approvalConfirmationDateDisplay !== '-';
-  const hasApprovalTime = normalizedApprovalTime.length > 0 && approvalConfirmationTimeDisplay !== '-';
-  const isApprovalInfoComplete = hasApprovalName && hasApprovalDate && hasApprovalTime;
+  const isApprovalInfoComplete = isLogApprovalInfoComplete(timeLog);
   const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
 
   const isApprovalConfirmationOpen = approvalConfirmation !== null;
@@ -2708,13 +2737,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const isApprovalConfirmationActionDisabled = isSaving || !approvalConfirmation;
 
   async function saveApproval(
+    targetLog: TimeLog,
     nextStatus: ApprovalStatus,
     nextIsCommissioned: boolean,
     performedAt?: Date,
     approverNameOverride?: string | null,
     rejectionJustification?: string | null,
   ): Promise<boolean> {
-    if (!timeLog || isApprovalInfoComplete) {
+    if (!targetLog || isLogApprovalInfoComplete(targetLog)) {
       return false;
     }
 
@@ -2759,7 +2789,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             : null;
       }
 
-      const updatedLog = await approveTimeLog(timeLog.id, normalizedStatus, approvalOptions);
+      const updatedLog = await approveTimeLog(targetLog.id, normalizedStatus, approvalOptions);
 
       if (!updatedLog) {
         return false;
@@ -2795,6 +2825,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
         return updatedLog;
       });
+      approvalTargetLogRef.current = updatedLog;
       succeeded = true;
     } catch (e) {
       console.error('Erro ao salvar aprovação:', e);
@@ -2812,6 +2843,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     const now = new Date();
+    approvalTargetLogRef.current = timeLog;
     const approverDisplayName = (() => {
       const loggedUserName = getLoggedUserDisplayName();
       if (loggedUserName.length > 0) {
@@ -2842,6 +2874,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     setIsCommissioned(false);
     const now = new Date();
+    approvalTargetLogRef.current = timeLog;
     const approverDisplayName = (() => {
       const loggedUserName = getLoggedUserDisplayName();
       if (loggedUserName.length > 0) {
@@ -2874,12 +2907,15 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setIsCommissioned(nextValue);
 
     if (approvalStatus === 'Aprovado') {
-      void saveApproval('Aprovado', nextValue);
+      void saveApproval(timeLog, 'Aprovado', nextValue);
     }
   }
 
   async function handleConfirmApprovalConfirmation() {
-    if (!approvalConfirmation || !timeLog) {
+    const confirmation = approvalConfirmation;
+    const targetLog = approvalTargetLogRef.current ?? timeLog;
+
+    if (!confirmation || !targetLog) {
       setApprovalConfirmation(null);
       return;
     }
@@ -2888,7 +2924,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
-    if (approvalConfirmation.action === 'reject') {
+    if (confirmation.action === 'reject') {
       if (trimmedApprovalConfirmationJustification.length === 0) {
         setApprovalConfirmationError('Obrigatório informar a justificativa da reprovação.');
         return;
@@ -2898,20 +2934,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     const wasSuccessful = await (async () => {
-      if (approvalConfirmation.action === 'approve') {
+      if (confirmation.action === 'approve') {
         return saveApproval(
+          targetLog,
           'Aprovado',
-          approvalConfirmation.commissioned,
-          approvalConfirmation.performedAt,
-          approvalConfirmation.approverName ?? null,
+          confirmation.commissioned,
+          confirmation.performedAt,
+          confirmation.approverName ?? null,
         );
       }
 
       return saveApproval(
+        targetLog,
         'Reprovado',
         false,
-        approvalConfirmation.performedAt,
-        approvalConfirmation.approverName ?? null,
+        confirmation.performedAt,
+        confirmation.approverName ?? null,
         trimmedApprovalConfirmationJustification,
       );
     })();
