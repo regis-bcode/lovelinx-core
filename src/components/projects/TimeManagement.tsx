@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
+import { Fragment, useState, useEffect, useMemo, useCallback, useRef, type ReactNode } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -217,6 +217,37 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   const [logPendingDeletion, setLogPendingDeletion] = useState<TimeLog | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingLog, setIsDeletingLog] = useState(false);
+  const [dailyFilters, setDailyFilters] = useState({
+    responsavel: 'todos',
+    date: 'todas',
+    status: 'todos',
+  });
+  const [dailyGroupBy, setDailyGroupBy] = useState<'none' | 'responsavel' | 'date' | 'status'>('none');
+  const [taskFilters, setTaskFilters] = useState({
+    responsavel: 'todos',
+    status: 'todos',
+    tarefa: '',
+  });
+  const [taskGroupBy, setTaskGroupBy] = useState<'none' | 'responsavel' | 'status'>('none');
+  const [timeLogFilters, setTimeLogFilters] = useState({
+    responsavel: 'todos',
+    data: 'todas',
+    tarefa: 'todas',
+    tipo: 'todos',
+    aprovador: 'todos',
+    statusAprovacao: 'todos',
+    dataAprovacao: 'todas',
+  });
+  const [timeLogGroupBy, setTimeLogGroupBy] = useState<
+    | 'none'
+    | 'responsavel'
+    | 'data'
+    | 'tarefa'
+    | 'tipo'
+    | 'aprovador'
+    | 'statusAprovacao'
+    | 'dataAprovacao'
+  >('none');
   const todaySaoPauloDate = useMemo(
     () => getIsoDateInTimeZone(new Date(), SAO_PAULO_TIMEZONE),
     [],
@@ -1257,6 +1288,122 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     [dailyUserTimeSummaries],
   );
 
+  type DailySummaryStatus = 'limite-excedido' | 'dentro-do-limite';
+
+  const dailySummaryStatusLabels: Record<DailySummaryStatus, string> = {
+    'limite-excedido': 'Limite excedido',
+    'dentro-do-limite': 'Dentro do limite',
+  };
+
+  const getDailySummaryStatus = useCallback((summary: UserDailyUsageSummary): DailySummaryStatus => {
+    return summary.overMinutes > 0 ? 'limite-excedido' : 'dentro-do-limite';
+  }, []);
+
+  const dailyFilterOptions = useMemo(() => {
+    const responsaveis = new Set<string>();
+    const dates = new Set<string>();
+    const statuses = new Set<DailySummaryStatus>();
+
+    dailyUserTimeSummaries.forEach(summary => {
+      if (summary.userName) {
+        responsaveis.add(summary.userName);
+      }
+
+      if (summary.date) {
+        dates.add(summary.date);
+      }
+
+      statuses.add(getDailySummaryStatus(summary));
+    });
+
+    return {
+      responsaveis: Array.from(responsaveis).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      dates: Array.from(dates).sort((a, b) => b.localeCompare(a)),
+      statuses: Array.from(statuses),
+    };
+  }, [dailyUserTimeSummaries, getDailySummaryStatus]);
+
+  const dailyFilteredSummaries = useMemo(() => {
+    return dailyUserTimeSummaries.filter(summary => {
+      const status = getDailySummaryStatus(summary);
+
+      if (dailyFilters.responsavel !== 'todos' && summary.userName !== dailyFilters.responsavel) {
+        return false;
+      }
+
+      if (dailyFilters.date !== 'todas' && summary.date !== dailyFilters.date) {
+        return false;
+      }
+
+      if (dailyFilters.status !== 'todos' && dailyFilters.status !== status) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [dailyFilters.date, dailyFilters.responsavel, dailyFilters.status, dailyUserTimeSummaries, getDailySummaryStatus]);
+
+  const groupedDailySummaries = useMemo(() => {
+    const items = dailyFilteredSummaries.map(summary => ({
+      summary,
+      status: getDailySummaryStatus(summary),
+    }));
+
+    if (dailyGroupBy === 'none') {
+      return [
+        {
+          key: 'all',
+          label: '',
+          items,
+        },
+      ];
+    }
+
+    const map = new Map<string, { key: string; label: string; items: typeof items }>();
+
+    const formatGroupDate = (value: string) => {
+      if (!value) {
+        return 'Data não informada';
+      }
+
+      const parsed = new Date(value.length > 10 ? value : `${value}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) {
+        return value;
+      }
+
+      return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
+    };
+
+    const getGroupKeyAndLabel = (item: { summary: UserDailyUsageSummary; status: DailySummaryStatus }) => {
+      if (dailyGroupBy === 'responsavel') {
+        const value = item.summary.userName || 'Responsável não informado';
+        return { key: `responsavel-${value}`, label: value };
+      }
+
+      if (dailyGroupBy === 'date') {
+        const value = item.summary.date;
+        return { key: `date-${value}`, label: formatGroupDate(value) };
+      }
+
+      if (dailyGroupBy === 'status') {
+        const value = item.status;
+        return { key: `status-${value}`, label: dailySummaryStatusLabels[value] };
+      }
+
+      return { key: 'all', label: '' };
+    };
+
+    items.forEach(item => {
+      const { key, label } = getGroupKeyAndLabel(item);
+      if (!map.has(key)) {
+        map.set(key, { key, label, items: [] });
+      }
+      map.get(key)!.items.push(item);
+    });
+
+    return Array.from(map.values());
+  }, [dailyFilteredSummaries, dailyGroupBy, dailySummaryStatusLabels, getDailySummaryStatus]);
+
   const approverNameMap = useMemo(() => {
     const map = new Map<string, string>();
 
@@ -1310,231 +1457,90 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return '';
   }, []);
 
-  const selectableLogs = useMemo(() => {
-    if (!canManageApprovals) {
-      return [] as TimeLog[];
-    }
+  const taskFilterOptions = useMemo(() => {
+    const responsaveis = new Set<string>();
+    const statuses = new Set<string>();
 
-    return timeLogs.filter(log => log.status_aprovacao !== 'aprovado');
-  }, [canManageApprovals, timeLogs]);
-
-  const selectableLogsSet = useMemo(() => new Set(selectableLogs.map(log => log.id)), [selectableLogs]);
-
-  const selectedLogs = useMemo(() => {
-    if (!canManageApprovals || selectedLogIds.length === 0) {
-      return [] as TimeLog[];
-    }
-
-    const selectedSet = new Set(selectedLogIds.filter(id => selectableLogsSet.has(id)));
-    if (selectedSet.size === 0) {
-      return [] as TimeLog[];
-    }
-
-    return selectableLogs.filter(log => selectedSet.has(log.id));
-  }, [canManageApprovals, selectableLogs, selectableLogsSet, selectedLogIds]);
-
-  useEffect(() => {
-    if (!canManageApprovals) {
-      setSelectedLogIds([]);
-      return;
-    }
-
-    setSelectedLogIds(prev => prev.filter(id => selectableLogsSet.has(id)));
-  }, [canManageApprovals, selectableLogsSet]);
-
-  useEffect(() => {
-    if (!selectedLogForDetails) {
-      return;
-    }
-
-    const updated = timeLogs.find(log => log.id === selectedLogForDetails.id);
-
-    if (!updated) {
-      setSelectedLogForDetails(null);
-      setIsLogDetailsDialogOpen(false);
-      return;
-    }
-
-    if (updated.updated_at === selectedLogForDetails.updated_at) {
-      return;
-    }
-
-    setSelectedLogForDetails(updated);
-  }, [selectedLogForDetails, timeLogs]);
-
-  const allSelectableSelected = useMemo(() => {
-    if (selectableLogs.length === 0) {
-      return false;
-    }
-
-    return selectableLogs.every(log => selectedLogIds.includes(log.id));
-  }, [selectableLogs, selectedLogIds]);
-
-  const selectedLogsCount = selectedLogs.length;
-
-  const headerCheckboxState = useMemo(() => {
-    if (selectableLogs.length === 0) {
-      return false;
-    }
-
-    if (allSelectableSelected) {
-      return true;
-    }
-
-    return selectedLogsCount > 0 ? 'indeterminate' : false;
-  }, [allSelectableSelected, selectableLogs.length, selectedLogsCount]);
-
-  useEffect(() => {
-    if (!selectedLogForEdit) {
-      return;
-    }
-
-    const updated = timeLogs.find(log => log.id === selectedLogForEdit.id);
-
-    if (!updated && !isUpdatingLogObservation) {
-      setIsLogEditDialogOpen(false);
-      setSelectedLogForEdit(null);
-      setLogEditObservation('');
-    }
-  }, [isUpdatingLogObservation, selectedLogForEdit, timeLogs]);
-
-  const selectionSummaryLabel = useMemo(() => {
-    if (selectedLogsCount === 0) {
-      return 'Nenhum registro selecionado.';
-    }
-
-    if (selectedLogsCount === 1) {
-      return '1 registro selecionado.';
-    }
-
-    return `${selectedLogsCount} registros selecionados.`;
-  }, [selectedLogsCount]);
-
-  const bulkSelectedLogsPreview = useMemo(() => {
-    if (selectedLogsCount === 0) {
-      return [] as TimeLog[];
-    }
-
-    return selectedLogs.slice(0, 5);
-  }, [selectedLogs, selectedLogsCount]);
-
-  const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
-
-  const timeLogTableColumnCount = canManageApprovals ? 13 : 11;
-
-  const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
-    if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
-      return;
-    }
-
-    setSelectedLogIds(prev => {
-      const exists = prev.includes(log.id);
-      if (checked) {
-        if (exists) {
-          return prev;
-        }
-        return [...prev, log.id];
+    tasks.forEach(task => {
+      const responsavel = typeof task.responsavel === 'string' ? task.responsavel.trim() : '';
+      if (responsavel) {
+        responsaveis.add(responsavel);
       }
 
-      if (!exists) {
-        return prev;
+      const status = typeof task.status === 'string' ? task.status.trim() : '';
+      if (status) {
+        statuses.add(status);
       }
-
-      return prev.filter(id => id !== log.id);
     });
-  }, [canManageApprovals]);
 
-  const handleToggleSelectAll = useCallback((checked: boolean) => {
-    if (!canManageApprovals) {
-      return;
-    }
+    return {
+      responsaveis: Array.from(responsaveis).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      statuses: Array.from(statuses).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    };
+  }, [tasks]);
 
-    if (!checked) {
-      setSelectedLogIds([]);
-      return;
-    }
+  const normalizedTaskSearch = taskFilters.tarefa.trim().toLowerCase();
 
-    setSelectedLogIds(selectableLogs.map(log => log.id));
-  }, [canManageApprovals, selectableLogs]);
+  const filteredTasksForDisplay = useMemo(() => {
+    return tasks.filter(task => {
+      const responsavel = typeof task.responsavel === 'string' ? task.responsavel.trim() : '';
+      const status = typeof task.status === 'string' ? task.status.trim() : '';
+      const tarefaNome = typeof task.tarefa === 'string' ? task.tarefa.trim() : '';
 
-  const handleOpenBulkApprovalDialog = useCallback((action: 'approve' | 'reject') => {
-    if (!canManageApprovals || selectedLogsCount === 0) {
-      return;
-    }
-
-    setBulkApprovalAction(action);
-    setBulkJustification('');
-    setIsBulkApprovalDialogOpen(true);
-  }, [canManageApprovals, selectedLogsCount]);
-
-  const handleBulkApprovalDialogOpenChange = useCallback((open: boolean) => {
-    if (!open) {
-      if (isProcessingBulkApproval) {
-        return;
+      if (taskFilters.responsavel !== 'todos' && responsavel !== taskFilters.responsavel) {
+        return false;
       }
 
-      setIsBulkApprovalDialogOpen(false);
-      setBulkApprovalAction(null);
-      setBulkJustification('');
-      return;
-    }
-
-    setIsBulkApprovalDialogOpen(true);
-  }, [isProcessingBulkApproval]);
-
-  const handleConfirmBulkApproval = useCallback(async () => {
-    if (!bulkApprovalAction || selectedLogIds.length === 0) {
-      return;
-    }
-
-    const logsToUpdate = timeLogs.filter(log => selectedLogIds.includes(log.id) && log.status_aprovacao !== 'aprovado');
-
-    if (logsToUpdate.length === 0) {
-      setIsBulkApprovalDialogOpen(false);
-      setBulkApprovalAction(null);
-      setBulkJustification('');
-      return;
-    }
-
-    if (bulkApprovalAction === 'reject' && bulkJustification.trim().length === 0) {
-      return;
-    }
-
-    setIsProcessingBulkApproval(true);
-
-    try {
-      let encounteredFailure = false;
-      for (const log of logsToUpdate) {
-        const updated = await approveTimeLog(
-          log.id,
-          bulkApprovalAction === 'approve' ? 'aprovado' : 'reprovado',
-          bulkApprovalAction === 'reject'
-            ? { justificativa: bulkJustification }
-            : undefined,
-        );
-
-        if (!updated) {
-          encounteredFailure = true;
-          break;
-        }
+      if (taskFilters.status !== 'todos' && status !== taskFilters.status) {
+        return false;
       }
 
-      if (!encounteredFailure) {
-        setSelectedLogIds(prev => prev.filter(id => !logsToUpdate.some(log => log.id === id)));
-        setIsBulkApprovalDialogOpen(false);
-        setBulkApprovalAction(null);
-        setBulkJustification('');
+      if (normalizedTaskSearch && !tarefaNome.toLowerCase().includes(normalizedTaskSearch)) {
+        return false;
       }
-    } finally {
-      setIsProcessingBulkApproval(false);
+
+      return true;
+    });
+  }, [normalizedTaskSearch, taskFilters.responsavel, taskFilters.status, tasks]);
+
+  const groupedTasksForDisplay = useMemo(() => {
+    const items = filteredTasksForDisplay.map(task => ({
+      task,
+      responsavel: typeof task.responsavel === 'string' && task.responsavel.trim().length > 0
+        ? task.responsavel.trim()
+        : 'Responsável não informado',
+      status: typeof task.status === 'string' && task.status.trim().length > 0
+        ? task.status.trim()
+        : 'Status não informado',
+    }));
+
+    if (taskGroupBy === 'none') {
+      return [
+        {
+          key: 'all',
+          label: '',
+          items,
+        },
+      ];
     }
-  }, [
-    approveTimeLog,
-    bulkApprovalAction,
-    bulkJustification,
-    selectedLogIds,
-    timeLogs,
-  ]);
+
+    const map = new Map<string, { key: string; label: string; items: typeof items }>();
+
+    items.forEach(item => {
+      const key = taskGroupBy === 'responsavel'
+        ? `responsavel-${item.responsavel}`
+        : `status-${item.status}`;
+      const label = taskGroupBy === 'responsavel' ? item.responsavel : item.status;
+
+      if (!map.has(key)) {
+        map.set(key, { key, label, items: [] });
+      }
+
+      map.get(key)!.items.push(item);
+    });
+
+    return Array.from(map.values());
+  }, [filteredTasksForDisplay, taskGroupBy]);
 
   useEffect(() => {
     if (!isAssignDialogOpen) {
@@ -2007,6 +2013,464 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return format(parsed, 'dd/MM/yyyy HH:mm', { locale: ptBR });
   };
+
+  const timeLogFilterOptions = useMemo(() => {
+    const responsaveis = new Set<string>();
+    const datas = new Set<string>();
+    const tarefas = new Set<string>();
+    const tipos = new Set<string>();
+    const aprovadores = new Set<string>();
+    const statusAprovacoes = new Set<string>();
+    const datasAprovacao = new Set<string>();
+
+    const normalizeDate = (value: string | null | undefined) => {
+      if (!value) {
+        return null;
+      }
+
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      return trimmed.length > 10 ? trimmed.slice(0, 10) : trimmed;
+    };
+
+    timeLogs.forEach(log => {
+      const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+      const responsavel = typeof task?.responsavel === 'string' ? task.responsavel.trim() : '';
+      const tarefaNome = typeof task?.tarefa === 'string' ? task.tarefa.trim() : '';
+      const data = resolveLogDate(log);
+      const tipo = log.tipo_inclusao ?? '';
+      const aprovador = getApproverDisplayName(log);
+      const statusAprovacao = log.status_aprovacao ?? '';
+      const dataAprov = normalizeDate(log.aprovacao_data ?? log.data_aprovacao ?? null);
+
+      if (responsavel) {
+        responsaveis.add(responsavel);
+      }
+
+      if (data) {
+        datas.add(data);
+      }
+
+      if (tarefaNome) {
+        tarefas.add(tarefaNome);
+      }
+
+      if (tipo) {
+        tipos.add(tipo);
+      }
+
+      if (aprovador && aprovador !== '-') {
+        aprovadores.add(aprovador);
+      }
+
+      if (statusAprovacao) {
+        statusAprovacoes.add(statusAprovacao);
+      }
+
+      if (dataAprov) {
+        datasAprovacao.add(dataAprov);
+      }
+    });
+
+    return {
+      responsaveis: Array.from(responsaveis).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      datas: Array.from(datas).sort((a, b) => b.localeCompare(a)),
+      tarefas: Array.from(tarefas).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      tipos: Array.from(tipos),
+      aprovadores: Array.from(aprovadores).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+      statusAprovacoes: Array.from(statusAprovacoes),
+      datasAprovacao: Array.from(datasAprovacao).sort((a, b) => b.localeCompare(a)),
+    };
+  }, [getApproverDisplayName, resolveLogDate, taskById, timeLogs]);
+
+  const filteredTimeLogs = useMemo(() => {
+    const matchesSelect = (value: string, filterValue: string) => {
+      return filterValue === 'todos' || filterValue === 'todas' || value === filterValue;
+    };
+
+    return timeLogs.filter(log => {
+      const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+      const responsavel = typeof task?.responsavel === 'string' ? task.responsavel.trim() : '';
+      const tarefaNome = typeof task?.tarefa === 'string' ? task.tarefa.trim() : '';
+      const data = resolveLogDate(log) ?? '';
+      const tipo = log.tipo_inclusao ?? '';
+      const aprovador = getApproverDisplayName(log);
+      const statusAprovacao = log.status_aprovacao ?? '';
+      const dataAprov = (log.aprovacao_data ?? log.data_aprovacao ?? '').slice(0, 10);
+
+      if (!matchesSelect(responsavel, timeLogFilters.responsavel)) {
+        return false;
+      }
+
+      if (!matchesSelect(data, timeLogFilters.data)) {
+        return false;
+      }
+
+      if (!matchesSelect(tarefaNome, timeLogFilters.tarefa)) {
+        return false;
+      }
+
+      if (!matchesSelect(tipo, timeLogFilters.tipo)) {
+        return false;
+      }
+
+      if (!matchesSelect(aprovador, timeLogFilters.aprovador)) {
+        return false;
+      }
+
+      if (!matchesSelect(statusAprovacao, timeLogFilters.statusAprovacao)) {
+        return false;
+      }
+
+      if (!matchesSelect(dataAprov, timeLogFilters.dataAprovacao)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    getApproverDisplayName,
+    resolveLogDate,
+    taskById,
+    timeLogFilters.aprovador,
+    timeLogFilters.data,
+    timeLogFilters.dataAprovacao,
+    timeLogFilters.responsavel,
+    timeLogFilters.statusAprovacao,
+    timeLogFilters.tarefa,
+    timeLogFilters.tipo,
+    timeLogs,
+  ]);
+
+  const groupedTimeLogs = useMemo(() => {
+    const items = filteredTimeLogs.map(log => {
+      const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+      const responsavel = typeof task?.responsavel === 'string' ? task.responsavel.trim() : '';
+      const tarefaNome = typeof task?.tarefa === 'string' ? task.tarefa.trim() : '';
+      const data = resolveLogDate(log) ?? '';
+      const tipo = log.tipo_inclusao ?? '';
+      const aprovador = getApproverDisplayName(log);
+      const statusAprovacao = log.status_aprovacao ?? '';
+      const dataAprov = (log.aprovacao_data ?? log.data_aprovacao ?? '').slice(0, 10);
+
+      return {
+        log,
+        responsavel: responsavel || 'Responsável não informado',
+        tarefa: tarefaNome || 'Tarefa não informada',
+        data,
+        tipo,
+        aprovador: aprovador || 'Aprovador não informado',
+        statusAprovacao: statusAprovacao || 'pendente',
+        dataAprovacao: dataAprov || 'Sem data',
+      };
+    });
+
+    if (timeLogGroupBy === 'none') {
+      return [
+        {
+          key: 'all',
+          label: '',
+          items,
+        },
+      ];
+    }
+
+    const map = new Map<string, { key: string; label: string; items: typeof items }>();
+
+    const formatGroupDate = (value: string, fallback: string) => {
+      if (!value || value === 'Sem data') {
+        return fallback;
+      }
+
+      const parsed = new Date(value.length > 10 ? value : `${value}T00:00:00`);
+      if (Number.isNaN(parsed.getTime())) {
+        return fallback;
+      }
+
+      return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
+    };
+
+    items.forEach(item => {
+      let key = 'all';
+      let label = '';
+
+      switch (timeLogGroupBy) {
+        case 'responsavel':
+          key = `responsavel-${item.responsavel}`;
+          label = item.responsavel;
+          break;
+        case 'data':
+          key = `data-${item.data}`;
+          label = formatGroupDate(item.data, 'Data não informada');
+          break;
+        case 'tarefa':
+          key = `tarefa-${item.tarefa}`;
+          label = item.tarefa;
+          break;
+        case 'tipo':
+          key = `tipo-${item.tipo}`;
+          label = item.tipo || 'Tipo não informado';
+          break;
+        case 'aprovador':
+          key = `aprovador-${item.aprovador}`;
+          label = item.aprovador;
+          break;
+        case 'statusAprovacao':
+          key = `status-${item.statusAprovacao}`;
+          label = item.statusAprovacao;
+          break;
+        case 'dataAprovacao':
+          key = `data-aprov-${item.dataAprovacao}`;
+          label = formatGroupDate(item.dataAprovacao, 'Sem data de aprovação');
+          break;
+        default:
+          break;
+      }
+
+      if (!map.has(key)) {
+        map.set(key, { key, label, items: [] });
+      }
+
+      map.get(key)!.items.push(item);
+    });
+
+    return Array.from(map.values());
+  }, [
+    filteredTimeLogs,
+    getApproverDisplayName,
+    resolveLogDate,
+    taskById,
+    timeLogGroupBy,
+  ]);
+
+  const selectableLogs = useMemo(() => {
+    if (!canManageApprovals) {
+      return [] as TimeLog[];
+    }
+
+    return filteredTimeLogs.filter(log => log.status_aprovacao !== 'aprovado');
+  }, [canManageApprovals, filteredTimeLogs]);
+
+  const selectableLogsSet = useMemo(() => new Set(selectableLogs.map(log => log.id)), [selectableLogs]);
+
+  const selectedLogs = useMemo(() => {
+    if (!canManageApprovals || selectedLogIds.length === 0) {
+      return [] as TimeLog[];
+    }
+
+    const selectedSet = new Set(selectedLogIds.filter(id => selectableLogsSet.has(id)));
+    if (selectedSet.size === 0) {
+      return [] as TimeLog[];
+    }
+
+    return selectableLogs.filter(log => selectedSet.has(log.id));
+  }, [canManageApprovals, selectableLogs, selectableLogsSet, selectedLogIds]);
+
+  useEffect(() => {
+    if (!canManageApprovals) {
+      setSelectedLogIds([]);
+      return;
+    }
+
+    setSelectedLogIds(prev => prev.filter(id => selectableLogsSet.has(id)));
+  }, [canManageApprovals, selectableLogsSet]);
+
+  useEffect(() => {
+    if (!selectedLogForDetails) {
+      return;
+    }
+
+    const updated = timeLogs.find(log => log.id === selectedLogForDetails.id);
+
+    if (!updated) {
+      setSelectedLogForDetails(null);
+      setIsLogDetailsDialogOpen(false);
+      return;
+    }
+
+    if (updated.updated_at === selectedLogForDetails.updated_at) {
+      return;
+    }
+
+    setSelectedLogForDetails(updated);
+  }, [selectedLogForDetails, timeLogs]);
+
+  const allSelectableSelected = useMemo(() => {
+    if (selectableLogs.length === 0) {
+      return false;
+    }
+
+    return selectableLogs.every(log => selectedLogIds.includes(log.id));
+  }, [selectableLogs, selectedLogIds]);
+
+  const selectedLogsCount = selectedLogs.length;
+
+  const headerCheckboxState = useMemo(() => {
+    if (selectableLogs.length === 0) {
+      return false;
+    }
+
+    if (allSelectableSelected) {
+      return true;
+    }
+
+    return selectedLogsCount > 0 ? 'indeterminate' : false;
+  }, [allSelectableSelected, selectableLogs.length, selectedLogsCount]);
+
+  useEffect(() => {
+    if (!selectedLogForEdit) {
+      return;
+    }
+
+    const updated = timeLogs.find(log => log.id === selectedLogForEdit.id);
+
+    if (!updated && !isUpdatingLogObservation) {
+      setIsLogEditDialogOpen(false);
+      setSelectedLogForEdit(null);
+      setLogEditObservation('');
+    }
+  }, [isUpdatingLogObservation, selectedLogForEdit, timeLogs]);
+
+  const selectionSummaryLabel = useMemo(() => {
+    if (selectedLogsCount === 0) {
+      return 'Nenhum registro selecionado.';
+    }
+
+    if (selectedLogsCount === 1) {
+      return '1 registro selecionado.';
+    }
+
+    return `${selectedLogsCount} registros selecionados.`;
+  }, [selectedLogsCount]);
+
+  const bulkSelectedLogsPreview = useMemo(() => {
+    if (selectedLogsCount === 0) {
+      return [] as TimeLog[];
+    }
+
+    return selectedLogs.slice(0, 5);
+  }, [selectedLogs, selectedLogsCount]);
+
+  const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
+
+  const timeLogTableColumnCount = canManageApprovals ? 13 : 11;
+
+  const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
+    if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
+      return;
+    }
+
+    setSelectedLogIds(prev => {
+      const exists = prev.includes(log.id);
+      if (checked) {
+        if (exists) {
+          return prev;
+        }
+        return [...prev, log.id];
+      }
+
+      if (!exists) {
+        return prev;
+      }
+
+      return prev.filter(id => id !== log.id);
+    });
+  }, [canManageApprovals]);
+
+  const handleToggleSelectAll = useCallback((checked: boolean) => {
+    if (!canManageApprovals) {
+      return;
+    }
+
+    if (!checked) {
+      setSelectedLogIds([]);
+      return;
+    }
+
+    setSelectedLogIds(selectableLogs.map(log => log.id));
+  }, [canManageApprovals, selectableLogs]);
+
+  const handleOpenBulkApprovalDialog = useCallback((action: 'approve' | 'reject') => {
+    if (!canManageApprovals || selectedLogsCount === 0) {
+      return;
+    }
+
+    setBulkApprovalAction(action);
+    setBulkJustification('');
+    setIsBulkApprovalDialogOpen(true);
+  }, [canManageApprovals, selectedLogsCount]);
+
+  const handleBulkApprovalDialogOpenChange = useCallback((open: boolean) => {
+    if (!open) {
+      if (isProcessingBulkApproval) {
+        return;
+      }
+
+      setIsBulkApprovalDialogOpen(false);
+      setBulkApprovalAction(null);
+      setBulkJustification('');
+      return;
+    }
+
+    setIsBulkApprovalDialogOpen(true);
+  }, [isProcessingBulkApproval]);
+
+  const handleConfirmBulkApproval = useCallback(async () => {
+    if (!bulkApprovalAction || selectedLogIds.length === 0) {
+      return;
+    }
+
+    const logsToUpdate = timeLogs.filter(log => selectedLogIds.includes(log.id) && log.status_aprovacao !== 'aprovado');
+
+    if (logsToUpdate.length === 0) {
+      setIsBulkApprovalDialogOpen(false);
+      setBulkApprovalAction(null);
+      setBulkJustification('');
+      return;
+    }
+
+    if (bulkApprovalAction === 'reject' && bulkJustification.trim().length === 0) {
+      return;
+    }
+
+    setIsProcessingBulkApproval(true);
+
+    try {
+      let encounteredFailure = false;
+      for (const log of logsToUpdate) {
+        const updated = await approveTimeLog(
+          log.id,
+          bulkApprovalAction === 'approve' ? 'aprovado' : 'reprovado',
+          bulkApprovalAction === 'reject'
+            ? { justificativa: bulkJustification }
+            : undefined,
+        );
+
+        if (!updated) {
+          encounteredFailure = true;
+          break;
+        }
+      }
+
+      if (!encounteredFailure) {
+        setSelectedLogIds(prev => prev.filter(id => !logsToUpdate.some(log => log.id === id)));
+        setIsBulkApprovalDialogOpen(false);
+        setBulkApprovalAction(null);
+        setBulkJustification('');
+      }
+    } finally {
+      setIsProcessingBulkApproval(false);
+    }
+  }, [
+    approveTimeLog,
+    bulkApprovalAction,
+    bulkJustification,
+    selectedLogIds,
+    timeLogs,
+  ]);
 
   const totalProjectApprovedTime = getProjectTotalApprovedTime();
   const totalProjectPendingTime = getProjectTotalPendingTime();
@@ -2694,6 +3158,79 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           <CardTitle>Tempo diário por responsável</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Responsável</Label>
+              <Select
+                value={dailyFilters.responsavel}
+                onValueChange={value => setDailyFilters(prev => ({ ...prev, responsavel: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos os responsáveis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {dailyFilterOptions.responsaveis.map(responsavel => (
+                    <SelectItem key={responsavel} value={responsavel}>
+                      {responsavel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Data</Label>
+              <Select
+                value={dailyFilters.date}
+                onValueChange={value => setDailyFilters(prev => ({ ...prev, date: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todas as datas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas</SelectItem>
+                  {dailyFilterOptions.dates.map(dateValue => (
+                    <SelectItem key={dateValue} value={dateValue}>
+                      {formatLogDateOnly(dateValue)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Status</Label>
+              <Select
+                value={dailyFilters.status}
+                onValueChange={value => setDailyFilters(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos os status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {dailyFilterOptions.statuses.map(statusValue => (
+                    <SelectItem key={statusValue} value={statusValue}>
+                      {dailySummaryStatusLabels[statusValue as DailySummaryStatus]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Agrupar por</Label>
+              <Select value={dailyGroupBy} onValueChange={value => setDailyGroupBy(value as typeof dailyGroupBy)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Sem agrupamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem agrupamento</SelectItem>
+                  <SelectItem value="responsavel">Responsável</SelectItem>
+                  <SelectItem value="date">Data</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           {dailyUserTimeSummaries.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum tempo apontado para exibir no período carregado.
@@ -2736,38 +3273,49 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailyUserTimeSummaries.map(summary => {
-                      const isOverLimit = summary.overMinutes > 0;
+                    {groupedDailySummaries.map(group => (
+                      <Fragment key={group.key}>
+                        {dailyGroupBy !== 'none' && group.items.length > 0 ? (
+                          <TableRow className="bg-muted/40">
+                            <TableCell colSpan={7} className="font-semibold uppercase text-muted-foreground">
+                              {group.label}
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                        {group.items.map(({ summary }) => {
+                          const isOverLimit = summary.overMinutes > 0;
 
-                      return (
-                        <TableRow
-                          key={summary.key}
-                          className={isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined}
-                        >
-                          <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
-                            {summary.userName}
-                          </TableCell>
-                          <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
-                            {formatDailySummaryDate(summary.date)}
-                          </TableCell>
-                          <TableCell>{formatMinutes(summary.approvedMinutes)}</TableCell>
-                          <TableCell>
-                            {summary.runningSeconds > 0 ? formatTime(summary.runningSeconds) : '–'}
-                          </TableCell>
-                          <TableCell className="font-semibold">{formatMinutes(summary.totalMinutes)}</TableCell>
-                          <TableCell>{formatMinutes(summary.limitMinutes)}</TableCell>
-                          <TableCell>
-                            {isOverLimit ? (
-                              <span className="font-semibold text-red-700">
-                                {formatMinutes(summary.overMinutes)}
-                              </span>
-                            ) : (
-                              '–'
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                          return (
+                            <TableRow
+                              key={summary.key}
+                              className={isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined}
+                            >
+                              <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
+                                {summary.userName}
+                              </TableCell>
+                              <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
+                                {formatDailySummaryDate(summary.date)}
+                              </TableCell>
+                              <TableCell>{formatMinutes(summary.approvedMinutes)}</TableCell>
+                              <TableCell>
+                                {summary.runningSeconds > 0 ? formatTime(summary.runningSeconds) : '–'}
+                              </TableCell>
+                              <TableCell className="font-semibold">{formatMinutes(summary.totalMinutes)}</TableCell>
+                              <TableCell>{formatMinutes(summary.limitMinutes)}</TableCell>
+                              <TableCell>
+                                {isOverLimit ? (
+                                  <span className="font-semibold text-red-700">
+                                    {formatMinutes(summary.overMinutes)}
+                                  </span>
+                                ) : (
+                                  '–'
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </Fragment>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
@@ -2782,6 +3330,68 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           <CardTitle>Tarefas e Controle de Tempo</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Responsável</Label>
+              <Select
+                value={taskFilters.responsavel}
+                onValueChange={value => setTaskFilters(prev => ({ ...prev, responsavel: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos os responsáveis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {taskFilterOptions.responsaveis.map(responsavel => (
+                    <SelectItem key={responsavel} value={responsavel}>
+                      {responsavel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Status</Label>
+              <Select
+                value={taskFilters.status}
+                onValueChange={value => setTaskFilters(prev => ({ ...prev, status: value }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Todos os status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  {taskFilterOptions.statuses.map(status => (
+                    <SelectItem key={status} value={status}>
+                      {status}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Tarefa</Label>
+              <Input
+                value={taskFilters.tarefa}
+                onChange={event => setTaskFilters(prev => ({ ...prev, tarefa: event.target.value }))}
+                placeholder="Buscar tarefa"
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs uppercase text-muted-foreground">Agrupar por</Label>
+              <Select value={taskGroupBy} onValueChange={value => setTaskGroupBy(value as typeof taskGroupBy)}>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Sem agrupamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem agrupamento</SelectItem>
+                  <SelectItem value="responsavel">Responsável</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="mb-4 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <span className="text-sm text-muted-foreground">
               Total de tarefas contabilizadas: <span className="font-semibold text-foreground">{tasksWithLoggedTime}</span>
@@ -2834,249 +3444,260 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tasks.map((task) => {
-                const taskTime = getTaskTotalTime(task.id);
-                const isTimerActive = Boolean(activeTimers[task.id]);
-                const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
-                const manualOverrideMinutes = (() => {
-                  const rawOverride = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
-                  if (rawOverride === null || rawOverride === undefined) {
-                    return undefined;
-                  }
-
-                  const numericOverride = typeof rawOverride === 'number'
-                    ? rawOverride
-                    : Number.parseFloat(String(rawOverride));
-
-                  if (!Number.isFinite(numericOverride) || numericOverride <= 0) {
-                    return undefined;
-                  }
-
-                  return numericOverride;
-                })();
-                const runningSeconds = elapsedSeconds[task.id] || 0;
-                const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
-                const startButtonTitle = manualOverrideMinutes !== undefined
-                  ? 'Cronômetro bloqueado por registro existente. Remova ou ajuste o registro para iniciar o cronômetro.'
-                  : requiresResponsavel
-                    ? 'Associe um responsável antes de iniciar o cronômetro.'
-                    : undefined;
-                const displayedTime = manualOverrideMinutes !== undefined
-                  ? formatMinutes(manualOverrideMinutes)
-                  : isTimerActive
-                    ? formatTime(taskTime * 60 + runningSeconds)
-                    : formatMinutes(taskTime);
-                const latestLogInfo = latestFinalizedLogByTask.get(task.id) ?? null;
-                const usageLogDateIso = latestLogInfo?.logDate ?? null;
-                const usageUserId = latestLogInfo?.userId ?? task.user_id ?? null;
-                const usageRowFromLog = usageUserId && usageLogDateIso
-                  ? getDailyUsageFor(usageUserId, usageLogDateIso)
-                  : null;
-                const fallbackUsageRow = !usageRowFromLog && usageUserId && todaySaoPauloDate
-                  ? getDailyUsageFor(usageUserId, todaySaoPauloDate)
-                  : null;
-                const resolvedUsageRow = usageRowFromLog ?? fallbackUsageRow ?? null;
-                const resolvedUsageDateIso = usageRowFromLog
-                  ? usageLogDateIso
-                  : fallbackUsageRow
-                    ? todaySaoPauloDate
-                    : null;
-                const tempoEstouradoMinutes = resolvedUsageRow?.tempo_estourado_minutes ?? 0;
-                const overUserLimit = resolvedUsageRow?.over_user_limit ?? false;
-                const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
-                const userLimitHours = resolvedUsageRow?.horas_liberadas_por_dia ?? 8;
-                const statusLabel = resolvedUsageRow
-                  ? isOverLimit
-                    ? 'Ultrapassado o valor de horas limite'
-                    : 'OK'
-                  : 'Sem registros';
-                const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
-                const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
-                const statusTooltip = resolvedUsageRow
-                  ? isOverLimit
-                  ? `Excedeu o limite de ${userLimitHours}h do usuário.`
-                  : `Dentro do limite diário de ${userLimitHours}h.`
-                  : 'Nenhum registro finalizado para calcular limites neste dia.';
-                const runningLog = runningTimeLogByTask.get(task.id) ?? null;
-                const latestLogReference = latestLogReferenceByTask.get(task.id) ?? null;
-                const logDateIso = (() => {
-                  if (runningLog) {
-                    return (
-                      runningLog.log_date ??
-                      runningLog.data_inicio ??
-                      runningLog.started_at ??
-                      runningLog.created_at ??
-                      null
-                    );
-                  }
-
-                  if (latestLogReference) {
-                    return latestLogReference.iso;
-                  }
-
-                  return resolvedUsageDateIso;
-                })();
-                const formattedLogDate = formatLogDateOnly(logDateIso);
-                const normalizedTaskStatus = typeof task.status === 'string' ? task.status.trim() : '';
-                const taskStatusBadgeClass = (() => {
-                  if (!normalizedTaskStatus) {
-                    return 'border-muted bg-muted text-muted-foreground';
-                  }
-
-                  const lowered = normalizedTaskStatus.toLowerCase();
-                  if (lowered.includes('atras')) {
-                    return 'border-red-200 bg-red-50 text-red-600';
-                  }
-
-                  if (lowered.includes('dia')) {
-                    return 'border-emerald-200 bg-emerald-50 text-emerald-600';
-                  }
-
-                  return 'border-muted bg-muted text-muted-foreground';
-                })();
-                const tempoDoLogDisplay = (() => {
-                  if (isTimerActive) {
-                    return formatTime(runningSeconds);
-                  }
-
-                  if (runningLog) {
-                    const baseMinutes = Number.isFinite(runningLog.tempo_trabalhado)
-                      ? runningLog.tempo_trabalhado
-                      : 0;
-                    const startIso =
-                      runningLog.started_at ??
-                      runningLog.data_inicio ??
-                      runningLog.created_at ??
-                      null;
-
-                    if (startIso) {
-                      const startTimestamp = Date.parse(startIso);
-                      if (Number.isFinite(startTimestamp)) {
-                        const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
-                        const safeElapsed = elapsed >= 0 ? elapsed : 0;
-                        const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
-                        return formatTime(baseSeconds + safeElapsed);
+              {groupedTasksForDisplay.map(group => (
+                <Fragment key={group.key}>
+                  {taskGroupBy !== 'none' && group.items.length > 0 ? (
+                    <TableRow className="bg-muted/40">
+                      <TableCell colSpan={7} className="font-semibold uppercase text-muted-foreground">
+                        {group.label}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {group.items.map(({ task }) => {
+                    const taskTime = getTaskTotalTime(task.id);
+                    const isTimerActive = Boolean(activeTimers[task.id]);
+                    const manualTimeValue = manualTime[task.id] || { hours: 0, minutes: 0 };
+                    const manualOverrideMinutes = (() => {
+                      const rawOverride = manualOverrides[task.id] ?? manualOverridesFromLogs[task.id];
+                      if (rawOverride === null || rawOverride === undefined) {
+                        return undefined;
                       }
-                    }
 
-                    if (baseMinutes > 0) {
-                      return formatMinutes(baseMinutes);
-                    }
-                  }
+                      const numericOverride = typeof rawOverride === 'number'
+                        ? rawOverride
+                        : Number.parseFloat(String(rawOverride));
 
-                  return formatMinutes(taskTime);
-                })();
+                      if (!Number.isFinite(numericOverride) || numericOverride <= 0) {
+                        return undefined;
+                      }
 
-                return (
-                  <TableRow key={task.id} className={highlightRowClass}>
-                    <TableCell className="font-medium">{task.tarefa}</TableCell>
-                    <TableCell className={highlightClass}>
-                      {isOverLimit ? (
-                        <span className="text-red-600 font-semibold">{task.responsavel || '-'}</span>
-                      ) : (
-                        task.responsavel || '-'
-                      )}
-                    </TableCell>
-                    <TableCell className={highlightClass}>{formattedLogDate}</TableCell>
-                    <TableCell>
-                      <span className="font-mono text-sm">{tempoDoLogDisplay}</span>
-                    </TableCell>
-                    <TableCell className={highlightClass}>
-                      {normalizedTaskStatus ? (
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge
-                              variant="outline"
-                              className={`w-fit uppercase tracking-wide ${taskStatusBadgeClass}`}
-                            >
-                              {normalizedTaskStatus}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>{statusTooltip}</TooltipContent>
-                        </Tooltip>
-                      ) : (
-                        <span className="text-muted-foreground">Sem status</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col gap-2">
-                        {isTimerActive && (
-                          <Badge className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
-                            CRONOMETRANDO
-                          </Badge>
-                        )}
-                        <div className="flex items-center justify-between gap-4">
-                          <span className="font-mono text-sm">{displayedTime}</span>
-                          <div className="flex gap-2">
-                            {isTimerActive ? (
-                              <>
-                                <Button
-                                  size="sm"
+                      return numericOverride;
+                    })();
+                    const runningSeconds = elapsedSeconds[task.id] || 0;
+                    const requiresResponsavel = !(typeof task.responsavel === 'string' && task.responsavel.trim().length > 0);
+                    const startButtonTitle = manualOverrideMinutes !== undefined
+                      ? 'Cronômetro bloqueado por registro existente. Remova ou ajuste o registro para iniciar o cronômetro.'
+                      : requiresResponsavel
+                        ? 'Associe um responsável antes de iniciar o cronômetro.'
+                        : undefined;
+                    const displayedTime = manualOverrideMinutes !== undefined
+                      ? formatMinutes(manualOverrideMinutes)
+                      : isTimerActive
+                        ? formatTime(taskTime * 60 + runningSeconds)
+                        : formatMinutes(taskTime);
+                    const latestLogInfo = latestFinalizedLogByTask.get(task.id) ?? null;
+                    const usageLogDateIso = latestLogInfo?.logDate ?? null;
+                    const usageUserId = latestLogInfo?.userId ?? task.user_id ?? null;
+                    const usageRowFromLog = usageUserId && usageLogDateIso
+                      ? getDailyUsageFor(usageUserId, usageLogDateIso)
+                      : null;
+                    const fallbackUsageRow = !usageRowFromLog && usageUserId && todaySaoPauloDate
+                      ? getDailyUsageFor(usageUserId, todaySaoPauloDate)
+                      : null;
+                    const resolvedUsageRow = usageRowFromLog ?? fallbackUsageRow ?? null;
+                    const resolvedUsageDateIso = usageRowFromLog
+                      ? usageLogDateIso
+                      : fallbackUsageRow
+                        ? todaySaoPauloDate
+                        : null;
+                    const tempoEstouradoMinutes = resolvedUsageRow?.tempo_estourado_minutes ?? 0;
+                    const overUserLimit = resolvedUsageRow?.over_user_limit ?? false;
+                    const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
+                    const userLimitHours = resolvedUsageRow?.horas_liberadas_por_dia ?? 8;
+                    const statusLabel = resolvedUsageRow
+                      ? isOverLimit
+                        ? 'Ultrapassado o valor de horas limite'
+                        : 'OK'
+                      : 'Sem registros';
+                    const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                    const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
+                    const statusTooltip = resolvedUsageRow
+                      ? isOverLimit
+                        ? `Excedeu o limite de ${userLimitHours}h do usuário.`
+                        : `Dentro do limite diário de ${userLimitHours}h.`
+                      : 'Nenhum registro finalizado para calcular limites neste dia.';
+                    const runningLog = runningTimeLogByTask.get(task.id) ?? null;
+                    const latestLogReference = latestLogReferenceByTask.get(task.id) ?? null;
+                    const logDateIso = (() => {
+                      if (runningLog) {
+                        return (
+                          runningLog.log_date ??
+                          runningLog.data_inicio ??
+                          runningLog.started_at ??
+                          runningLog.created_at ??
+                          null
+                        );
+                      }
+
+                      if (latestLogReference) {
+                        return latestLogReference.iso;
+                      }
+
+                      return resolvedUsageDateIso;
+                    })();
+                    const formattedLogDate = formatLogDateOnly(logDateIso);
+                    const normalizedTaskStatus = typeof task.status === 'string' ? task.status.trim() : '';
+                    const taskStatusBadgeClass = (() => {
+                      if (!normalizedTaskStatus) {
+                        return 'border-muted bg-muted text-muted-foreground';
+                      }
+
+                      const lowered = normalizedTaskStatus.toLowerCase();
+                      if (lowered.includes('atras')) {
+                        return 'border-red-200 bg-red-50 text-red-600';
+                      }
+
+                      if (lowered.includes('dia')) {
+                        return 'border-emerald-200 bg-emerald-50 text-emerald-600';
+                      }
+
+                      return 'border-muted bg-muted text-muted-foreground';
+                    })();
+                    const tempoDoLogDisplay = (() => {
+                      if (isTimerActive) {
+                        return formatTime(runningSeconds);
+                      }
+
+                      if (runningLog) {
+                        const baseMinutes = Number.isFinite(runningLog.tempo_trabalhado)
+                          ? runningLog.tempo_trabalhado
+                          : 0;
+                        const startIso =
+                          runningLog.started_at ??
+                          runningLog.data_inicio ??
+                          runningLog.created_at ??
+                          null;
+
+                        if (startIso) {
+                          const startTimestamp = Date.parse(startIso);
+                          if (Number.isFinite(startTimestamp)) {
+                            const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+                            const safeElapsed = elapsed >= 0 ? elapsed : 0;
+                            const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
+                            return formatTime(baseSeconds + safeElapsed);
+                          }
+                        }
+
+                        if (baseMinutes > 0) {
+                          return formatMinutes(baseMinutes);
+                        }
+                      }
+
+                      return formatMinutes(taskTime);
+                    })();
+
+                    return (
+                      <TableRow key={task.id} className={highlightRowClass}>
+                        <TableCell className="font-medium">{task.tarefa}</TableCell>
+                        <TableCell className={highlightClass}>
+                          {isOverLimit ? (
+                            <span className="text-red-600 font-semibold">{task.responsavel || '-'}</span>
+                          ) : (
+                            task.responsavel || '-'
+                          )}
+                        </TableCell>
+                        <TableCell className={highlightClass}>{formattedLogDate}</TableCell>
+                        <TableCell>
+                          <span className="font-mono text-sm">{tempoDoLogDisplay}</span>
+                        </TableCell>
+                        <TableCell className={highlightClass}>
+                          {normalizedTaskStatus ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge
                                   variant="outline"
-                                  onClick={() => stopTimer(task.id)}
-                                  disabled={Boolean(timerActionsInFlight[task.id])}
+                                  className={`w-fit uppercase tracking-wide ${taskStatusBadgeClass}`}
                                 >
-                                  Parar
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => resetTimer(task.id)}
-                                  disabled={Boolean(timerActionsInFlight[task.id])}
-                                >
-                                  Zerar
-                                </Button>
-                              </>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleStartTimerRequest(task)}
-                                disabled={manualOverrideMinutes !== undefined}
-                                title={startButtonTitle}
-                              >
-                                {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
-                              </Button>
+                                  {normalizedTaskStatus}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>{statusTooltip}</TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground">Sem status</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-2">
+                            {isTimerActive && (
+                              <Badge className="w-fit border-emerald-500/40 bg-emerald-500/15 text-emerald-600">
+                                CRONOMETRANDO
+                              </Badge>
                             )}
+                            <div className="flex items-center justify-between gap-4">
+                              <span className="font-mono text-sm">{displayedTime}</span>
+                              <div className="flex gap-2">
+                                {isTimerActive ? (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => stopTimer(task.id)}
+                                      disabled={Boolean(timerActionsInFlight[task.id])}
+                                    >
+                                      Parar
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => resetTimer(task.id)}
+                                      disabled={Boolean(timerActionsInFlight[task.id])}
+                                    >
+                                      Zerar
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleStartTimerRequest(task)}
+                                    disabled={manualOverrideMinutes !== undefined}
+                                    title={startButtonTitle}
+                                  >
+                                    {requiresResponsavel ? 'Definir responsável' : 'Iniciar'}
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="23"
-                          placeholder="H"
-                          className="w-16"
-                          value={manualTimeValue.hours || ''}
-                          onChange={(e) => setManualTime(prev => ({
-                            ...prev,
-                            [task.id]: { ...manualTimeValue, hours: parseInt(e.target.value) || 0 }
-                          }))}
-                        />
-                        <span>:</span>
-                        <Input
-                          type="number"
-                          min="0"
-                          max="59"
-                          placeholder="M"
-                          className="w-16"
-                          value={manualTimeValue.minutes || ''}
-                          onChange={(e) => setManualTime(prev => ({
-                            ...prev,
-                            [task.id]: { ...manualTimeValue, minutes: parseInt(e.target.value) || 0 }
-                          }))}
-                        />
-                        <Button size="sm" onClick={() => addManualTime(task.id)}>
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="23"
+                              placeholder="H"
+                              className="w-16"
+                              value={manualTimeValue.hours || ''}
+                              onChange={(e) => setManualTime(prev => ({
+                                ...prev,
+                                [task.id]: { ...manualTimeValue, hours: parseInt(e.target.value) || 0 }
+                              }))}
+                            />
+                            <span>:</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="59"
+                              placeholder="M"
+                              className="w-16"
+                              value={manualTimeValue.minutes || ''}
+                              onChange={(e) => setManualTime(prev => ({
+                                ...prev,
+                                [task.id]: { ...manualTimeValue, minutes: parseInt(e.target.value) || 0 }
+                              }))}
+                            />
+                            <Button size="sm" onClick={() => addManualTime(task.id)}>
+                              <Plus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -3088,6 +3709,153 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       <CardTitle>Histórico de Registros de Tempo</CardTitle>
     </CardHeader>
     <CardContent>
+      <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Responsável</Label>
+          <Select
+            value={timeLogFilters.responsavel}
+            onValueChange={value => setTimeLogFilters(prev => ({ ...prev, responsavel: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos os responsáveis" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {timeLogFilterOptions.responsaveis.map(responsavel => (
+                <SelectItem key={responsavel} value={responsavel}>
+                  {responsavel}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Data</Label>
+          <Select value={timeLogFilters.data} onValueChange={value => setTimeLogFilters(prev => ({ ...prev, data: value }))}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todas as datas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {timeLogFilterOptions.datas.map(dataValue => (
+                <SelectItem key={dataValue} value={dataValue}>
+                  {formatLogDateOnly(dataValue)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Tarefa</Label>
+          <Select
+            value={timeLogFilters.tarefa}
+            onValueChange={value => setTimeLogFilters(prev => ({ ...prev, tarefa: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todas as tarefas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {timeLogFilterOptions.tarefas.map(tarefaNome => (
+                <SelectItem key={tarefaNome} value={tarefaNome}>
+                  {tarefaNome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Tipo</Label>
+          <Select value={timeLogFilters.tipo} onValueChange={value => setTimeLogFilters(prev => ({ ...prev, tipo: value }))}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos os tipos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {timeLogFilterOptions.tipos.map(tipo => (
+                <SelectItem key={tipo} value={tipo}>
+                  {tipo.toUpperCase()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Aprovador</Label>
+          <Select
+            value={timeLogFilters.aprovador}
+            onValueChange={value => setTimeLogFilters(prev => ({ ...prev, aprovador: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos os aprovadores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {timeLogFilterOptions.aprovadores.map(aprovador => (
+                <SelectItem key={aprovador} value={aprovador}>
+                  {aprovador}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Status de Aprovação</Label>
+          <Select
+            value={timeLogFilters.statusAprovacao}
+            onValueChange={value => setTimeLogFilters(prev => ({ ...prev, statusAprovacao: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todos os status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos</SelectItem>
+              {timeLogFilterOptions.statusAprovacoes.map(status => (
+                <SelectItem key={status} value={status}>
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Data da Aprovação</Label>
+          <Select
+            value={timeLogFilters.dataAprovacao}
+            onValueChange={value => setTimeLogFilters(prev => ({ ...prev, dataAprovacao: value }))}
+          >
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Todas as datas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todas">Todas</SelectItem>
+              {timeLogFilterOptions.datasAprovacao.map(dateValue => (
+                <SelectItem key={dateValue} value={dateValue}>
+                  {formatLogDateOnly(dateValue)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-xs uppercase text-muted-foreground">Agrupar por</Label>
+          <Select value={timeLogGroupBy} onValueChange={value => setTimeLogGroupBy(value as typeof timeLogGroupBy)}>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Sem agrupamento" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Sem agrupamento</SelectItem>
+              <SelectItem value="responsavel">Responsável</SelectItem>
+              <SelectItem value="data">Data</SelectItem>
+              <SelectItem value="tarefa">Tarefa</SelectItem>
+              <SelectItem value="tipo">Tipo</SelectItem>
+              <SelectItem value="aprovador">Aprovador</SelectItem>
+              <SelectItem value="statusAprovacao">Status de Aprovação</SelectItem>
+              <SelectItem value="dataAprovacao">Data da Aprovação</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       {canManageApprovals ? (
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">{selectionSummaryLabel}</p>
@@ -3146,8 +3914,17 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               </TableRow>
             </TableHeader>
           <TableBody>
-              {timeLogs.length > 0 ? (
-                timeLogs.map((log) => {
+              {groupedTimeLogs.length > 0 ? (
+                groupedTimeLogs.map(group => (
+                  <Fragment key={group.key}>
+                    {timeLogGroupBy !== 'none' && group.items.length > 0 ? (
+                      <TableRow className="bg-muted/40">
+                        <TableCell colSpan={timeLogTableColumnCount} className="font-semibold uppercase text-muted-foreground">
+                          {group.label}
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                    {group.items.map(({ log }) => {
                   const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
                   const activityText = getLogActivity(log);
                   const approverDisplayName = getApproverDisplayName(log);
@@ -3172,8 +3949,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
                     : 'border-sky-500/40 bg-sky-500/10 text-sky-700';
 
-                  return (
-                    <TableRow key={log.id} className={highlightRowClass}>
+                      return (
+                        <TableRow key={log.id} className={highlightRowClass}>
                       {canManageApprovals ? (
                         <TableCell>
                           <Checkbox
@@ -3298,9 +4075,11 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
-                    </TableRow>
-                  );
-                })
+                        </TableRow>
+                      );
+                    })
+                  </Fragment>
+                ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={timeLogTableColumnCount} className="text-center text-muted-foreground">
