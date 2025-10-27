@@ -846,9 +846,26 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return 0;
     }
 
-    const duration = log.duration_minutes;
-    if (typeof duration === 'number' && Number.isFinite(duration)) {
-      return Math.max(0, duration);
+    const normalizeIso = (value: string | null | undefined) => {
+      if (typeof value !== 'string') {
+        return null;
+      }
+
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const startIso = normalizeIso(log.started_at) ?? normalizeIso(log.data_inicio);
+    const endIso = normalizeIso(log.ended_at) ?? normalizeIso(log.data_fim);
+
+    if (startIso && endIso) {
+      const startTimestamp = Date.parse(startIso);
+      const endTimestamp = Date.parse(endIso);
+
+      if (Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp) {
+        const elapsedSeconds = Math.max(0, Math.round((endTimestamp - startTimestamp) / 1000));
+        return elapsedSeconds / 60;
+      }
     }
 
     const tempoTrabalhado = log.tempo_trabalhado;
@@ -856,16 +873,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return Math.max(0, tempoTrabalhado);
     }
 
-    const startIso = log.started_at ?? log.data_inicio ?? null;
-    const endIso = log.ended_at ?? log.data_fim ?? null;
-
-    if (startIso && endIso) {
-      const startTimestamp = Date.parse(startIso);
-      const endTimestamp = Date.parse(endIso);
-
-      if (Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp) {
-        return Math.max(0, (endTimestamp - startTimestamp) / 60000);
-      }
+    const duration = log.duration_minutes;
+    if (typeof duration === 'number' && Number.isFinite(duration)) {
+      return Math.max(0, duration);
     }
 
     return 0;
