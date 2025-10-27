@@ -840,6 +840,100 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     [getDailyUsageFor],
   );
 
+  const getLogDurationInMinutes = useCallback((log: TimeLog | null | undefined): number => {
+    if (!log) {
+      return 0;
+    }
+
+    const duration = log.duration_minutes;
+    if (typeof duration === 'number' && Number.isFinite(duration)) {
+      return Math.max(0, duration);
+    }
+
+    const tempoTrabalhado = log.tempo_trabalhado;
+    if (typeof tempoTrabalhado === 'number' && Number.isFinite(tempoTrabalhado)) {
+      return Math.max(0, tempoTrabalhado);
+    }
+
+    const startIso = log.started_at ?? log.data_inicio ?? null;
+    const endIso = log.ended_at ?? log.data_fim ?? null;
+
+    if (startIso && endIso) {
+      const startTimestamp = Date.parse(startIso);
+      const endTimestamp = Date.parse(endIso);
+
+      if (Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp) {
+        return Math.max(0, (endTimestamp - startTimestamp) / 60000);
+      }
+    }
+
+    return 0;
+  }, []);
+
+  const resolveLogDate = useCallback((log: TimeLog | null | undefined): string | null => {
+    if (!log) {
+      return null;
+    }
+
+    const directDate = typeof log.log_date === 'string' ? log.log_date.trim() : '';
+    if (directDate) {
+      return directDate.slice(0, 10);
+    }
+
+    const referenceIso =
+      log.data_fim ??
+      log.ended_at ??
+      log.data_inicio ??
+      log.started_at ??
+      log.created_at ??
+      null;
+
+    if (!referenceIso) {
+      return null;
+    }
+
+    const parsed = new Date(referenceIso);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return getIsoDateInTimeZone(parsed, SAO_PAULO_TIMEZONE);
+  }, []);
+
+  const getRunningSecondsForLog = useCallback(
+    (log: TimeLog | null | undefined): number => {
+      if (!log) {
+        return 0;
+      }
+
+      const baseMinutes = typeof log.tempo_trabalhado === 'number' && Number.isFinite(log.tempo_trabalhado)
+        ? Math.max(0, log.tempo_trabalhado)
+        : 0;
+      const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
+
+      if (log.task_id) {
+        const trackedSeconds = elapsedSeconds[log.task_id];
+        if (typeof trackedSeconds === 'number' && Number.isFinite(trackedSeconds)) {
+          return baseSeconds + Math.max(0, Math.round(trackedSeconds));
+        }
+      }
+
+      const startIso = log.started_at ?? log.data_inicio ?? log.created_at ?? null;
+      if (!startIso) {
+        return baseSeconds;
+      }
+
+      const startTimestamp = Date.parse(startIso);
+      if (!Number.isFinite(startTimestamp)) {
+        return baseSeconds;
+      }
+
+      const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+      return baseSeconds + (elapsed > 0 ? elapsed : 0);
+    },
+    [elapsedSeconds],
+  );
+
   const manualOverridesFromLogs = useMemo(() => {
     const overrides: Record<string, number> = {};
     timeLogs.forEach((log) => {
@@ -1824,100 +1918,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return formatMinutes(log.tempo_trabalhado);
   };
-
-  const getLogDurationInMinutes = useCallback((log: TimeLog | null | undefined): number => {
-    if (!log) {
-      return 0;
-    }
-
-    const duration = log.duration_minutes;
-    if (typeof duration === 'number' && Number.isFinite(duration)) {
-      return Math.max(0, duration);
-    }
-
-    const tempoTrabalhado = log.tempo_trabalhado;
-    if (typeof tempoTrabalhado === 'number' && Number.isFinite(tempoTrabalhado)) {
-      return Math.max(0, tempoTrabalhado);
-    }
-
-    const startIso = log.started_at ?? log.data_inicio ?? null;
-    const endIso = log.ended_at ?? log.data_fim ?? null;
-
-    if (startIso && endIso) {
-      const startTimestamp = Date.parse(startIso);
-      const endTimestamp = Date.parse(endIso);
-
-      if (Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp) {
-        return Math.max(0, (endTimestamp - startTimestamp) / 60000);
-      }
-    }
-
-    return 0;
-  }, []);
-
-  const resolveLogDate = useCallback((log: TimeLog | null | undefined): string | null => {
-    if (!log) {
-      return null;
-    }
-
-    const directDate = typeof log.log_date === 'string' ? log.log_date.trim() : '';
-    if (directDate) {
-      return directDate.slice(0, 10);
-    }
-
-    const referenceIso =
-      log.data_fim ??
-      log.ended_at ??
-      log.data_inicio ??
-      log.started_at ??
-      log.created_at ??
-      null;
-
-    if (!referenceIso) {
-      return null;
-    }
-
-    const parsed = new Date(referenceIso);
-    if (Number.isNaN(parsed.getTime())) {
-      return null;
-    }
-
-    return getIsoDateInTimeZone(parsed, SAO_PAULO_TIMEZONE);
-  }, []);
-
-  const getRunningSecondsForLog = useCallback(
-    (log: TimeLog | null | undefined): number => {
-      if (!log) {
-        return 0;
-      }
-
-      const baseMinutes = typeof log.tempo_trabalhado === 'number' && Number.isFinite(log.tempo_trabalhado)
-        ? Math.max(0, log.tempo_trabalhado)
-        : 0;
-      const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
-
-      if (log.task_id) {
-        const trackedSeconds = elapsedSeconds[log.task_id];
-        if (typeof trackedSeconds === 'number' && Number.isFinite(trackedSeconds)) {
-          return baseSeconds + Math.max(0, Math.round(trackedSeconds));
-        }
-      }
-
-      const startIso = log.started_at ?? log.data_inicio ?? log.created_at ?? null;
-      if (!startIso) {
-        return baseSeconds;
-      }
-
-      const startTimestamp = Date.parse(startIso);
-      if (!Number.isFinite(startTimestamp)) {
-        return baseSeconds;
-      }
-
-      const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
-      return baseSeconds + (elapsed > 0 ? elapsed : 0);
-    },
-    [elapsedSeconds],
-  );
 
   const formatDailySummaryDate = useCallback((value: string | null | undefined): string => {
     if (!value) {
