@@ -1011,8 +1011,74 @@ export function useTimeLogs(projectId?: string) {
             updatedRow = legacyRpcRow;
             legacyApprovalSchemaRef.current = true;
           } else {
-            updatedRow = await attemptLegacyUpdate(fallbackPayload, true);
-            legacyApprovalSchemaRef.current = true;
+            const fallbackUpdatedAt = new Date().toISOString();
+
+            const updatePayloads = [
+              fallbackPayload,
+              sanitizeTimeLogPayload({
+                status_aprovacao: status,
+                approval_status: APPROVAL_STATUS_LABELS[status],
+                aprovado: APPROVED_FLAG_MAP[status],
+                comissionado: effectiveCommissioned,
+                is_billable: effectiveCommissioned,
+                justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
+                observacoes:
+                  status === 'reprovado'
+                    ? rejectionReason ?? null
+                    : existingLog?.observacoes ?? undefined,
+                updated_at: fallbackUpdatedAt,
+              }),
+              sanitizeTimeLogPayload({
+                status_aprovacao: status,
+                aprovado: APPROVED_FLAG_MAP[status],
+                justificativa_reprovacao: status === 'reprovado' ? rejectionReason : null,
+                observacoes:
+                  status === 'reprovado'
+                    ? rejectionReason ?? null
+                    : existingLog?.observacoes ?? undefined,
+                updated_at: fallbackUpdatedAt,
+              }),
+              sanitizeTimeLogPayload({
+                status_aprovacao: status,
+                aprovado: APPROVED_FLAG_MAP[status],
+                updated_at: fallbackUpdatedAt,
+              }),
+            ].filter(candidate => Object.keys(candidate).length > 0);
+
+            const seenUpdatePayloads = new Set<string>();
+            let lastUpdateError: unknown = null;
+
+            for (const candidate of updatePayloads) {
+              const cacheKey = JSON.stringify(
+                Object.entries(candidate).sort(([keyA], [keyB]) => keyA.localeCompare(keyB)),
+              );
+
+              if (seenUpdatePayloads.has(cacheKey)) {
+                continue;
+              }
+
+              seenUpdatePayloads.add(cacheKey);
+
+              try {
+                updatedRow = await attemptLegacyUpdate(candidate, true);
+                legacyApprovalSchemaRef.current = true;
+                break;
+              } catch (updateError) {
+                if (isLegacyApprovalPermissionError(updateError)) {
+                  throw updateError;
+                }
+
+                lastUpdateError = updateError;
+              }
+            }
+
+            if (!updatedRow) {
+              if (lastUpdateError) {
+                throw lastUpdateError;
+              }
+
+              throw new Error('Falha ao atualizar aprovação (modo compatibilidade).');
+            }
           }
         } else {
           throw rpcError;
