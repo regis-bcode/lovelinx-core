@@ -3170,6 +3170,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const statusTooltip = isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário.`
                     : `Dentro do limite diário de ${userLimitHours}h.`;
+                  const isTimedEntry = log.tipo_inclusao === 'timer';
+                  const logTypeBadgeClass = isTimedEntry
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                    : 'border-sky-500/40 bg-sky-500/10 text-sky-700';
 
                   return (
                     <TableRow key={log.id} className={highlightRowClass}>
@@ -3244,8 +3248,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={log.tipo_inclusao === 'automatico' ? 'default' : 'secondary'}>
-                          {log.tipo_inclusao === 'manual' ? 'MANUAL' : 'CRONOMETRADO'}
+                        <Badge variant="outline" className={logTypeBadgeClass}>
+                          {isTimedEntry ? 'Cronometrado' : 'Manual'}
                         </Badge>
                       </TableCell>
                       <TableCell>{getFormattedLogDuration(log)}</TableCell>
