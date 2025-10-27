@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useMemo, useRef } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +52,16 @@ export type TimeLogDetailsProps = {
   onAprovar: (logId: string) => Promise<void> | void;
   onReprovar: (logId: string) => Promise<void> | void;
   viewTaskButton?: ReactNode;
+  onConfirm?: (
+    logId: string,
+    payload: {
+      status: "Aprovado" | "Reprovado";
+      commissioned: boolean;
+      performedAt: Date;
+      approverName?: string | null;
+    }
+  ) => Promise<void> | void;
+  resolveApproverName?: () => string | null;
 };
 
 export function TimeLogDetailsDialog({
@@ -60,12 +70,16 @@ export function TimeLogDetailsDialog({
   log,
   onAprovar,
   onReprovar,
-  viewTaskButton
+  viewTaskButton,
+  onConfirm,
+  resolveApproverName
 }: TimeLogDetailsProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const status = log?.status ?? "Pendente";
   const start = log?.periodoInicioISO;
   const end = log?.periodoFimISO;
+  const [selectedAction, setSelectedAction] = useState<"approve" | "reject" | null>(null);
+  const [isCommissionedSelected, setIsCommissionedSelected] = useState(false);
 
   const duration = useMemo(() => formatDuration(start, end), [start, end]);
 
@@ -73,17 +87,91 @@ export function TimeLogDetailsDialog({
     onOpenChange(false);
   }, [onOpenChange]);
 
-  const handleAprovar = useCallback(() => {
-    if (!log) return;
-    void onAprovar(log.id);
-  }, [log, onAprovar]);
+  const handleSelectApprove = useCallback(() => {
+    if (!log || status !== "Pendente") return;
+    setSelectedAction("approve");
+  }, [log, status]);
 
-  const handleReprovar = useCallback(() => {
-    if (!log) return;
-    void onReprovar(log.id);
-  }, [log, onReprovar]);
+  const handleSelectReject = useCallback(() => {
+    if (!log || status !== "Pendente") return;
+    setSelectedAction("reject");
+    setIsCommissionedSelected(false);
+  }, [log, status]);
+
+  const handleToggleCommissioned = useCallback(() => {
+    if (!log || status !== "Pendente") return;
+    setIsCommissionedSelected((previous) => {
+      const next = !previous;
+      setSelectedAction(next ? "approve" : null);
+      return next;
+    });
+  }, [log, status]);
+
+  const handleConfirmAction = useCallback(() => {
+    if (!log || status !== "Pendente" || !selectedAction) return;
+
+    const performedAt = new Date();
+    const statusLabel = selectedAction === "approve" ? "Aprovado" : "Reprovado";
+    const commissioned = selectedAction === "approve" ? isCommissionedSelected : false;
+    const resolvedApprover = (() => {
+      try {
+        const fromResolver = resolveApproverName?.();
+        if (typeof fromResolver === "string") {
+          const trimmed = fromResolver.trim();
+          if (trimmed.length > 0) return trimmed;
+        }
+        if (fromResolver === null) {
+          return null;
+        }
+      } catch (error) {
+        console.error("Erro ao resolver nome do aprovador:", error);
+      }
+
+      if (typeof log.aprovador === "string") {
+        const trimmed = log.aprovador.trim();
+        if (trimmed.length > 0) {
+          return trimmed;
+        }
+      }
+
+      return null;
+    })();
+
+    if (onConfirm) {
+      void onConfirm(log.id, {
+        status: statusLabel,
+        commissioned,
+        performedAt,
+        approverName: resolvedApprover
+      });
+    } else if (selectedAction === "approve") {
+      void onAprovar(log.id);
+    } else {
+      void onReprovar(log.id);
+    }
+  }, [
+    isCommissionedSelected,
+    log,
+    onAprovar,
+    onConfirm,
+    onReprovar,
+    resolveApproverName,
+    selectedAction,
+    status
+  ]);
 
   const isLoading = !log;
+
+  useEffect(() => {
+    if (!open) {
+      setSelectedAction(null);
+      setIsCommissionedSelected(false);
+      return;
+    }
+
+    setSelectedAction(null);
+    setIsCommissionedSelected(false);
+  }, [log?.id, open]);
 
   const renderFieldSkeleton = (rows = 3) =>
     Array.from({ length: rows }).map((_, index) => (
@@ -308,20 +396,48 @@ export function TimeLogDetailsDialog({
               </div>
               <div className="flex flex-wrap items-center justify-center gap-3 md:justify-end">
                 <Button
-                  onClick={handleAprovar}
+                  onClick={handleToggleCommissioned}
                   disabled={!log || status !== "Pendente"}
-                  className="h-11 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70"
+                  variant="outline"
+                  className={cn(
+                    "h-11 rounded-xl px-6 text-sm font-semibold uppercase tracking-wide",
+                    selectedAction === "approve" && isCommissionedSelected
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-600 hover:bg-emerald-100"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-100"
+                  )}
+                >
+                  Comissionado
+                </Button>
+                <Button
+                  onClick={handleSelectApprove}
+                  disabled={!log || status !== "Pendente"}
+                  className={cn(
+                    "h-11 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70",
+                    selectedAction === "approve" && !isCommissionedSelected
+                      ? "ring-2 ring-emerald-300"
+                      : null
+                  )}
                 >
                   <CheckCircleIcon className="mr-2 h-5 w-5" aria-hidden />
                   Aprovar
                 </Button>
                 <Button
-                  onClick={handleReprovar}
+                  onClick={handleSelectReject}
                   disabled={!log || status !== "Pendente"}
-                  className="h-11 rounded-xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 disabled:text-white/70"
+                  className={cn(
+                    "h-11 rounded-xl bg-rose-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-rose-300 disabled:text-white/70",
+                    selectedAction === "reject" ? "ring-2 ring-rose-300" : null
+                  )}
                 >
                   <XCircleIcon className="mr-2 h-5 w-5" aria-hidden />
                   Reprovar
+                </Button>
+                <Button
+                  onClick={handleConfirmAction}
+                  disabled={!log || status !== "Pendente" || !selectedAction}
+                  className="h-11 rounded-xl bg-emerald-600 px-6 text-sm font-semibold uppercase tracking-wide text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300 disabled:text-white/70"
+                >
+                  OK
                 </Button>
                 <Button
                   variant="secondary"
