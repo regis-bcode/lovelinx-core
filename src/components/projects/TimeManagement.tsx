@@ -127,6 +127,31 @@ const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
   { key: 'solucao', label: 'Atividade', fullWidth: true, isLongText: true },
 ];
 
+const formatTime = (seconds: number): string => {
+  return formatHMS(Math.max(0, Math.round(seconds)));
+};
+
+const formatMinutes = (minutes: number): string => {
+  if (!Number.isFinite(minutes)) {
+    return '00:00:00';
+  }
+
+  const totalSeconds = Math.max(0, Math.round(minutes * 60));
+  return formatHMS(totalSeconds);
+};
+
+const formatMinutesShort = (minutes: number): string => {
+  if (!Number.isFinite(minutes)) {
+    return '00:00';
+  }
+
+  const safeMinutes = Math.max(0, Math.round(minutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const mins = safeMinutes % 60;
+
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+};
+
 interface TimeManagementProps {
   projectId: string;
 }
@@ -800,31 +825,6 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
 
     setManualTime(prev => ({ ...prev, [taskId]: { hours: 0, minutes: 0 } }));
-  };
-
-  const formatTime = (seconds: number): string => {
-    return formatHMS(Math.max(0, Math.round(seconds)));
-  };
-
-  const formatMinutes = (minutes: number): string => {
-    if (!Number.isFinite(minutes)) {
-      return '00:00:00';
-    }
-
-    const totalSeconds = Math.max(0, Math.round(minutes * 60));
-    return formatHMS(totalSeconds);
-  };
-
-  const formatMinutesShort = (minutes: number): string => {
-    if (!Number.isFinite(minutes)) {
-      return '00:00';
-    }
-
-    const safeMinutes = Math.max(0, Math.round(minutes));
-    const hours = Math.floor(safeMinutes / 60);
-    const mins = safeMinutes % 60;
-
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
   const getLogDailyUsage = useCallback(
