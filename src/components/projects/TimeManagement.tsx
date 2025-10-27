@@ -73,6 +73,7 @@ type UserDailyUsageSummary = {
   userName: string;
   date: string;
   approvedMinutes: number;
+  pendingMinutes: number;
   runningSeconds: number;
   totalMinutes: number;
   limitMinutes: number;
@@ -1154,7 +1155,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return [];
     }
 
-    const accumulator = new Map<string, { userId: string; date: string; approvedMinutes: number; runningSeconds: number }>();
+    const accumulator = new Map<
+      string,
+      { userId: string; date: string; approvedMinutes: number; pendingMinutes: number; runningSeconds: number }
+    >();
 
     const ensureEntry = (userId: string, date: string) => {
       const key = `${userId}-${date}`;
@@ -1163,6 +1167,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
           userId,
           date,
           approvedMinutes: 0,
+          pendingMinutes: 0,
           runningSeconds: 0,
         });
       }
@@ -1180,9 +1185,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       }
 
       const entry = ensureEntry(log.user_id, resolvedDate);
+      const durationMinutes = getLogDurationInMinutes(log);
 
       if (log.status_aprovacao === 'aprovado') {
-        entry.approvedMinutes += getLogDurationInMinutes(log);
+        entry.approvedMinutes += durationMinutes;
+      } else if (log.status_aprovacao === 'pendente') {
+        entry.pendingMinutes += durationMinutes;
       }
 
       if (!log.ended_at && !log.data_fim) {
@@ -1210,8 +1218,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
       const runningSeconds = Math.max(0, Math.round(entry.runningSeconds));
       const approvedMinutes = Math.max(0, entry.approvedMinutes);
+      const pendingMinutes = Math.max(0, entry.pendingMinutes);
       const runningMinutes = runningSeconds / 60;
-      const totalMinutes = Math.max(0, approvedMinutes + runningMinutes);
+      const totalMinutes = Math.max(0, approvedMinutes + pendingMinutes + runningMinutes);
       const overMinutes = Math.max(0, totalMinutes - limitMinutes);
 
       return {
@@ -1220,6 +1229,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         userName: getUserDisplayName(entry.userId),
         date: entry.date,
         approvedMinutes,
+        pendingMinutes,
         runningSeconds,
         totalMinutes,
         limitMinutes,
@@ -2705,7 +2715,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                           {' '}
                           {formatMinutes(summary.totalMinutes)} (aprovado {formatMinutes(summary.approvedMinutes)}
                           {' '}
-                          + cronômetro {formatTime(summary.runningSeconds)}) e excedeu o limite diário de
+                          + pendente {formatMinutes(summary.pendingMinutes)} + cronômetro
+                          {' '}
+                          {formatTime(summary.runningSeconds)}) e excedeu o limite diário de
                           {' '}
                           {formatMinutes(summary.limitMinutes)} em {formatMinutes(summary.overMinutes)}.
                         </li>
