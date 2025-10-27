@@ -43,6 +43,7 @@ import {
 } from '@/lib/active-timers';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import { SAO_PAULO_TIMEZONE, getIsoDateInTimeZone } from '@/utils/timezone';
+import { ApprovalConfirmationDialog } from './ApprovalConfirmationDialog';
 
 type TaskFieldDefinition = {
   key: keyof Task;
@@ -2566,7 +2567,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const parseCommissionedFlag = (value: unknown): boolean => {
     if (typeof value === 'string') {
-      return value.trim().toUpperCase() === 'SIM';
+      const normalized = value
+        .trim()
+        .normalize('NFD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase();
+      return normalized === 'sim';
     }
 
     if (typeof value === 'boolean') {
@@ -2589,8 +2595,10 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       commissioned: boolean;
       approverName: string | null;
       performedAt: Date;
+      justification: string;
     } | null
   >(null);
+  const [approvalConfirmationError, setApprovalConfirmationError] = useState<string | null>(null);
 
   useEffect(() => {
     setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
@@ -2684,22 +2692,27 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       ? 'Aprovar registro'
       : 'Reprovar registro'
     : null;
-  const approvalConfirmationAprovadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
+  const approvalConfirmationAprovadoValue: 'Sim' | 'Não' | null = approvalConfirmation
     ? approvalConfirmation.action === 'approve'
-      ? 'SIM'
-      : 'NÃO'
+      ? 'Sim'
+      : 'Não'
     : null;
-  const approvalConfirmationComissionadoValue: 'SIM' | 'NÃO' | null = approvalConfirmation
+  const approvalConfirmationComissionadoValue: 'Sim' | 'Não' | null = approvalConfirmation
     ? approvalConfirmation.commissioned
-      ? 'SIM'
-      : 'NÃO'
+      ? 'Sim'
+      : 'Não'
     : null;
+  const approvalConfirmationJustification = approvalConfirmation?.justification ?? '';
+  const trimmedApprovalConfirmationJustification = approvalConfirmationJustification.trim();
+  const isApprovalRejection = approvalConfirmation?.action === 'reject';
+  const isApprovalConfirmationActionDisabled = isSaving || !approvalConfirmation;
 
   async function saveApproval(
     nextStatus: ApprovalStatus,
     nextIsCommissioned: boolean,
     performedAt?: Date,
     approverNameOverride?: string | null,
+    rejectionJustification?: string | null,
   ): Promise<boolean> {
     if (!timeLog || isApprovalInfoComplete) {
       return false;
@@ -2715,6 +2728,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             ? 'reprovado'
             : 'pendente';
       const commissionedValue = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
+      const justificationValue =
+        nextStatus === 'Reprovado'
+          ? typeof rejectionJustification === 'string'
+            ? rejectionJustification.trim()
+            : rejectionJustification ?? null
+          : undefined;
 
       const normalizedApproverOverride =
         typeof approverNameOverride === 'string' ? approverNameOverride.trim() : '';
@@ -2727,11 +2746,20 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       const approverNameForPersistence =
         approverOverrideValue ?? confirmationApproverValue ?? null;
 
-      const updatedLog = await approveTimeLog(timeLog.id, normalizedStatus, {
+      const approvalOptions: Parameters<typeof approveTimeLog>[2] = {
         commissioned: commissionedValue,
         performedAt,
         approverName: approverNameForPersistence,
-      });
+      };
+
+      if (justificationValue !== undefined) {
+        approvalOptions.justificativa =
+          typeof justificationValue === 'string' && justificationValue.length > 0
+            ? justificationValue
+            : null;
+      }
+
+      const updatedLog = await approveTimeLog(timeLog.id, normalizedStatus, approvalOptions);
 
       if (!updatedLog) {
         return false;
@@ -2797,11 +2825,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return null;
     })();
 
+    setApprovalConfirmationError(null);
     setApprovalConfirmation({
       action: 'approve',
       commissioned: isCommissioned,
       approverName: approverDisplayName,
       performedAt: now,
+      justification: '',
     });
   }
 
@@ -2825,11 +2855,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return null;
     })();
 
+    setApprovalConfirmationError(null);
     setApprovalConfirmation({
       action: 'reject',
       commissioned: false,
       approverName: approverDisplayName,
       performedAt: now,
+      justification: '',
     });
   }
 
@@ -2852,6 +2884,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return;
     }
 
+    if (isSaving) {
+      return;
+    }
+
+    if (approvalConfirmation.action === 'reject') {
+      if (trimmedApprovalConfirmationJustification.length === 0) {
+        setApprovalConfirmationError('Obrigatório informar a justificativa da reprovação.');
+        return;
+      }
+
+      setApprovalConfirmationError(null);
+    }
+
     const wasSuccessful = await (async () => {
       if (approvalConfirmation.action === 'approve') {
         return saveApproval(
@@ -2867,13 +2912,16 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         false,
         approvalConfirmation.performedAt,
         approvalConfirmation.approverName ?? null,
+        trimmedApprovalConfirmationJustification,
       );
     })();
 
     if (!wasSuccessful) {
+      setApprovalConfirmationError('Não foi possível salvar a aprovação. Tente novamente.');
       return;
     }
 
+    setApprovalConfirmationError(null);
     setApprovalConfirmation(null);
     handleLogDetailsDialogOpenChange(false);
     await refreshTimeLogs();
@@ -4298,97 +4346,48 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
+      <ApprovalConfirmationDialog
         open={isApprovalConfirmationOpen}
+        title={approvalConfirmationTitle}
+        actionLabel={approvalConfirmationActionLabel}
+        aprovadoValue={approvalConfirmationAprovadoValue}
+        comissionadoValue={approvalConfirmationComissionadoValue}
+        approverDisplay={approvalConfirmationApproverDisplay}
+        dateDisplay={approvalConfirmationDateDisplay}
+        timeDisplay={approvalConfirmationTimeDisplay}
+        justification={approvalConfirmationJustification}
+        errorMessage={approvalConfirmationError}
+        isRejecting={isApprovalRejection}
+        isSaving={isSaving}
+        isConfirmDisabled={isApprovalConfirmationActionDisabled}
+        onJustificationChange={(value) => {
+          setApprovalConfirmation(prev => {
+            if (!prev) {
+              return prev;
+            }
+
+            return {
+              ...prev,
+              justification: value,
+            };
+          });
+
+          if (approvalConfirmationError && value.trim().length > 0) {
+            setApprovalConfirmationError(null);
+          }
+        }}
+        onConfirm={handleConfirmApprovalConfirmation}
+        onCancel={() => {
+          setApprovalConfirmation(null);
+          setApprovalConfirmationError(null);
+        }}
         onOpenChange={(open) => {
           if (!open) {
             setApprovalConfirmation(null);
+            setApprovalConfirmationError(null);
           }
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{approvalConfirmationTitle}</AlertDialogTitle>
-            <AlertDialogDescription>
-              Revise os dados que serão gravados antes de confirmar esta ação.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-              <span className="text-xs font-semibold uppercase text-muted-foreground">
-                Ação selecionada
-              </span>
-              <p className="mt-1 text-sm font-medium text-foreground">
-                {approvalConfirmationActionLabel ?? '—'}
-              </p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 px-4 py-3">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Campo Aprovado
-                </span>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  {approvalConfirmationAprovadoValue ?? '—'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 px-4 py-3">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Campo Comissionado
-                </span>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  {approvalConfirmationComissionadoValue ?? '—'}
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-lg border border-slate-200 px-4 py-3 sm:col-span-2">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Nome do aprovador
-                </span>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  {approvalConfirmationApproverDisplay}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 px-4 py-3">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Data da aprovação ou reprovação
-                </span>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  {approvalConfirmationDateDisplay}
-                </p>
-              </div>
-              <div className="rounded-lg border border-slate-200 px-4 py-3">
-                <span className="text-xs font-semibold uppercase text-muted-foreground">
-                  Horário da aprovação ou reprovação
-                </span>
-                <p className="mt-1 text-sm font-medium text-foreground">
-                  {approvalConfirmationTimeDisplay}
-                </p>
-              </div>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={(event) => {
-                event.preventDefault();
-                setApprovalConfirmation(null);
-              }}
-              disabled={isSaving}
-            >
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={async (event) => {
-                event.preventDefault();
-                await handleConfirmApprovalConfirmation();
-              }}
-              disabled={isSaving || !approvalConfirmation}
-            >
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      />
 
       <Dialog open={isLogEditDialogOpen} onOpenChange={handleLogEditDialogOpenChange}>
         <DialogContent className="sm:max-w-[520px]">

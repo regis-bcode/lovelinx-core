@@ -111,9 +111,18 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
   const safeMinutes = safeSeconds / 60;
   const normalizedAprovado = (() => {
     if (typeof log.aprovado === 'string') {
-      const trimmed = log.aprovado.trim().toUpperCase();
-      if (trimmed === 'SIM' || trimmed === 'NÃO') {
-        return trimmed as 'SIM' | 'NÃO';
+      const trimmed = log.aprovado.trim();
+      if (trimmed.length > 0) {
+        const normalized = trimmed
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase();
+        if (normalized === 'sim') {
+          return 'Sim';
+        }
+        if (normalized === 'nao') {
+          return 'Não';
+        }
       }
     }
     return null;
@@ -125,13 +134,19 @@ const normalizeTimeLogRecord = (log: TimeLogRow): TimeLog => {
     }
 
     if (typeof log.comissionado === 'string') {
-      const trimmed = log.comissionado.trim().toUpperCase();
-      if (trimmed === 'SIM') {
-        return true;
-      }
+      const trimmed = log.comissionado.trim();
+      if (trimmed.length > 0) {
+        const normalized = trimmed
+          .normalize('NFD')
+          .replace(/\p{Diacritic}/gu, '')
+          .toLowerCase();
+        if (normalized === 'sim') {
+          return true;
+        }
 
-      if (trimmed === 'NÃO') {
-        return false;
+        if (normalized === 'nao') {
+          return false;
+        }
       }
     }
 
@@ -292,8 +307,8 @@ const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, TimeLog['approval_status']>
 
 const APPROVED_FLAG_MAP: Record<ApprovalStatus, TimeLog['aprovado']> = {
   pendente: null,
-  aprovado: 'SIM',
-  reprovado: 'NÃO',
+  aprovado: 'Sim',
+  reprovado: 'Não',
 };
 
 export function useTimeLogs(projectId?: string) {
