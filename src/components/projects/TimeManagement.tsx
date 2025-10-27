@@ -19,8 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Eye, Loader2, Pencil, Plus, Trash2, XCircle } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
@@ -65,6 +66,21 @@ type DetailItemProps = {
   mono?: boolean;
   span2?: boolean;
 };
+
+type UserDailyUsageSummary = {
+  key: string;
+  userId: string;
+  userName: string;
+  date: string;
+  approvedMinutes: number;
+  runningSeconds: number;
+  totalMinutes: number;
+  limitMinutes: number;
+  overMinutes: number;
+};
+
+const DEFAULT_DAILY_LIMIT_HOURS = 8;
+const DEFAULT_DAILY_LIMIT_MINUTES = DEFAULT_DAILY_LIMIT_HOURS * 60;
 
 function DetailItem({ label, value, mono, span2 }: DetailItemProps) {
   const isEmpty =
@@ -970,6 +986,176 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return map;
   }, [projectAllocations]);
 
+  const userDailyLimitMinutesMap = useMemo(() => {
+    const map = new Map<string, number>();
+
+    projectAllocations.forEach(allocation => {
+      const userId = allocation.allocated_user_id;
+      const rawHours = allocation.user?.horas_liberadas_por_dia;
+
+      if (!userId || rawHours === null || rawHours === undefined) {
+        return;
+      }
+
+      const numericHours = Number(rawHours);
+
+      if (Number.isNaN(numericHours)) {
+        return;
+      }
+
+      const minutes = Math.max(0, numericHours * 60);
+      if (!map.has(userId) || minutes > (map.get(userId) ?? 0)) {
+        map.set(userId, minutes);
+      }
+    });
+
+    return map;
+  }, [projectAllocations]);
+
+  const taskResponsavelMap = useMemo(() => {
+    const map = new Map<string, string>();
+
+    tasks.forEach(task => {
+      if (!task.user_id) {
+        return;
+      }
+
+      const responsavel = typeof task.responsavel === 'string' ? task.responsavel.trim() : '';
+
+      if (!responsavel) {
+        return;
+      }
+
+      if (!map.has(task.user_id)) {
+        map.set(task.user_id, responsavel);
+      }
+    });
+
+    return map;
+  }, [tasks]);
+
+  const getUserDisplayName = useCallback(
+    (userId: string | null | undefined): string => {
+      if (!userId) {
+        return 'Responsável não informado';
+      }
+
+      const allocationName = taskOwnerNameMap.get(userId);
+      if (allocationName) {
+        return allocationName;
+      }
+
+      const fallbackName = taskResponsavelMap.get(userId);
+      if (fallbackName) {
+        return fallbackName;
+      }
+
+      return userId;
+    },
+    [taskOwnerNameMap, taskResponsavelMap],
+  );
+
+  const dailyUserTimeSummaries = useMemo<UserDailyUsageSummary[]>(() => {
+    if (!timeLogs.length) {
+      return [];
+    }
+
+    const accumulator = new Map<string, { userId: string; date: string; approvedMinutes: number; runningSeconds: number }>();
+
+    const ensureEntry = (userId: string, date: string) => {
+      const key = `${userId}-${date}`;
+      if (!accumulator.has(key)) {
+        accumulator.set(key, {
+          userId,
+          date,
+          approvedMinutes: 0,
+          runningSeconds: 0,
+        });
+      }
+      return accumulator.get(key)!;
+    };
+
+    timeLogs.forEach(log => {
+      if (!log?.user_id) {
+        return;
+      }
+
+      const resolvedDate = resolveLogDate(log) ?? todaySaoPauloDate;
+      if (!resolvedDate) {
+        return;
+      }
+
+      const entry = ensureEntry(log.user_id, resolvedDate);
+
+      if (log.status_aprovacao === 'aprovado') {
+        entry.approvedMinutes += getLogDurationInMinutes(log);
+      }
+
+      if (!log.ended_at && !log.data_fim) {
+        entry.runningSeconds += getRunningSecondsForLog(log);
+      }
+    });
+
+    if (accumulator.size === 0) {
+      return [];
+    }
+
+    const summaries: UserDailyUsageSummary[] = Array.from(accumulator.values()).map(entry => {
+      const usageRow = getDailyUsageFor(entry.userId, entry.date);
+      const usageLimitHours = usageRow?.horas_liberadas_por_dia;
+
+      let limitMinutes = DEFAULT_DAILY_LIMIT_MINUTES;
+      if (typeof usageLimitHours === 'number' && Number.isFinite(usageLimitHours)) {
+        limitMinutes = Math.max(0, usageLimitHours * 60);
+      } else {
+        const fallbackLimit = userDailyLimitMinutesMap.get(entry.userId);
+        if (typeof fallbackLimit === 'number' && Number.isFinite(fallbackLimit)) {
+          limitMinutes = Math.max(0, fallbackLimit);
+        }
+      }
+
+      const runningSeconds = Math.max(0, Math.round(entry.runningSeconds));
+      const approvedMinutes = Math.max(0, entry.approvedMinutes);
+      const runningMinutes = runningSeconds / 60;
+      const totalMinutes = Math.max(0, approvedMinutes + runningMinutes);
+      const overMinutes = Math.max(0, totalMinutes - limitMinutes);
+
+      return {
+        key: `${entry.userId}-${entry.date}`,
+        userId: entry.userId,
+        userName: getUserDisplayName(entry.userId),
+        date: entry.date,
+        approvedMinutes,
+        runningSeconds,
+        totalMinutes,
+        limitMinutes,
+        overMinutes,
+      } satisfies UserDailyUsageSummary;
+    });
+
+    return summaries.sort((a, b) => {
+      if (a.date !== b.date) {
+        return b.date.localeCompare(a.date);
+      }
+
+      return a.userName.localeCompare(b.userName, 'pt-BR');
+    });
+  }, [
+    getDailyUsageFor,
+    getLogDurationInMinutes,
+    getRunningSecondsForLog,
+    getUserDisplayName,
+    resolveLogDate,
+    timeLogs,
+    todaySaoPauloDate,
+    userDailyLimitMinutesMap,
+  ]);
+
+  const exceedingDailySummaries = useMemo(
+    () => dailyUserTimeSummaries.filter(summary => summary.overMinutes > 0),
+    [dailyUserTimeSummaries],
+  );
+
   const approverNameMap = useMemo(() => {
     const map = new Map<string, string>();
 
@@ -1638,6 +1824,113 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
     return formatMinutes(log.tempo_trabalhado);
   };
+
+  const getLogDurationInMinutes = useCallback((log: TimeLog | null | undefined): number => {
+    if (!log) {
+      return 0;
+    }
+
+    const duration = log.duration_minutes;
+    if (typeof duration === 'number' && Number.isFinite(duration)) {
+      return Math.max(0, duration);
+    }
+
+    const tempoTrabalhado = log.tempo_trabalhado;
+    if (typeof tempoTrabalhado === 'number' && Number.isFinite(tempoTrabalhado)) {
+      return Math.max(0, tempoTrabalhado);
+    }
+
+    const startIso = log.started_at ?? log.data_inicio ?? null;
+    const endIso = log.ended_at ?? log.data_fim ?? null;
+
+    if (startIso && endIso) {
+      const startTimestamp = Date.parse(startIso);
+      const endTimestamp = Date.parse(endIso);
+
+      if (Number.isFinite(startTimestamp) && Number.isFinite(endTimestamp) && endTimestamp >= startTimestamp) {
+        return Math.max(0, (endTimestamp - startTimestamp) / 60000);
+      }
+    }
+
+    return 0;
+  }, []);
+
+  const resolveLogDate = useCallback((log: TimeLog | null | undefined): string | null => {
+    if (!log) {
+      return null;
+    }
+
+    const directDate = typeof log.log_date === 'string' ? log.log_date.trim() : '';
+    if (directDate) {
+      return directDate.slice(0, 10);
+    }
+
+    const referenceIso =
+      log.data_fim ??
+      log.ended_at ??
+      log.data_inicio ??
+      log.started_at ??
+      log.created_at ??
+      null;
+
+    if (!referenceIso) {
+      return null;
+    }
+
+    const parsed = new Date(referenceIso);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+
+    return getIsoDateInTimeZone(parsed, SAO_PAULO_TIMEZONE);
+  }, []);
+
+  const getRunningSecondsForLog = useCallback(
+    (log: TimeLog | null | undefined): number => {
+      if (!log) {
+        return 0;
+      }
+
+      const baseMinutes = typeof log.tempo_trabalhado === 'number' && Number.isFinite(log.tempo_trabalhado)
+        ? Math.max(0, log.tempo_trabalhado)
+        : 0;
+      const baseSeconds = Math.max(0, Math.round(baseMinutes * 60));
+
+      if (log.task_id) {
+        const trackedSeconds = elapsedSeconds[log.task_id];
+        if (typeof trackedSeconds === 'number' && Number.isFinite(trackedSeconds)) {
+          return baseSeconds + Math.max(0, Math.round(trackedSeconds));
+        }
+      }
+
+      const startIso = log.started_at ?? log.data_inicio ?? log.created_at ?? null;
+      if (!startIso) {
+        return baseSeconds;
+      }
+
+      const startTimestamp = Date.parse(startIso);
+      if (!Number.isFinite(startTimestamp)) {
+        return baseSeconds;
+      }
+
+      const elapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+      return baseSeconds + (elapsed > 0 ? elapsed : 0);
+    },
+    [elapsedSeconds],
+  );
+
+  const formatDailySummaryDate = useCallback((value: string | null | undefined): string => {
+    if (!value) {
+      return '-';
+    }
+
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) {
+      return value;
+    }
+
+    return format(parsed, 'dd/MM/yyyy', { locale: ptBR });
+  }, []);
 
   const parseIsoDate = (value?: string | null): Date | null => {
     if (!value) {
@@ -2386,6 +2679,93 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
               Total em andamento: {formatTime(totalActiveTimerSeconds)}
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Tempo diário por responsável</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {dailyUserTimeSummaries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum tempo aprovado ou cronômetro ativo para exibir no período carregado.
+            </p>
+          ) : (
+            <>
+              {exceedingDailySummaries.length > 0 ? (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Limite diário excedido</AlertTitle>
+                  <AlertDescription>
+                    <ul className="list-disc space-y-1 pl-4">
+                      {exceedingDailySummaries.map(summary => (
+                        <li key={`alert-${summary.key}`}>
+                          {summary.userName} em {formatDailySummaryDate(summary.date)} registrou
+                          {' '}
+                          {formatMinutes(summary.totalMinutes)} (aprovado {formatMinutes(summary.approvedMinutes)}
+                          {' '}
+                          + cronômetro {formatTime(summary.runningSeconds)}) e excedeu o limite diário de
+                          {' '}
+                          {formatMinutes(summary.limitMinutes)} em {formatMinutes(summary.overMinutes)}.
+                        </li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Responsável</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Tempo aprovado</TableHead>
+                      <TableHead>Tempo em cronômetro</TableHead>
+                      <TableHead>Total contabilizado</TableHead>
+                      <TableHead>Limite diário</TableHead>
+                      <TableHead>Excedente</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {dailyUserTimeSummaries.map(summary => {
+                      const isOverLimit = summary.overMinutes > 0;
+
+                      return (
+                        <TableRow
+                          key={summary.key}
+                          className={isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined}
+                        >
+                          <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
+                            {summary.userName}
+                          </TableCell>
+                          <TableCell className={isOverLimit ? 'font-semibold text-red-700' : undefined}>
+                            {formatDailySummaryDate(summary.date)}
+                          </TableCell>
+                          <TableCell>{formatMinutes(summary.approvedMinutes)}</TableCell>
+                          <TableCell>
+                            {summary.runningSeconds > 0 ? formatTime(summary.runningSeconds) : '–'}
+                          </TableCell>
+                          <TableCell className="font-semibold">{formatMinutes(summary.totalMinutes)}</TableCell>
+                          <TableCell>{formatMinutes(summary.limitMinutes)}</TableCell>
+                          <TableCell>
+                            {isOverLimit ? (
+                              <span className="font-semibold text-red-700">
+                                {formatMinutes(summary.overMinutes)}
+                              </span>
+                            ) : (
+                              '–'
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
