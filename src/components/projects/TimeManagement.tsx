@@ -2868,7 +2868,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     ? 'Associe um responsável antes de iniciar o cronômetro.'
                     : undefined;
                 const displayedTime = manualOverrideMinutes !== undefined
-                  ? `Manual: ${formatMinutes(manualOverrideMinutes)}`
+                  ? formatMinutes(manualOverrideMinutes)
                   : isTimerActive
                     ? formatTime(taskTime * 60 + runningSeconds)
                     : formatMinutes(taskTime);
@@ -2892,20 +2892,21 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   ? formatMinutesShort(tempoEstouradoMinutes)
                   : '–';
                 const overUserLimit = resolvedUsageRow?.over_user_limit ?? false;
+                const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
                 const userLimitHours = resolvedUsageRow?.horas_liberadas_por_dia ?? 8;
                 const statusLabel = resolvedUsageRow
-                  ? overUserLimit
+                  ? isOverLimit
                     ? 'Ultrapassado o valor de horas limite'
                     : 'OK'
                   : 'Sem registros';
-                const highlightClass = overUserLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
                 const tempoEstouradoTooltip = resolvedUsageRow
-                  ? overUserLimit
+                  ? isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
                     : `Dentro do limite diário de ${userLimitHours}h.`
                   : 'Nenhum registro finalizado para calcular limites neste dia.';
                 const statusTooltip = resolvedUsageRow
-                  ? overUserLimit
+                  ? isOverLimit
                   ? `Excedeu o limite de ${userLimitHours}h do usuário.`
                   : `Dentro do limite diário de ${userLimitHours}h.`
                   : 'Nenhum registro finalizado para calcular limites neste dia.';
@@ -3185,13 +3186,14 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   const formattedTempoEstourado =
                     tempoEstouradoMinutes > 0 ? formatMinutesShort(tempoEstouradoMinutes) : '00:00';
                   const overUserLimit = usage?.over_user_limit ?? false;
+                  const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
                   const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
-                  const limitStatusLabel = overUserLimit ? 'Tempo Limite Ultrapassado' : 'OK';
-                  const highlightClass = overUserLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
-                  const tempoEstouradoTooltip = overUserLimit
+                  const limitStatusLabel = isOverLimit ? 'Tempo Limite Ultrapassado' : 'OK';
+                  const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                  const tempoEstouradoTooltip = isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário em ${tempoEstouradoMinutes} minutos (${formattedTempoEstourado}).`
                     : `Dentro do limite diário de ${userLimitHours}h.`;
-                  const statusTooltip = overUserLimit
+                  const statusTooltip = isOverLimit
                     ? `Excedeu o limite de ${userLimitHours}h do usuário.`
                     : `Dentro do limite diário de ${userLimitHours}h.`;
 
