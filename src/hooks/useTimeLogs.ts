@@ -298,6 +298,26 @@ const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
 ];
 
 const LEGACY_SCHEMA_ERROR_CODES = new Set(['42703', 'PGRST204']);
+const LEGACY_APPROVAL_PERMISSION_ERROR = 'LEGACY_APPROVAL_PERMISSION_DENIED';
+
+type ErrorWithCode = { code?: string; cause?: unknown };
+
+const createLegacyApprovalPermissionError = (originalError: unknown) => {
+  const error = new Error(
+    'A política de segurança bloqueou a aprovação utilizando o modo de compatibilidade.',
+  );
+
+  (error as ErrorWithCode).code = LEGACY_APPROVAL_PERMISSION_ERROR;
+  (error as ErrorWithCode).cause = originalError;
+
+  return error;
+};
+
+const isLegacyApprovalPermissionError = (value: unknown): value is Error & ErrorWithCode =>
+  typeof value === 'object' &&
+  value !== null &&
+  'code' in value &&
+  (value as ErrorWithCode).code === LEGACY_APPROVAL_PERMISSION_ERROR;
 
 const APPROVAL_STATUS_LABELS: Record<ApprovalStatus, TimeLog['approval_status']> = {
   pendente: 'Aguarda Aprovação',
@@ -807,6 +827,145 @@ export function useTimeLogs(projectId?: string) {
             updated_at: new Date().toISOString(),
           });
 
+          const fetchLatestTimeLog = async (): Promise<TimeLogRow> => {
+            const { data: refreshed, error: refreshError } = await supabase
+              .from('time_logs')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+
+            if (refreshError) {
+              throw refreshError;
+            }
+
+            if (!refreshed) {
+              throw new Error(
+                'Registro de tempo não retornado após executar a rotina de compatibilidade.',
+              );
+            }
+
+            return refreshed as TimeLogRow;
+          };
+
+          const attemptLegacyRpcApproval = async (): Promise<TimeLogRow | null> => {
+            const removeUndefined = (input: Record<string, unknown>) => {
+              const entries = Object.entries(input).filter(([, value]) => value !== undefined);
+              return entries.reduce<Record<string, unknown>>((accumulator, [key, value]) => {
+                accumulator[key] = value;
+                return accumulator;
+              }, {});
+            };
+
+            const basePayloads: Record<string, unknown>[] = [
+              {
+                time_log_id: id,
+                status,
+                commissioned: effectiveCommissioned,
+                performed_at: performedAtIso ?? undefined,
+                approver_name: fallbackApproverName ?? undefined,
+                rejection_reason: rejectionReason ?? undefined,
+              },
+              {
+                time_log_id: id,
+                status,
+                commissioned: effectiveCommissioned,
+                performed_at: performedAtIso ?? undefined,
+                aprovador_nome: fallbackApproverName ?? undefined,
+                justificativa_reprovacao: rejectionReason ?? undefined,
+              },
+              {
+                id,
+                status,
+                commissioned: effectiveCommissioned,
+                performed_at: performedAtIso ?? undefined,
+                approver_name: fallbackApproverName ?? undefined,
+                rejection_reason: rejectionReason ?? undefined,
+              },
+              {
+                time_log_id: id,
+                status,
+              },
+              {
+                time_log_id: id,
+                status,
+                commissioned: effectiveCommissioned,
+              },
+              {
+                payload: {
+                  ...fallbackPayload,
+                },
+              },
+              {
+                time_log_id: id,
+                payload: {
+                  ...fallbackPayload,
+                },
+              },
+              {
+                payload: {
+                  ...fallbackPayload,
+                  status,
+                },
+              },
+              {
+                time_log_id: id,
+                payload: {
+                  ...fallbackPayload,
+                  status,
+                },
+              },
+            ]
+              .map(removeUndefined)
+              .filter(payload => Object.keys(payload).length > 0);
+
+            const seenPayloads = new Set<string>();
+
+            for (const payload of basePayloads) {
+              const cacheKey = JSON.stringify(
+                Object.entries(payload).sort(([keyA], [keyB]) => keyA.localeCompare(keyB)),
+              );
+
+              if (seenPayloads.has(cacheKey)) {
+                continue;
+              }
+
+              seenPayloads.add(cacheKey);
+
+              const { data: legacyData, error: legacyError } = await supabase.rpc(
+                'approve_time_log',
+                payload as never,
+              );
+
+              if (legacyError) {
+                if (legacyError.code === '42501') {
+                  throw createLegacyApprovalPermissionError(legacyError);
+                }
+
+                if (legacyError.code && LEGACY_SCHEMA_ERROR_CODES.has(legacyError.code)) {
+                  continue;
+                }
+
+                if (legacyError.code === 'PGRST202') {
+                  continue;
+                }
+
+                console.warn('Tentativa de compatibilidade com approve_time_log falhou.', {
+                  payload,
+                  error: legacyError,
+                });
+                continue;
+              }
+
+              if (legacyData) {
+                return legacyData as TimeLogRow;
+              }
+
+              return fetchLatestTimeLog();
+            }
+
+            return null;
+          };
+
           const attemptLegacyUpdate = async (
             payload: Record<string, unknown>,
             allowRetry: boolean,
@@ -819,6 +978,10 @@ export function useTimeLogs(projectId?: string) {
               .single();
 
             if (updateError) {
+              if (updateError.code === '42501') {
+                throw createLegacyApprovalPermissionError(updateError);
+              }
+
               if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(updateError.code ?? '')) {
                 const trimmedPayload = { ...payload };
                 for (const column of LEGACY_INCOMPATIBLE_COLUMNS) {
@@ -842,8 +1005,15 @@ export function useTimeLogs(projectId?: string) {
             return updateData as TimeLogRow;
           };
 
-          updatedRow = await attemptLegacyUpdate(fallbackPayload, true);
-          legacyApprovalSchemaRef.current = true;
+          const legacyRpcRow = await attemptLegacyRpcApproval();
+
+          if (legacyRpcRow) {
+            updatedRow = legacyRpcRow;
+            legacyApprovalSchemaRef.current = true;
+          } else {
+            updatedRow = await attemptLegacyUpdate(fallbackPayload, true);
+            legacyApprovalSchemaRef.current = true;
+          }
         } else {
           throw rpcError;
         }
@@ -867,11 +1037,20 @@ export function useTimeLogs(projectId?: string) {
       return normalized;
     } catch (error) {
       console.error('Erro ao aprovar/reprovar tempo:', error);
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível atualizar o status',
-        variant: 'destructive',
-      });
+      if (isLegacyApprovalPermissionError(error)) {
+        toast({
+          title: 'Permissão necessária',
+          description:
+            'A aprovação foi bloqueada pelas políticas de segurança. Solicite a atualização do banco para disponibilizar a função approve_time_log.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível atualizar o status',
+          variant: 'destructive',
+        });
+      }
       return null;
     }
   };
