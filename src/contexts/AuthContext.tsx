@@ -42,10 +42,15 @@ const mapSupabaseUser = (u: any): User => ({
 
 const persistMappedUser = (mapped: User | null) => {
   if (typeof window === "undefined") return;
-  if (mapped) {
-    localStorage.setItem("user", JSON.stringify(mapped));
-  } else {
-    localStorage.removeItem("user");
+
+  try {
+    if (mapped) {
+      localStorage.setItem("user", JSON.stringify(mapped));
+    } else {
+      localStorage.removeItem("user");
+    }
+  } catch (error) {
+    console.warn("Failed to persist user in storage:", error);
   }
 };
 

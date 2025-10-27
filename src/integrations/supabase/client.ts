@@ -8,9 +8,54 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+const createMemoryStorage = (): Storage => {
+  let store: Record<string, string> = {};
+
+  return {
+    get length() {
+      return Object.keys(store).length;
+    },
+    clear() {
+      store = {};
+    },
+    getItem(key: string) {
+      return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
+    },
+    key(index: number) {
+      const keys = Object.keys(store);
+      return index >= 0 && index < keys.length ? keys[index] : null;
+    },
+    removeItem(key: string) {
+      delete store[key];
+    },
+    setItem(key: string, value: string) {
+      store[key] = value;
+    },
+  } as Storage;
+};
+
+const resolveBrowserStorage = (): Storage | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const { localStorage } = window;
+    const testKey = "__storage_test__";
+    localStorage.setItem(testKey, testKey);
+    localStorage.removeItem(testKey);
+    return localStorage;
+  } catch (error) {
+    console.warn("Falling back to in-memory storage for Supabase auth:", error);
+    return null;
+  }
+};
+
+const storage: Storage = resolveBrowserStorage() ?? createMemoryStorage();
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage,
     persistSession: true,
     autoRefreshToken: true,
   }
