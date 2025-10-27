@@ -3887,7 +3887,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       <TooltipProvider delayDuration={200}>
         <Table>
           <TableHeader>
-          <TableRow>
+            <TableRow>
             {canManageApprovals ? (
               <TableHead className="w-12">
                 <Checkbox
@@ -3911,175 +3911,175 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             <TableHead>Hora da Aprovação</TableHead>
             {canManageApprovals ? <TableHead>Ação</TableHead> : null}
             <TableHead>Atividades</TableHead>
-              </TableRow>
-            </TableHeader>
+            </TableRow>
+          </TableHeader>
           <TableBody>
-              {groupedTimeLogs.length > 0 ? (
-                groupedTimeLogs.map(group => (
-                  <Fragment key={group.key}>
-                    {timeLogGroupBy !== 'none' && group.items.length > 0 ? (
-                      <TableRow className="bg-muted/40">
-                        <TableCell colSpan={timeLogTableColumnCount} className="font-semibold uppercase text-muted-foreground">
-                          {group.label}
+            {groupedTimeLogs.length > 0 ? (
+              groupedTimeLogs.map(group => (
+                <Fragment key={group.key}>
+                  {timeLogGroupBy !== 'none' && group.items.length > 0 ? (
+                    <TableRow className="bg-muted/40">
+                      <TableCell colSpan={timeLogTableColumnCount} className="font-semibold uppercase text-muted-foreground">
+                        {group.label}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  {group.items.map(({ log }) => {
+                    const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
+                    const activityText = getLogActivity(log);
+                    const approverDisplayName = getApproverDisplayName(log);
+                    const isPendingApproval = log.status_aprovacao === 'pendente';
+                    const isCurrentProcessing = processingApprovalId === log.id;
+                    const approvalActionsDisabled = processingApprovalId !== null;
+                    const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
+                    const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
+                    const usage = getLogDailyUsage(log);
+                    const tempoEstouradoMinutes = usage?.tempo_estourado_minutes ?? 0;
+                    const overUserLimit = usage?.over_user_limit ?? false;
+                    const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
+                    const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
+                    const limitStatusLabel = isOverLimit ? 'Tempo Limite Ultrapassado' : 'OK';
+                    const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
+                    const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
+                    const statusTooltip = isOverLimit
+                      ? `Excedeu o limite de ${userLimitHours}h do usuário.`
+                      : `Dentro do limite diário de ${userLimitHours}h.`;
+                    const isTimedEntry = log.tipo_inclusao === 'timer';
+                    const logTypeBadgeClass = isTimedEntry
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
+                      : 'border-sky-500/40 bg-sky-500/10 text-sky-700';
+
+                    return (
+                      <TableRow key={log.id} className={highlightRowClass}>
+                        {canManageApprovals ? (
+                          <TableCell>
+                            <Checkbox
+                              aria-label="Selecionar registro de tempo"
+                              checked={selectedLogIds.includes(log.id)}
+                              onCheckedChange={checked => handleRowSelectionChange(log, checked === true)}
+                              disabled={log.status_aprovacao === 'aprovado' || isProcessingBulkApproval}
+                            />
+                          </TableCell>
+                        ) : null}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenLogDetails(log)}
+                                  aria-label="Visualizar registro de tempo"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Visualizar registro</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenLogEditDialog(log)}
+                                  aria-label="Editar atividades do registro"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Editar atividades</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleOpenDeleteDialog(log)}
+                                  disabled={isDeletingLog}
+                                  aria-label="Excluir registro de tempo"
+                                >
+                                  {isDeletingLog && logPendingDeletion?.id === log.id ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Excluir registro</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </TableCell>
+                        <TableCell className={highlightClass}>{formatLogCreatedAt(log.created_at)}</TableCell>
+                        <TableCell>{task?.tarefa || 'Tarefa não encontrada'}</TableCell>
+                        <TableCell className={highlightClass}>
+                          {isOverLimit ? (
+                            <span className="text-red-600 font-semibold">{task?.responsavel || '-'}</span>
+                          ) : (
+                            task?.responsavel || '-'
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={logTypeBadgeClass}>
+                            {isTimedEntry ? 'CRONOMETRADO' : 'MANUAL'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{getFormattedLogDuration(log)}</TableCell>
+                        <TableCell className={highlightClass}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span>{limitStatusLabel}</span>
+                            </TooltipTrigger>
+                            <TooltipContent>{statusTooltip}</TooltipContent>
+                          </Tooltip>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">{getStatusBadge(log)}</div>
+                        </TableCell>
+                        <TableCell>{approverDisplayName}</TableCell>
+                        <TableCell>
+                          {log.status_aprovacao !== 'pendente'
+                            ? formatApprovalDate(log.aprovacao_data ?? log.data_aprovacao)
+                            : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {log.status_aprovacao !== 'pendente'
+                            ? formatApprovalTime(log.aprovacao_hora ?? log.data_aprovacao)
+                            : '-'}
+                        </TableCell>
+                        {canManageApprovals ? (
+                          <TableCell>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenApprovalDialog(log, 'approve')}
+                              disabled={isApproveButtonDisabled}
+                              className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
+                            >
+                              {isApproveLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="h-4 w-4" />
+                              )}
+                              Aprovar
+                            </Button>
+                          </TableCell>
+                        ) : null}
+                        <TableCell>
+                          {activityText ? (
+                            <span className="block max-w-[220px] break-words text-xs">{activityText}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                       </TableRow>
-                    ) : null}
-                    {group.items.map(({ log }) => {
-                  const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
-                  const activityText = getLogActivity(log);
-                  const approverDisplayName = getApproverDisplayName(log);
-                  const isPendingApproval = log.status_aprovacao === 'pendente';
-                  const isCurrentProcessing = processingApprovalId === log.id;
-                  const approvalActionsDisabled = processingApprovalId !== null;
-                  const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
-                  const isApproveButtonDisabled = !isPendingApproval || approvalActionsDisabled;
-                  const usage = getLogDailyUsage(log);
-                  const tempoEstouradoMinutes = usage?.tempo_estourado_minutes ?? 0;
-                  const overUserLimit = usage?.over_user_limit ?? false;
-                  const isOverLimit = overUserLimit || tempoEstouradoMinutes > 0;
-                  const userLimitHours = usage?.horas_liberadas_por_dia ?? 8;
-                  const limitStatusLabel = isOverLimit ? 'Tempo Limite Ultrapassado' : 'OK';
-                  const highlightClass = isOverLimit ? 'bg-red-50 text-red-600 font-semibold' : undefined;
-                  const highlightRowClass = isOverLimit ? 'bg-red-50 hover:bg-red-50/80' : undefined;
-                  const statusTooltip = isOverLimit
-                    ? `Excedeu o limite de ${userLimitHours}h do usuário.`
-                    : `Dentro do limite diário de ${userLimitHours}h.`;
-                  const isTimedEntry = log.tipo_inclusao === 'timer';
-                  const logTypeBadgeClass = isTimedEntry
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
-                    : 'border-sky-500/40 bg-sky-500/10 text-sky-700';
-
-                      return (
-                        <TableRow key={log.id} className={highlightRowClass}>
-                      {canManageApprovals ? (
-                        <TableCell>
-                          <Checkbox
-                            aria-label="Selecionar registro de tempo"
-                            checked={selectedLogIds.includes(log.id)}
-                            onCheckedChange={checked => handleRowSelectionChange(log, checked === true)}
-                            disabled={log.status_aprovacao === 'aprovado' || isProcessingBulkApproval}
-                          />
-                        </TableCell>
-                      ) : null}
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenLogDetails(log)}
-                                aria-label="Visualizar registro de tempo"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Visualizar registro</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenLogEditDialog(log)}
-                                aria-label="Editar atividades do registro"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Editar atividades</TooltipContent>
-                          </Tooltip>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleOpenDeleteDialog(log)}
-                                disabled={isDeletingLog}
-                                aria-label="Excluir registro de tempo"
-                              >
-                                {isDeletingLog && logPendingDeletion?.id === log.id ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Excluir registro</TooltipContent>
-                          </Tooltip>
-                        </div>
-                      </TableCell>
-                      <TableCell className={highlightClass}>{formatLogCreatedAt(log.created_at)}</TableCell>
-                      <TableCell>{task?.tarefa || 'Tarefa não encontrada'}</TableCell>
-                      <TableCell className={highlightClass}>
-                        {isOverLimit ? (
-                          <span className="text-red-600 font-semibold">{task?.responsavel || '-'}</span>
-                        ) : (
-                          task?.responsavel || '-'
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={logTypeBadgeClass}>
-                          {isTimedEntry ? 'CRONOMETRADO' : 'MANUAL'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{getFormattedLogDuration(log)}</TableCell>
-                      <TableCell className={highlightClass}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span>{limitStatusLabel}</span>
-                          </TooltipTrigger>
-                          <TooltipContent>{statusTooltip}</TooltipContent>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">{getStatusBadge(log)}</div>
-                      </TableCell>
-                      <TableCell>{approverDisplayName}</TableCell>
-                      <TableCell>
-                        {log.status_aprovacao !== 'pendente'
-                          ? formatApprovalDate(log.aprovacao_data ?? log.data_aprovacao)
-                          : '-'}
-                      </TableCell>
-                      <TableCell>
-                        {log.status_aprovacao !== 'pendente'
-                          ? formatApprovalTime(log.aprovacao_hora ?? log.data_aprovacao)
-                          : '-'}
-                      </TableCell>
-                      {canManageApprovals ? (
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenApprovalDialog(log, 'approve')}
-                            disabled={isApproveButtonDisabled}
-                            className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
-                          >
-                            {isApproveLoading ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="h-4 w-4" />
-                            )}
-                            Aprovar
-                          </Button>
-                        </TableCell>
-                      ) : null}
-                      <TableCell>
-                        {activityText ? (
-                          <span className="block max-w-[220px] break-words text-xs">{activityText}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  </Fragment>
-                ))
+                    );
+                  })}
+                </Fragment>
+              ))
               ) : (
                 <TableRow>
                   <TableCell colSpan={timeLogTableColumnCount} className="text-center text-muted-foreground">
