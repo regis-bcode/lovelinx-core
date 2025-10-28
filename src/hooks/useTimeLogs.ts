@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
@@ -348,7 +349,56 @@ const LEGACY_INCOMPATIBLE_COLUMNS: (keyof TimeLogFormData)[] = [
   'is_billable',
   'aprovacao_data',
   'aprovacao_hora',
+  'aprovado',
+  'aprovador_nome',
+  'comissionado',
+  'justificativa_reprovacao',
 ];
+
+const LEGACY_SAFE_UPDATE_COLUMNS = [
+  'status_aprovacao',
+  'aprovador_id',
+  'data_aprovacao',
+  'observacoes',
+  'updated_at',
+] as const;
+
+const extractUndefinedColumnsFromError = (error: PostgrestError | null): string[] => {
+  if (!error) {
+    return [];
+  }
+
+  const columns = new Set<string>();
+  const candidates = [error.message, error.details, error.hint];
+
+  for (const fragment of candidates) {
+    if (typeof fragment !== 'string' || fragment.length === 0) {
+      continue;
+    }
+
+    const regex =
+      /column\s+"?([a-zA-Z0-9_]+)"?(?:\s+of\s+relation\s+"?[a-zA-Z0-9_]+"?)?\s+does not exist/gi;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(fragment)) !== null) {
+      columns.add(match[1]);
+    }
+  }
+
+  return Array.from(columns);
+};
+
+const buildLegacySafeUpdatePayload = (payload: Record<string, unknown>) => {
+  const safePayload: Record<string, unknown> = {};
+
+  for (const column of LEGACY_SAFE_UPDATE_COLUMNS) {
+    if (column in payload) {
+      safePayload[column] = payload[column];
+    }
+  }
+
+  return sanitizeTimeLogPayload(safePayload);
+};
 
 const LEGACY_SCHEMA_ERROR_CODES = new Set(['42703', 'PGRST204']);
 const LEGACY_APPROVAL_PERMISSION_ERROR = 'LEGACY_APPROVAL_PERMISSION_DENIED';
@@ -1224,14 +1274,56 @@ export function useTimeLogs(projectId?: string) {
               }
 
               if (allowRetry && LEGACY_SCHEMA_ERROR_CODES.has(updateError.code ?? '')) {
+                const undefinedColumns = extractUndefinedColumnsFromError(updateError);
                 const trimmedPayload = { ...payload };
-                for (const column of LEGACY_INCOMPATIBLE_COLUMNS) {
+                let removedAnyColumn = false;
+                const removedColumns: string[] = [];
+
+                const columnsToRemove = new Set<string>([
+                  ...LEGACY_INCOMPATIBLE_COLUMNS,
+                  ...undefinedColumns,
+                ]);
+
+                for (const column of columnsToRemove) {
                   if (column in trimmedPayload) {
                     delete trimmedPayload[column];
+                    removedAnyColumn = true;
+                    removedColumns.push(column);
                   }
                 }
+
+                const nextPayload = removedAnyColumn
+                  ? sanitizeTimeLogPayload(trimmedPayload)
+                  : buildLegacySafeUpdatePayload(payload);
+
+                if (removedAnyColumn) {
+                  console.warn(
+                    'Tentativa de compatibilidade com approve_time_log removeu colunas indisponíveis.',
+                    {
+                      removedColumns,
+                      originalPayload: payload,
+                      sanitizedPayload: nextPayload,
+                      error: updateError,
+                    },
+                  );
+                } else {
+                  console.warn(
+                    'Tentativa de compatibilidade com approve_time_log exigiu payload mínimo.',
+                    {
+                      originalPayload: payload,
+                      minimalPayload: nextPayload,
+                      error: updateError,
+                    },
+                  );
+                }
+
                 legacyApprovalSchemaRef.current = true;
-                return attemptLegacyUpdate(trimmedPayload, false);
+
+                if (Object.keys(nextPayload).length === 0) {
+                  throw updateError;
+                }
+
+                return attemptLegacyUpdate(nextPayload, false);
               }
 
               throw updateError;
