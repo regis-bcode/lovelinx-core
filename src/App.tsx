@@ -66,6 +66,37 @@ function ProjectTasksRedirect() {
   return <Navigate to={target} replace />;
 }
 
+function LegacyProjectRedirect() {
+  const { projectId, tab } = useParams<{ projectId: string; tab?: string }>();
+  const location = useLocation();
+
+  if (!projectId) {
+    return <Navigate to="/projects-tap" replace />;
+  }
+
+  const params = new URLSearchParams(location.search);
+  const validTabs = new Set([
+    "tap",
+    "stakeholders",
+    "tasks",
+    "time",
+    "communication",
+    "risks",
+    "gaps",
+    "turnover",
+    "documents",
+  ]);
+
+  const requestedTab = tab ?? params.get("tab") ?? undefined;
+  const normalizedTab = requestedTab && validTabs.has(requestedTab) ? requestedTab : "tap";
+  params.set("tab", normalizedTab);
+
+  const search = params.toString();
+  const target = `/projects-tap/${projectId}${search ? `?${search}` : ""}`;
+
+  return <Navigate to={target} replace />;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -148,6 +179,30 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ProjectTasksRedirect />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/tabs/:tab"
+        element={
+          <ProtectedRoute>
+            <LegacyProjectRedirect />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId/tabs"
+        element={
+          <ProtectedRoute>
+            <LegacyProjectRedirect />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/projects/:projectId"
+        element={
+          <ProtectedRoute>
+            <LegacyProjectRedirect />
           </ProtectedRoute>
         }
       />
