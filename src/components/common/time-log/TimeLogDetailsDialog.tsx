@@ -17,6 +17,8 @@ import { Field } from "./Field";
 import { Timeline } from "./Timeline";
 import { cn } from "@/lib/utils";
 import { formatDateBr, formatDateTimeBr, formatDuration } from "./formatters";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 export type LogStatus = "Pendente" | "Aprovado" | "Reprovado";
 
@@ -76,12 +78,58 @@ export function TimeLogDetailsDialog({
 }: TimeLogDetailsProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const status = log?.status ?? "Pendente";
+  const { user } = useAuth();
   const start = log?.periodoInicioISO;
   const end = log?.periodoFimISO;
   const [selectedAction, setSelectedAction] = useState<"approve" | "reject" | null>(null);
   const [isCommissionedSelected, setIsCommissionedSelected] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<LogStatus | null>(null);
+  const [pendingApproverId, setPendingApproverId] = useState<string | null>(null);
+  const [pendingApproverName, setPendingApproverName] = useState<string | null>(null);
+  const [pendingApprovalDateISO, setPendingApprovalDateISO] = useState<string | null>(null);
+  const [pendingApprovalTime, setPendingApprovalTime] = useState<string | null>(null);
 
   const duration = useMemo(() => formatDuration(start, end), [start, end]);
+  const displayStatus = pendingStatus ?? status;
+
+  const clearPendingApproval = useCallback(() => {
+    setPendingStatus(null);
+    setPendingApproverId(null);
+    setPendingApproverName(null);
+    setPendingApprovalDateISO(null);
+    setPendingApprovalTime(null);
+  }, []);
+
+  const resolveUserDisplayName = useCallback(() => {
+    if (user?.name && user.name.trim().length > 0) {
+      return user.name.trim();
+    }
+
+    if (user?.email && user.email.trim().length > 0) {
+      return user.email.trim();
+    }
+
+    return log?.aprovador?.trim() ? log.aprovador.trim() : null;
+  }, [log?.aprovador, user?.email, user?.name]);
+
+  const applyPendingApproval = useCallback(
+    (action: "approve" | "reject") => {
+      const now = new Date();
+      const iso = now.toISOString();
+      const time = now.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false
+      });
+
+      setPendingStatus(action === "approve" ? "Aprovado" : "Reprovado");
+      setPendingApproverId(user?.id ?? null);
+      setPendingApproverName(resolveUserDisplayName());
+      setPendingApprovalDateISO(iso);
+      setPendingApprovalTime(time);
+    },
+    [resolveUserDisplayName, user?.id]
+  );
 
   const handleClose = useCallback(() => {
     onOpenChange(false);
@@ -90,30 +138,42 @@ export function TimeLogDetailsDialog({
   const handleSelectApprove = useCallback(() => {
     if (!log || status !== "Pendente") return;
     setSelectedAction("approve");
-  }, [log, status]);
+    applyPendingApproval("approve");
+  }, [applyPendingApproval, log, status]);
 
   const handleSelectReject = useCallback(() => {
     if (!log || status !== "Pendente") return;
     setSelectedAction("reject");
     setIsCommissionedSelected(false);
-  }, [log, status]);
+    applyPendingApproval("reject");
+  }, [applyPendingApproval, log, status]);
 
   const handleToggleCommissioned = useCallback(() => {
     if (!log || status !== "Pendente") return;
     setIsCommissionedSelected((previous) => {
       const next = !previous;
-      setSelectedAction(next ? "approve" : null);
+      if (next) {
+        setSelectedAction("approve");
+        applyPendingApproval("approve");
+      } else {
+        setSelectedAction(null);
+        clearPendingApproval();
+      }
       return next;
     });
-  }, [log, status]);
+  }, [applyPendingApproval, clearPendingApproval, log, status]);
 
-  const handleConfirmAction = useCallback(() => {
+  const handleConfirmAction = useCallback(async () => {
     if (!log || status !== "Pendente" || !selectedAction) return;
 
     const performedAt = new Date();
     const statusLabel = selectedAction === "approve" ? "Aprovado" : "Reprovado";
     const commissioned = selectedAction === "approve" ? isCommissionedSelected : false;
     const resolvedApprover = (() => {
+      if (pendingApproverName && pendingApproverName.trim().length > 0) {
+        return pendingApproverName.trim();
+      }
+
       try {
         const fromResolver = resolveApproverName?.();
         if (typeof fromResolver === "string") {
@@ -137,6 +197,37 @@ export function TimeLogDetailsDialog({
       return null;
     })();
 
+    const approvalIso = pendingApprovalDateISO ?? performedAt.toISOString();
+    const approvalTime = pendingApprovalTime ?? performedAt.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+
+    try {
+      const { error } = await supabase
+        .from("time_logs")
+        .update({
+          status_aprovacao: selectedAction === "approve" ? "aprovado" : "reprovado",
+          aprovador_id: pendingApproverId ?? user?.id ?? null,
+          aprovador_nome: resolvedApprover,
+          aprovacao_data: approvalIso,
+          data_aprovacao: approvalIso,
+          aprovacao_hora: approvalTime,
+          approved_by: pendingApproverId ?? user?.id ?? null,
+          approved_at: approvalIso
+        })
+        .eq("id", log.id);
+
+      if (error) {
+        console.error("Erro ao atualizar registro de tempo no Supabase:", error);
+        return;
+      }
+    } catch (error) {
+      console.error("Falha inesperada ao atualizar registro de tempo:", error);
+      return;
+    }
+
     if (onConfirm) {
       void onConfirm(log.id, {
         status: statusLabel,
@@ -155,9 +246,14 @@ export function TimeLogDetailsDialog({
     onAprovar,
     onConfirm,
     onReprovar,
+    pendingApproverId,
+    pendingApproverName,
+    pendingApprovalDateISO,
+    pendingApprovalTime,
     resolveApproverName,
     selectedAction,
-    status
+    status,
+    user?.id
   ]);
 
   const isLoading = !log;
@@ -166,12 +262,14 @@ export function TimeLogDetailsDialog({
     if (!open) {
       setSelectedAction(null);
       setIsCommissionedSelected(false);
+      clearPendingApproval();
       return;
     }
 
     setSelectedAction(null);
     setIsCommissionedSelected(false);
-  }, [log?.id, open]);
+    clearPendingApproval();
+  }, [clearPendingApproval, log?.id, open]);
 
   const renderFieldSkeleton = (rows = 3) =>
     Array.from({ length: rows }).map((_, index) => (
@@ -243,10 +341,10 @@ export function TimeLogDetailsDialog({
       {
         key: "status",
         label: "Status",
-        value: <StatusChip status={status} />
+        value: <StatusChip status={displayStatus} />
       }
     ];
-  }, [log, status]);
+  }, [displayStatus, log]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -342,9 +440,21 @@ export function TimeLogDetailsDialog({
                       renderFieldSkeleton(4)
                     ) : (
                       <>
-                        <Field label="Aprovador" value={log?.aprovador} className="border-none bg-slate-50" />
-                        <Field label="Data" value={formatDateBr(log?.dataAprovacaoISO)} className="border-none bg-slate-50" />
-                        <Field label="Hora" value={log?.horaAprovacao} className="border-none bg-slate-50" />
+                        <Field
+                          label="Aprovador"
+                          value={pendingApproverName ?? log?.aprovador}
+                          className="border-none bg-slate-50"
+                        />
+                        <Field
+                          label="Data"
+                          value={formatDateBr(pendingApprovalDateISO ?? log?.dataAprovacaoISO)}
+                          className="border-none bg-slate-50"
+                        />
+                        <Field
+                          label="Hora"
+                          value={pendingApprovalTime ?? log?.horaAprovacao}
+                          className="border-none bg-slate-50"
+                        />
                         <Field label="Origem" value={log?.tipo} className="border-none bg-slate-50" />
                       </>
                     )}
