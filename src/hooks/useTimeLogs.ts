@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { TimeLog, TimeLogFormData, ApprovalStatus, TimeEntryType } from '@/types/time-log';
 import { useToast } from '@/hooks/use-toast';
 import type { Database } from '@/integrations/supabase/types';
 import { sanitizeTimeLogPayload } from '@/hooks/utils/timeLogPayload';
+import { useUserRoles } from '@/hooks/useUserRoles';
 
 type TimeLogRow = Database['public']['Tables']['time_logs']['Row'];
 type TimeLogInsert = Database['public']['Tables']['time_logs']['Insert'];
@@ -408,8 +409,13 @@ export function useTimeLogs(projectId?: string) {
   const [loading, setLoading] = useState(true);
   const [dailyUsageMap, setDailyUsageMap] = useState<Record<string, TimeDailyUsageRow>>({});
   const { toast } = useToast();
+  const { userRoles } = useUserRoles();
   const legacyApprovalSchemaRef = useRef(false);
   const legacyApprovalAttemptedRef = useRef(false);
+  const hasApprovalPrivileges = useMemo(
+    () => userRoles.includes('gestor') || userRoles.includes('admin'),
+    [userRoles],
+  );
 
   const storeDailyUsageRows = useCallback((rows: TimeDailyUsageRow[]) => {
     if (!Array.isArray(rows) || rows.length === 0) {
@@ -1074,7 +1080,9 @@ export function useTimeLogs(projectId?: string) {
           }
 
           const canAttemptLegacyApproval =
-            status === 'pendente' || (legacyTargetUserId !== null && legacyTargetUserId === user.id);
+            status === 'pendente' ||
+            hasApprovalPrivileges ||
+            (legacyTargetUserId !== null && legacyTargetUserId === user.id);
 
           if (!canAttemptLegacyApproval) {
             throw createApproveTimeLogUnavailableError(rpcError);
