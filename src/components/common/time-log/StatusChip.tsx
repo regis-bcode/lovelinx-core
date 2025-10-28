@@ -21,6 +21,7 @@ interface StatusChipProps {
 
 export function StatusChip({ status }: StatusChipProps) {
   const styles = STATUS_STYLES[status] ?? STATUS_STYLES.Pendente;
+  const label = status === "Pendente" ? status : status.toUpperCase();
 
   return (
     <Badge
@@ -28,7 +29,7 @@ export function StatusChip({ status }: StatusChipProps) {
       className={`inline-flex items-center gap-2 rounded-full border-0 px-3 py-1 text-xs font-semibold ${styles.container}`}
     >
       <span className={`h-2.5 w-2.5 rounded-full ${styles.dot}`} aria-hidden />
-      {status}
+      {label}
     </Badge>
   );
 }
