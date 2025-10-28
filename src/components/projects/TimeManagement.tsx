@@ -1849,7 +1849,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return 'Selecione uma ação para os registros de tempo selecionados.';
   }, [bulkApprovalAction]);
 
-  const handleConfirmApprovalAction = useCallback(async () => {
+  const handleConfirmApprovalDialogAction = useCallback(async () => {
     if (!approvalDialogLog || !approvalDialogAction) {
       return;
     }
@@ -2817,7 +2817,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setPendingApprovalAction(prev => prev ?? 'approve');
   }
 
-  async function handleConfirmApprovalAction() {
+  async function handleConfirmLogApprovalAction() {
     const targetLog = approvalTargetLogRef.current ?? timeLog;
 
     if (!targetLog || isSaving || isApprovalInfoComplete || !hasPendingApprovalChanges) {
@@ -4264,7 +4264,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 type="button"
                 className="bg-green-600 text-white hover:bg-green-700"
                 disabled={isApprovalOkButtonDisabled}
-                onClick={() => void handleConfirmApprovalAction()}
+                onClick={() => void handleConfirmLogApprovalAction()}
               >
                 OK
               </Button>
@@ -4421,7 +4421,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
             </Button>
             <Button
               type="button"
-              onClick={() => void handleConfirmApprovalAction()}
+              onClick={() => void handleConfirmApprovalDialogAction()}
               disabled={
                 (processingApprovalId !== null && approvalDialogLog?.id !== processingApprovalId) ||
                 approvalDialogAction === null ||
