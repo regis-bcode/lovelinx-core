@@ -2360,7 +2360,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 13 : 11;
+  const timeLogTableColumnCount = canManageApprovals ? 16 : 11;
+  const [isApprovalMode, setIsApprovalMode] = useState(false);
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
     if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
@@ -3583,9 +3584,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       {/* Log de Tempo */}
       <Card>
         <CardHeader>
-      <CardTitle>Histórico de Registros de Tempo</CardTitle>
-    </CardHeader>
-    <CardContent>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <CardTitle>Histórico de Registros de Tempo</CardTitle>
+            {canManageApprovals ? (
+              <Button
+                type="button"
+                variant={isApprovalMode ? 'secondary' : 'outline'}
+                className="uppercase tracking-wide"
+                onClick={() => setIsApprovalMode(prev => !prev)}
+                aria-pressed={isApprovalMode}
+              >
+                MODO APROVAÇÃO
+              </Button>
+            ) : null}
+          </div>
+        </CardHeader>
+        <CardContent>
       <div className="mb-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
         <div className="space-y-1">
           <Label className="text-xs uppercase text-muted-foreground">Responsável</Label>
@@ -3765,29 +3779,36 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
         <Table>
           <TableHeader>
             <TableRow>
-            {canManageApprovals ? (
-              <TableHead className="w-12">
-                <Checkbox
-                  aria-label="Selecionar todos os registros pendentes"
-                  checked={headerCheckboxState}
-                  onCheckedChange={checked => handleToggleSelectAll(checked === true)}
-                  disabled={selectableLogs.length === 0 || isProcessingBulkApproval}
-                />
-              </TableHead>
-            ) : null}
-            <TableHead className="w-24">Ações</TableHead>
-            <TableHead>Data</TableHead>
-            <TableHead>Tarefa</TableHead>
-            <TableHead>Responsável</TableHead>
-            <TableHead>Tipo</TableHead>
-            <TableHead>Tempo do Log</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Status de Aprovação</TableHead>
-            <TableHead>Aprovador</TableHead>
-            <TableHead>Data da Aprovação</TableHead>
-            <TableHead>Hora da Aprovação</TableHead>
-            {canManageApprovals ? <TableHead>Ação</TableHead> : null}
-            <TableHead>Atividades</TableHead>
+              {canManageApprovals ? (
+                <TableHead className="w-12">
+                  <Checkbox
+                    aria-label="Selecionar todos os registros pendentes"
+                    checked={headerCheckboxState}
+                    onCheckedChange={checked => handleToggleSelectAll(checked === true)}
+                    disabled={selectableLogs.length === 0 || isProcessingBulkApproval}
+                  />
+                </TableHead>
+              ) : null}
+              <TableHead className="w-24">Ações</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead>Tarefa</TableHead>
+              <TableHead>Responsável</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Tempo do Log</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Status de Aprovação</TableHead>
+              <TableHead>Aprovador</TableHead>
+              <TableHead>Data da Aprovação</TableHead>
+              <TableHead>Hora da Aprovação</TableHead>
+              {canManageApprovals ? (
+                <>
+                  <TableHead>Aprovado</TableHead>
+                  <TableHead>Reprovado</TableHead>
+                  <TableHead>Comissionado</TableHead>
+                  <TableHead>Ação</TableHead>
+                </>
+              ) : null}
+              <TableHead>Atividades</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -3927,23 +3948,43 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                             : '-'}
                         </TableCell>
                         {canManageApprovals ? (
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenApprovalDialog(log, 'approve')}
-                              disabled={isApproveButtonDisabled}
-                              className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
-                            >
-                              {isApproveLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                              Aprovar
-                            </Button>
-                          </TableCell>
+                          <>
+                            <TableCell className="text-center">
+                              <Checkbox
+                                aria-label="Marcar registro como aprovado"
+                                disabled={!isApprovalMode}
+                              />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Checkbox
+                                aria-label="Marcar registro como reprovado"
+                                disabled={!isApprovalMode}
+                              />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Checkbox
+                                aria-label="Marcar registro como comissionado"
+                                disabled={!isApprovalMode}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenApprovalDialog(log, 'approve')}
+                                disabled={isApproveButtonDisabled}
+                                className="gap-1.5 border-green-600 text-green-700 hover:bg-green-50 hover:text-green-800"
+                              >
+                                {isApproveLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="h-4 w-4" />
+                                )}
+                                Aprovar
+                              </Button>
+                            </TableCell>
+                          </>
                         ) : null}
                         <TableCell>
                           {activityText ? (
