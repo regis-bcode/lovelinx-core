@@ -35,7 +35,6 @@ import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUser } from '@supabase/auth-helpers-react';
 import {
   areActiveTimerRecordsEqual,
   persistActiveTimerRecord,
@@ -148,7 +147,6 @@ interface TimeManagementProps {
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
   const { user } = useAuth();
-  const supabaseUser = useUser();
   const { tasks, customFields, loading: tasksLoading, updateTask } = useTasks(projectId);
   const {
     timeLogs,
@@ -2710,16 +2708,13 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       return normalizedDefault;
     }
 
-    const supabaseMetadataName =
-      typeof supabaseUser?.user_metadata?.full_name === 'string'
-        ? supabaseUser.user_metadata.full_name.trim()
-        : '';
-    if (supabaseMetadataName.length > 0) {
-      return supabaseMetadataName;
+    const authUserName = typeof user?.name === 'string' ? user.name.trim() : '';
+    if (authUserName.length > 0) {
+      return authUserName;
     }
 
-    const supabaseEmail = typeof supabaseUser?.email === 'string' ? supabaseUser.email.trim() : '';
-    return supabaseEmail.length > 0 ? supabaseEmail : undefined;
+    const authUserEmail = typeof user?.email === 'string' ? user.email.trim() : '';
+    return authUserEmail.length > 0 ? authUserEmail : undefined;
   })();
 
   function handleApprove() {
