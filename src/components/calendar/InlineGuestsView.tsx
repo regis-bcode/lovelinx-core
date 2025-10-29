@@ -1,7 +1,7 @@
 // src/components/calendar/InlineGuestsView.tsx
 import React, { useEffect, useMemo, useState } from "react";
 
-const FN_URL = import.meta.env.VITE_SUPABASE_FN_GCAL_GUESTS as string;
+import { supabase } from "@/integrations/supabase/client";
 
 type Hit = {
   attendee: { email: string; displayName: string };
@@ -74,12 +74,11 @@ export default function InlineGuestsView() {
             titleQuery: titleQuery.trim(),
             titleMatchMode,
           };
-          const res = await fetch(FN_URL, {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
-          });
-          if (!res.ok) throw new Error(await res.text());
-          const json = (await res.json()) as { hits: Hit[] };
+          const { data, error } = await supabase
+            .functions
+            .invoke<Result>("calendar-attendees-search", { body: payload });
+          if (error) throw new Error(error.message || "Falha ao buscar convidados");
+          const json = data ?? { hits: [] };
           // Mantém só os convidados na ordem dos termos (para colunas estáveis)
           const order = new Map(guestTerms.map((t, i) => [t.toLowerCase(), i]));
           const sorted = json.hits.sort((a, b) => {
