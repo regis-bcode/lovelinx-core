@@ -2360,8 +2360,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 17 : 11;
+  const timeLogTableColumnCount = canManageApprovals ? 17 : 12;
   const [isApprovalMode, setIsApprovalMode] = useState(false);
+  const approvalControlsEnabled = canManageApprovals && isApprovalMode;
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
     if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
@@ -3952,19 +3953,19 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como aprovado"
-                                disabled={!isApprovalMode}
+                                disabled={!approvalControlsEnabled}
                               />
                             </TableCell>
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como reprovado"
-                                disabled={!isApprovalMode}
+                                disabled={!approvalControlsEnabled}
                               />
                             </TableCell>
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como comissionado"
-                                disabled={!isApprovalMode}
+                                disabled={!approvalControlsEnabled}
                               />
                             </TableCell>
                             <TableCell>
