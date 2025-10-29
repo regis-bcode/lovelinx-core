@@ -81,12 +81,12 @@ export default function GoogleCalendarEmbed() {
     params.set("ctz", tz);
     params.set("mode", view); // MONTH | WEEK | AGENDA
 
-    // Tuning de UI (opcionais)
-    // params.set("showTitle", "0");
-    // params.set("showTz", "0");
-    // params.set("showTabs", "1");
-    // params.set("showCalendars", "0");
-    // params.set("showPrint", "0");
+    // Tuning de UI — removemos o menu lateral do embed e usamos nossos controles
+    params.set("showTitle", "0");
+    params.set("showCalendars", "0");
+    params.set("showTabs", "1");
+    params.set("showPrint", "0");
+    params.set("showTz", "0");
 
     // Adiciona src (um por calendário selecionado) e cores em mesma ordem
     selectedIds.forEach((id) => params.append("src", id));
