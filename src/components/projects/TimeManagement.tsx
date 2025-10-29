@@ -28,7 +28,7 @@ import { useTimeLogs, formatHMS } from '@/hooks/useTimeLogs';
 import { useUserRoles } from '@/hooks/useUserRoles';
 import { notifyProjectActiveTimersChange } from '@/hooks/useProjectActiveTimersIndicator';
 import { Task } from '@/types/task';
-import { TimeLog, TimeLogFormData } from '@/types/time-log';
+import { ApprovalStatus, TimeLog, TimeLogFormData } from '@/types/time-log';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useProjectAllocations } from '@/hooks/useProjectAllocations';
@@ -139,6 +139,81 @@ const formatMinutes = (minutes: number): string => {
 
   const totalSeconds = Math.max(0, Math.round(minutes * 60));
   return formatHMS(totalSeconds);
+};
+
+type RowApprovalState = {
+  aprovado: boolean;
+  reprovado: boolean;
+  comissionado: boolean;
+  justificativa: string;
+  dirty: boolean;
+};
+
+const parseBooleanFlag = (value: unknown): boolean => {
+  if (typeof value === 'string') {
+    const normalized = value
+      .trim()
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLowerCase();
+
+    return normalized === 'sim' || normalized === 'true' || normalized === 'yes' || normalized === '1';
+  }
+
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
+  return false;
+};
+
+const buildApprovalStateFromLog = (log: TimeLog): RowApprovalState => {
+  const justificativaBase =
+    typeof log.justificativa_reprovacao === 'string'
+      ? log.justificativa_reprovacao.trim()
+      : '';
+
+  const isApprovedFromStatus = log.status_aprovacao === 'aprovado';
+  const isRejectedFromStatus = log.status_aprovacao === 'reprovado';
+  const isApproved = isApprovedFromStatus || parseBooleanFlag(log.aprovado);
+  const isRejected = !isApproved && isRejectedFromStatus;
+  const rawComissionado = (log.comissionado as unknown) ?? log.is_billable;
+
+  return {
+    aprovado: isApproved,
+    reprovado: isRejected,
+    comissionado: parseBooleanFlag(rawComissionado),
+    justificativa: isRejected ? justificativaBase : '',
+    dirty: false,
+  };
+};
+
+const resolveApprovalStatus = (
+  log: TimeLog,
+  state: RowApprovalState | undefined,
+  preferState: boolean,
+): ApprovalStatus => {
+  if (preferState && state) {
+    if (state.aprovado) {
+      return 'aprovado';
+    }
+
+    if (state.reprovado) {
+      return 'reprovado';
+    }
+
+    return 'pendente';
+  }
+
+  return log.status_aprovacao ?? 'pendente';
+};
+
+const formatTimeToHHMMSS = (date: Date): string => {
+  return format(date, 'HH:mm:ss');
 };
 
 interface TimeManagementProps {
@@ -1886,7 +1961,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   ]);
 
   const getStatusBadge = (log: TimeLog) => {
-    switch (log.status_aprovacao) {
+    const status = resolveApprovalStatus(log, rowApprovalState[log.id], isApprovalMode);
+
+    switch (status) {
       case 'pendente':
         return (
           <Badge
@@ -2360,9 +2437,242 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 17 : 12;
+  const timeLogTableColumnCount = canManageApprovals ? 18 : 12;
   const [isApprovalMode, setIsApprovalMode] = useState(false);
+  const [rowApprovalState, setRowApprovalState] = useState<Record<string, RowApprovalState>>({});
+  const [isSavingApprovals, setIsSavingApprovals] = useState(false);
   const approvalControlsEnabled = canManageApprovals && isApprovalMode;
+
+  useEffect(() => {
+    setRowApprovalState(prev => {
+      let changed = false;
+      const next: Record<string, RowApprovalState> = {};
+
+      timeLogs.forEach(log => {
+        const baseline = buildApprovalStateFromLog(log);
+        const existing = prev[log.id];
+
+        if (existing) {
+          if (existing.dirty) {
+            next[log.id] = existing;
+            return;
+          }
+
+          if (
+            existing.aprovado === baseline.aprovado &&
+            existing.reprovado === baseline.reprovado &&
+            existing.comissionado === baseline.comissionado &&
+            existing.justificativa === baseline.justificativa
+          ) {
+            next[log.id] = existing;
+            return;
+          }
+
+          changed = true;
+          next[log.id] = baseline;
+          return;
+        }
+
+        changed = true;
+        next[log.id] = baseline;
+      });
+
+      if (Object.keys(prev).length !== Object.keys(next).length) {
+        changed = true;
+      }
+
+      return changed ? next : prev;
+    });
+  }, [timeLogs]);
+
+  const updateRowApprovalState = useCallback(
+    (log: TimeLog, updater: (state: RowApprovalState) => RowApprovalState) => {
+      const baseline = buildApprovalStateFromLog(log);
+      setRowApprovalState(prev => {
+        const current = prev[log.id] ?? baseline;
+        const updated = updater(current);
+        const nextState: RowApprovalState = {
+          aprovado: Boolean(updated.aprovado),
+          reprovado: Boolean(updated.reprovado),
+          comissionado: Boolean(updated.comissionado),
+          justificativa:
+            typeof updated.justificativa === 'string' ? updated.justificativa : '',
+          dirty: false,
+        };
+
+        const normalizedJustificativa = nextState.reprovado
+          ? nextState.justificativa.trim()
+          : '';
+
+        nextState.dirty =
+          nextState.aprovado !== baseline.aprovado ||
+          nextState.reprovado !== baseline.reprovado ||
+          nextState.comissionado !== baseline.comissionado ||
+          (nextState.reprovado
+            ? normalizedJustificativa !== baseline.justificativa
+            : false);
+
+        if (
+          current.aprovado === nextState.aprovado &&
+          current.reprovado === nextState.reprovado &&
+          current.comissionado === nextState.comissionado &&
+          current.justificativa === nextState.justificativa &&
+          current.dirty === nextState.dirty
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          [log.id]: nextState,
+        };
+      });
+    },
+    [],
+  );
+
+  const hasDirtyApprovals = useMemo(() => {
+    return Object.values(rowApprovalState).some(state => state.dirty);
+  }, [rowApprovalState]);
+
+  const approvalSummary = useMemo(() => {
+    return filteredTimeLogs.reduce(
+      (acc, log) => {
+        const state = rowApprovalState[log.id];
+        const status = resolveApprovalStatus(log, state, isApprovalMode);
+
+        if (status === 'aprovado') {
+          acc.aprovados += 1;
+        } else if (status === 'reprovado') {
+          acc.reprovados += 1;
+        } else {
+          acc.pendentes += 1;
+        }
+
+        return acc;
+      },
+      { aprovados: 0, reprovados: 0, pendentes: 0 },
+    );
+  }, [filteredTimeLogs, isApprovalMode, rowApprovalState]);
+
+  const saveButtonDisabled = !approvalControlsEnabled || !hasDirtyApprovals || isSavingApprovals;
+  const saveButtonTitle = (() => {
+    if (!approvalControlsEnabled) {
+      return 'Ative o modo aprovação para salvar.';
+    }
+
+    if (!hasDirtyApprovals) {
+      return 'Nenhuma alteração pendente.';
+    }
+
+    if (isSavingApprovals) {
+      return 'Salvando aprovações...';
+    }
+
+    return undefined;
+  })();
+
+  const handleSaveApprovals = useCallback(async () => {
+    if (!canManageApprovals) {
+      return;
+    }
+
+    const dirtyEntries = Object.entries(rowApprovalState).filter(([, state]) => state.dirty);
+
+    if (dirtyEntries.length === 0) {
+      return;
+    }
+
+    const missingJustification = dirtyEntries.find(([, state]) => state.reprovado && state.justificativa.trim().length === 0);
+
+    if (missingJustification) {
+      toast({
+        title: 'Justificativa obrigatória',
+        description: 'Informe a justificativa para todos os registros marcados como reprovados antes de salvar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSavingApprovals(true);
+
+    try {
+      const aprovadorId = user?.id ?? null;
+      const aprovadorNome = getLoggedUserDisplayName() || 'Aprovador';
+      const now = new Date();
+      const approvalDate = now.toISOString();
+      const approvalTime = formatTimeToHHMMSS(now);
+
+      const updates = dirtyEntries.map(([logId, state]) => {
+        const status: ApprovalStatus = state.aprovado
+          ? 'aprovado'
+          : state.reprovado
+          ? 'reprovado'
+          : 'pendente';
+
+        const justificativa = state.reprovado ? state.justificativa.trim() : null;
+
+        return {
+          id: logId,
+          aprovado: state.aprovado ? 'Sim' : 'Não',
+          comissionado: state.comissionado ? 'Sim' : 'Não',
+          status_aprovacao: status,
+          justificativa_reprovacao: justificativa,
+          aprovador_id: status === 'pendente' ? null : aprovadorId,
+          aprovador_nome: status === 'pendente' ? null : aprovadorNome,
+          data_aprovacao: status === 'pendente' ? null : approvalDate,
+          aprovacao_hora: status === 'pendente' ? null : approvalTime,
+        };
+      });
+
+      const { error } = await supabase.from('time_logs').upsert(updates, { onConflict: 'id' });
+
+      if (error) {
+        throw error;
+      }
+
+      setRowApprovalState(prev => {
+        const next = { ...prev };
+
+        dirtyEntries.forEach(([logId, state]) => {
+          const trimmedJustificativa = state.reprovado ? state.justificativa.trim() : '';
+          next[logId] = {
+            aprovado: state.aprovado,
+            reprovado: state.reprovado,
+            comissionado: state.comissionado,
+            justificativa: trimmedJustificativa,
+            dirty: false,
+          };
+        });
+
+        return next;
+      });
+
+      await refreshTimeLogs();
+
+      toast({
+        title: 'Aprovações salvas',
+        description: 'As alterações foram registradas com sucesso.',
+      });
+    } catch (error) {
+      console.error('Erro ao salvar aprovações:', error);
+      const message = error instanceof Error ? error.message : 'Não foi possível salvar as aprovações.';
+      toast({
+        title: 'Erro ao salvar aprovações',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingApprovals(false);
+    }
+  }, [
+    canManageApprovals,
+    getLoggedUserDisplayName,
+    refreshTimeLogs,
+    rowApprovalState,
+    toast,
+    user?.id,
+  ]);
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
     if (!canManageApprovals || log.status_aprovacao === 'aprovado') {
@@ -2570,25 +2880,8 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     }
   }, [selectedLogForDetails?.status_aprovacao]);
 
-  const parseCommissionedFlag = (value: unknown): boolean => {
-    if (typeof value === 'string') {
-      const normalized = value
-        .trim()
-        .normalize('NFD')
-        .replace(/\p{Diacritic}/gu, '')
-        .toLowerCase();
-      return normalized === 'sim';
-    }
-
-    if (typeof value === 'boolean') {
-      return value;
-    }
-
-    return false;
-  };
-
   const [isCommissioned, setIsCommissioned] = useState<boolean>(
-    parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
+    parseBooleanFlag((timeLog?.comissionado as unknown) ?? timeLog?.is_billable),
   );
   const [pendingApprovalAction, setPendingApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [hasPendingApprovalChanges, setHasPendingApprovalChanges] = useState(false);
@@ -2601,7 +2894,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   useEffect(() => {
     setIsCommissioned(
-      parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
+      parseBooleanFlag((timeLog?.comissionado as unknown) ?? timeLog?.is_billable),
     );
     setPendingApprovalAction(null);
     setHasPendingApprovalChanges(false);
@@ -3586,17 +3879,46 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Histórico de Registros de Tempo</CardTitle>
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <CardTitle>Histórico de Registros de Tempo</CardTitle>
+                {canManageApprovals ? (
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-green-700">
+                      Aprovados: {approvalSummary.aprovados}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-red-100 px-3 py-1 text-red-700">
+                      Reprovados: {approvalSummary.reprovados}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-yellow-700">
+                      Pendentes: {approvalSummary.pendentes}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </div>
             {canManageApprovals ? (
-              <Button
-                type="button"
-                variant={isApprovalMode ? 'secondary' : 'outline'}
-                className="uppercase tracking-wide"
-                onClick={() => setIsApprovalMode(prev => !prev)}
-                aria-pressed={isApprovalMode}
-              >
-                MODO APROVAÇÃO
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={isApprovalMode ? 'secondary' : 'outline'}
+                  className="uppercase tracking-wide"
+                  onClick={() => setIsApprovalMode(prev => !prev)}
+                  aria-pressed={isApprovalMode}
+                >
+                  MODO APROVAÇÃO
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleSaveApprovals}
+                  disabled={saveButtonDisabled}
+                  className="flex items-center gap-2"
+                  title={saveButtonTitle}
+                >
+                  {isSavingApprovals ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Salvar Aprovações
+                </Button>
+              </div>
             ) : null}
           </div>
         </CardHeader>
@@ -3806,6 +4128,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                   <TableHead>Aprovado</TableHead>
                   <TableHead>Reprovado</TableHead>
                   <TableHead>Comissionado</TableHead>
+                  <TableHead>Justificativa</TableHead>
                   <TableHead>Ação</TableHead>
                 </>
               ) : null}
@@ -3827,7 +4150,9 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     const task = log.task_id ? taskById.get(log.task_id) ?? null : null;
                     const activityText = getLogActivity(log);
                     const approverDisplayName = getApproverDisplayName(log);
-                    const isPendingApproval = log.status_aprovacao === 'pendente';
+                    const rowState = rowApprovalState[log.id] ?? buildApprovalStateFromLog(log);
+                    const resolvedApprovalStatus = resolveApprovalStatus(log, rowState, isApprovalMode);
+                    const isPendingApproval = resolvedApprovalStatus === 'pendente';
                     const isCurrentProcessing = processingApprovalId === log.id;
                     const approvalActionsDisabled = processingApprovalId !== null;
                     const isApproveLoading = isCurrentProcessing && approvalSubmittingType === 'approve';
@@ -3847,6 +4172,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                     const logTypeBadgeClass = isTimedEntry
                       ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600'
                       : 'border-sky-500/40 bg-sky-500/10 text-sky-700';
+                    const justificationMissing = rowState.reprovado && rowState.justificativa.trim().length === 0;
 
                     return (
                       <TableRow key={log.id} className={highlightRowClass}>
@@ -3953,19 +4279,102 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como aprovado"
+                                checked={rowState.aprovado}
                                 disabled={!approvalControlsEnabled}
+                                onCheckedChange={checked => {
+                                  if (!approvalControlsEnabled) {
+                                    return;
+                                  }
+
+                                  const value = checked === true;
+                                  updateRowApprovalState(log, state => {
+                                    if (state.aprovado === value && (!value || !state.reprovado)) {
+                                      return state;
+                                    }
+
+                                    return {
+                                      ...state,
+                                      aprovado: value,
+                                      reprovado: value ? false : state.reprovado,
+                                    };
+                                  });
+                                }}
                               />
                             </TableCell>
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como reprovado"
+                                checked={rowState.reprovado}
                                 disabled={!approvalControlsEnabled}
+                                onCheckedChange={checked => {
+                                  if (!approvalControlsEnabled) {
+                                    return;
+                                  }
+
+                                  const value = checked === true;
+                                  updateRowApprovalState(log, state => {
+                                    if (state.reprovado === value && (!value || !state.aprovado)) {
+                                      return state;
+                                    }
+
+                                    return {
+                                      ...state,
+                                      reprovado: value,
+                                      aprovado: value ? false : state.aprovado,
+                                    };
+                                  });
+                                }}
                               />
                             </TableCell>
                             <TableCell className="text-center">
                               <Checkbox
                                 aria-label="Marcar registro como comissionado"
+                                checked={rowState.comissionado}
                                 disabled={!approvalControlsEnabled}
+                                onCheckedChange={checked => {
+                                  if (!approvalControlsEnabled) {
+                                    return;
+                                  }
+
+                                  const value = checked === true;
+                                  updateRowApprovalState(log, state => {
+                                    if (state.comissionado === value) {
+                                      return state;
+                                    }
+
+                                    return {
+                                      ...state,
+                                      comissionado: value,
+                                    };
+                                  });
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={rowState.justificativa}
+                                onChange={event => {
+                                  const value = event.target.value;
+                                  updateRowApprovalState(log, state => {
+                                    if (state.justificativa === value) {
+                                      return state;
+                                    }
+
+                                    return {
+                                      ...state,
+                                      justificativa: value,
+                                    };
+                                  });
+                                }}
+                                disabled={!approvalControlsEnabled || !rowState.reprovado}
+                                placeholder="Obrigatória quando Reprovado"
+                                aria-invalid={justificationMissing}
+                                className={[
+                                  'h-9 w-full',
+                                  justificationMissing
+                                    ? 'border-destructive focus-visible:ring-destructive'
+                                    : '',
+                                ].join(' ')}
                               />
                             </TableCell>
                             <TableCell>
