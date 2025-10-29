@@ -12,6 +12,11 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+import {
+  CALENDAR_OPTIONS,
+  DEFAULT_SELECTED_CALENDAR_IDS,
+} from "./calendarConfig";
+
 const FN_URL = import.meta.env.VITE_SUPABASE_FN_GCAL_GUESTS as string;
 
 type Hit = {
@@ -29,23 +34,12 @@ type Hit = {
 
 type Result = { hits: Hit[] };
 
-type CalendarOpt = { id: string; label: string };
-
 type GuestSelection = {
   value: string;
   label: string;
   searchTerm: string;
   attendee: Hit["attendee"];
 };
-
-const DEFAULT_CALENDARS: CalendarOpt[] = [
-  {
-    id:
-      import.meta.env.VITE_GOOGLE_CALENDAR_MAIN ??
-      "c71ad776a29f8953dc6891f8f1ac46d563ac98f55a67a572d3b89cbd96e8c25c@group.calendar.google.com",
-    label: "Principal",
-  },
-];
 
 function fmtDate(s?: string) {
   if (!s) return "";
@@ -69,7 +63,7 @@ function makeGuestLabel(attendee: Hit["attendee"]) {
 
 export default function GuestEventsSearch() {
   const [calendars, setCalendars] = useState<string[]>(
-    DEFAULT_CALENDARS.map((c) => c.id)
+    DEFAULT_SELECTED_CALENDAR_IDS,
   );
   const [rangeFrom, setRangeFrom] = useState(() => {
     const d = new Date();
@@ -430,7 +424,7 @@ export default function GuestEventsSearch() {
 
         <div className="flex flex-wrap gap-2">
           <span className="text-sm font-medium">Calendários:</span>
-          {DEFAULT_CALENDARS.map((c) => {
+          {CALENDAR_OPTIONS.map((c) => {
             const on = calendars.includes(c.id);
             return (
               <label
