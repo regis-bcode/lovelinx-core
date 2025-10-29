@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import OkApproveButton from '@/components/projects/OkApproveButton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,7 @@ import { useProjectAllocations } from '@/hooks/useProjectAllocations';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUser } from '@supabase/auth-helpers-react';
 import {
   areActiveTimerRecordsEqual,
   persistActiveTimerRecord,
@@ -43,6 +45,7 @@ import {
 } from '@/lib/active-timers';
 import { ensureTaskIdentifier } from '@/lib/taskIdentifier';
 import { SAO_PAULO_TIMEZONE, getIsoDateInTimeZone } from '@/utils/timezone';
+import type { ApprovalAction } from '@/lib/timeLogs';
 
 type TaskFieldDefinition = {
   key: keyof Task;
@@ -109,8 +112,6 @@ function DetailItem({ label, value, mono, span2 }: DetailItemProps) {
   );
 }
 
-type ApprovalStatus = 'Aguarda Aprovação' | 'Aprovado' | 'Reprovado';
-
 const TASK_FIELD_DEFINITIONS: TaskFieldDefinition[] = [
   { key: 'task_id', label: 'ID da tarefa' },
   { key: 'responsavel', label: 'Responsável' },
@@ -147,6 +148,7 @@ interface TimeManagementProps {
 
 export function TimeManagement({ projectId }: TimeManagementProps) {
   const { user } = useAuth();
+  const supabaseUser = useUser();
   const { tasks, customFields, loading: tasksLoading, updateTask } = useTasks(projectId);
   const {
     timeLogs,
@@ -1698,10 +1700,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
       setDetailTaskData(null);
       setIsDetailTaskLoading(false);
       setIsTaskDetailsVisible(false);
+      setDetailRejectionJustification('');
       return;
     }
 
     setIsLogDetailsDialogOpen(true);
+    setDetailRejectionJustification('');
   };
 
   const handleOpenLogEditDialog = (log: TimeLog) => {
@@ -2583,15 +2587,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return false;
   };
 
-  const [approvalStatus, setApprovalStatus] = useState<ApprovalStatus>(
-    timeLog?.approval_status ?? 'Aguarda Aprovação',
-  );
   const [isCommissioned, setIsCommissioned] = useState<boolean>(
     parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
   );
-  const [isSaving, setIsSaving] = useState(false);
   const [pendingApprovalAction, setPendingApprovalAction] = useState<'approve' | 'reject' | null>(null);
   const [hasPendingApprovalChanges, setHasPendingApprovalChanges] = useState(false);
+  const [detailRejectionJustification, setDetailRejectionJustification] = useState('');
   const approvalTargetLogRef = useRef<TimeLog | null>(null);
 
   useEffect(() => {
@@ -2599,17 +2600,22 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }, [selectedLogForDetails]);
 
   useEffect(() => {
-    setApprovalStatus(timeLog?.approval_status ?? 'Aguarda Aprovação');
     setIsCommissioned(
       parseCommissionedFlag(timeLog?.comissionado ?? timeLog?.is_billable),
     );
     setPendingApprovalAction(null);
     setHasPendingApprovalChanges(false);
+    setDetailRejectionJustification(
+      typeof timeLog?.justificativa_reprovacao === 'string'
+        ? timeLog.justificativa_reprovacao.trim()
+        : '',
+    );
   }, [
     timeLog?.id,
     timeLog?.approval_status,
     timeLog?.comissionado,
     timeLog?.is_billable,
+    timeLog?.justificativa_reprovacao,
   ]);
 
   const timeLogActivity = useMemo(() => {
@@ -2669,7 +2675,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return approverName.length > 0 && approvalDateRaw.length > 0 && approvalTimeRaw.length > 0;
   }, []);
   const isApprovalInfoComplete = isLogApprovalInfoComplete(timeLog);
-  const isApprovalActionDisabled = isSaving || !timeLog || isApprovalInfoComplete;
+  const isApprovalActionDisabled = !timeLog || isApprovalInfoComplete;
   const defaultApproverName = useMemo(() => {
     if (hasApprovalName) {
       return normalizedApproverName;
@@ -2683,107 +2689,38 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     return '';
   }, [getLoggedUserDisplayName, hasApprovalName, normalizedApproverName]);
   const isApprovalOkButtonDisabled = isApprovalActionDisabled || !hasPendingApprovalChanges;
-
-  async function saveApproval(
-    targetLog: TimeLog,
-    nextStatus: ApprovalStatus,
-    nextIsCommissioned: boolean,
-    performedAt?: Date,
-    approverNameOverride?: string | null,
-    rejectionJustification?: string | null,
-  ): Promise<boolean> {
-    if (!targetLog || isLogApprovalInfoComplete(targetLog)) {
-      return false;
+  const canSubmitDetailApproval =
+    !isApprovalOkButtonDisabled && Boolean(approvalTargetLogRef.current ?? timeLog);
+  const detailApprovalTargetLog = canSubmitDetailApproval
+    ? approvalTargetLogRef.current ?? timeLog ?? null
+    : null;
+  const detailApprovalAction: ApprovalAction =
+    pendingApprovalAction === 'reject'
+      ? 'reprovar'
+      : pendingApprovalAction === 'approve'
+        ? 'aprovar'
+        : 'pendente';
+  const detailApprovalJustification =
+    pendingApprovalAction === 'reject'
+      ? detailRejectionJustification.trim()
+      : null;
+  const detailApprovalApproverName = (() => {
+    const normalizedDefault = defaultApproverName.trim();
+    if (normalizedDefault.length > 0) {
+      return normalizedDefault;
     }
 
-    setIsSaving(true);
-    let succeeded = false;
-    try {
-      const normalizedStatus: TimeLog['status_aprovacao'] =
-        nextStatus === 'Aprovado'
-          ? 'aprovado'
-          : nextStatus === 'Reprovado'
-            ? 'reprovado'
-            : 'pendente';
-      const commissionedValue = nextStatus === 'Aprovado' ? nextIsCommissioned : false;
-      const justificationValue =
-        nextStatus === 'Reprovado'
-          ? typeof rejectionJustification === 'string'
-            ? rejectionJustification.trim()
-            : rejectionJustification ?? null
-          : undefined;
-
-      const normalizedApproverOverride =
-        typeof approverNameOverride === 'string' ? approverNameOverride.trim() : '';
-      const approverOverrideValue =
-        normalizedApproverOverride.length > 0 ? normalizedApproverOverride : null;
-      const confirmationApproverValue = (() => {
-        const trimmed = defaultApproverName.trim();
-        return trimmed.length > 0 ? trimmed : null;
-      })();
-      const approverNameForPersistence =
-        approverOverrideValue ?? confirmationApproverValue ?? null;
-
-      const approvalOptions: Parameters<typeof approveTimeLog>[2] = {
-        commissioned: commissionedValue,
-        performedAt,
-        approverName: approverNameForPersistence,
-      };
-
-      if (justificationValue !== undefined) {
-        approvalOptions.justificativa =
-          typeof justificationValue === 'string' && justificationValue.length > 0
-            ? justificationValue
-            : null;
-      }
-
-      const updatedLog = await approveTimeLog(targetLog.id, normalizedStatus, approvalOptions);
-
-      if (!updatedLog) {
-        return false;
-      }
-
-      const updatedApprovalStatus = updatedLog.approval_status ?? nextStatus;
-      const updatedCommissioned = (() => {
-        if (typeof updatedLog.comissionado === 'boolean') {
-          return updatedLog.comissionado;
-        }
-
-        if (typeof updatedLog.is_billable === 'boolean') {
-          return updatedLog.is_billable;
-        }
-
-        return nextStatus === 'Aprovado' ? nextIsCommissioned : false;
-      })();
-
-      setApprovalStatus(updatedApprovalStatus);
-      setIsCommissioned(updatedCommissioned);
-
-      setSelectedLogForDetails(prev => {
-        if (!prev || prev.id !== updatedLog.id) {
-          return prev;
-        }
-
-        return updatedLog;
-      });
-      setApprovalDialogLog(prev => {
-        if (!prev || prev.id !== updatedLog.id) {
-          return prev;
-        }
-
-        return updatedLog;
-      });
-      approvalTargetLogRef.current = updatedLog;
-      succeeded = true;
-    } catch (e) {
-      console.error('Erro ao salvar aprovação:', e);
-      return false;
-    } finally {
-      setIsSaving(false);
+    const supabaseMetadataName =
+      typeof supabaseUser?.user_metadata?.full_name === 'string'
+        ? supabaseUser.user_metadata.full_name.trim()
+        : '';
+    if (supabaseMetadataName.length > 0) {
+      return supabaseMetadataName;
     }
 
-    return succeeded;
-  }
+    const supabaseEmail = typeof supabaseUser?.email === 'string' ? supabaseUser.email.trim() : '';
+    return supabaseEmail.length > 0 ? supabaseEmail : undefined;
+  })();
 
   function handleApprove() {
     if (!timeLog || isApprovalInfoComplete) {
@@ -2807,7 +2744,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
   }
 
   function handleToggleCommissioned() {
-    if (!timeLog || isSaving || isApprovalInfoComplete) {
+    if (!timeLog || isApprovalInfoComplete) {
       return;
     }
 
@@ -2817,34 +2754,12 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
     setPendingApprovalAction(prev => prev ?? 'approve');
   }
 
-  async function handleConfirmLogApprovalAction() {
-    const targetLog = approvalTargetLogRef.current ?? timeLog;
-
-    if (!targetLog || isSaving || isApprovalInfoComplete || !hasPendingApprovalChanges) {
-      return;
-    }
-
-    const action = pendingApprovalAction ?? 'approve';
-    const performedAt = new Date();
-    const approverName = defaultApproverName.length > 0 ? defaultApproverName : null;
-
-    const wasSuccessful = await (async () => {
-      if (action === 'reject') {
-        return saveApproval(targetLog, 'Reprovado', false, performedAt, approverName, null);
-      }
-
-      return saveApproval(targetLog, 'Aprovado', isCommissioned, performedAt, approverName, null);
-    })();
-
-    if (!wasSuccessful) {
-      return;
-    }
-
+  const handleCloseDetailApproval = useCallback(() => {
     setPendingApprovalAction(null);
     setHasPendingApprovalChanges(false);
+    setDetailRejectionJustification('');
     handleLogDetailsDialogOpenChange(false);
-    await refreshTimeLogs();
-  }
+  }, [handleLogDetailsDialogOpenChange]);
 
   const getTaskFieldDisplayValue = useCallback(
     (value: Task[keyof Task], definition: TaskFieldDefinition): string | null => {
@@ -4250,24 +4165,44 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
                 <pre className="whitespace-pre-wrap text-sm leading-relaxed">{timeLogActivity.length > 0 ? timeLogActivity : '—'}</pre>
               </div>
             </section>
+            {pendingApprovalAction === 'reject' ? (
+              <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/40 p-4">
+                <Label htmlFor="log-detail-rejection-justification" className="text-sm font-medium">
+                  Justificativa da reprovação
+                </Label>
+                <Textarea
+                  id="log-detail-rejection-justification"
+                  value={detailRejectionJustification}
+                  onChange={(event) => setDetailRejectionJustification(event.target.value)}
+                  placeholder="Descreva o motivo da reprovação"
+                  disabled={isApprovalActionDisabled}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Esta justificativa será registrada junto ao log de tempo.
+                </p>
+              </div>
+            ) : null}
           </div>
           <DialogFooter className="w-full">
             <div className="flex w-full justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => handleLogDetailsDialogOpenChange(false)}
+                onClick={handleCloseDetailApproval}
               >
                 Fechar
               </Button>
-              <Button
-                type="button"
-                className="bg-green-600 text-white hover:bg-green-700"
-                disabled={isApprovalOkButtonDisabled}
-                onClick={() => void handleConfirmLogApprovalAction()}
-              >
-                OK
-              </Button>
+              <OkApproveButton
+                /* 🔧 Mapeamento automático de estados comuns. */
+                selectedTimeLog={detailApprovalTargetLog}
+                acaoSelecionada={detailApprovalAction}
+                comissionado={isCommissioned}
+                justificativa={detailApprovalJustification ?? undefined}
+                aprovadorNomeUI={detailApprovalApproverName}
+                onClose={handleCloseDetailApproval}
+                refetchList={refreshTimeLogs}
+                toast={toast}
+              />
             </div>
           </DialogFooter>
         </DialogContent>
