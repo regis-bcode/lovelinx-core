@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { useUser } from "@supabase/auth-helpers-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { setTimeLogApproval, ApprovalAction } from "@/lib/timeLogs";
 
 type Toast = (args: { title: string; description?: string; variant?: "default" | "destructive" }) => void;
@@ -15,7 +15,7 @@ export default function OkApproveButton(props: {
   toast: Toast;
 }) {
   const { selectedTimeLog, acaoSelecionada, comissionado, justificativa, aprovadorNomeUI, onClose, refetchList, toast } = props;
-  const user = useUser();
+  const { user } = useAuth();
   const [submitting, setSubmitting] = useState(false);
 
   const disabled =
@@ -25,8 +25,12 @@ export default function OkApproveButton(props: {
     (acaoSelecionada === "reprovar" && !String(justificativa ?? "").trim());
 
   const aprovadorNome = useMemo(
-    () => aprovadorNomeUI ?? (user?.user_metadata?.full_name || user?.email || "Aprovador"),
-    [aprovadorNomeUI, user]
+    () =>
+      aprovadorNomeUI ??
+      (typeof user?.name === "string" && user.name.trim().length > 0
+        ? user.name.trim()
+        : user?.email ?? "Aprovador"),
+    [aprovadorNomeUI, user?.email, user?.name]
   );
 
   async function handleConfirm() {
