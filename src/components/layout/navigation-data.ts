@@ -15,6 +15,7 @@ import {
   SquareStack,
   Tag,
   UserCog,
+  UserSearch,
   Users,
   Workflow,
   Wrench
@@ -63,6 +64,11 @@ export const navigation: NavigationItem[] = [
     title: "Calendário",
     url: "/calendar",
     icon: Calendar,
+  },
+  {
+    title: "Convidados",
+    url: "/calendar/guests",
+    icon: UserSearch,
   },
   {
     title: "Documentos",
