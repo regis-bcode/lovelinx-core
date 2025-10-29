@@ -12,12 +12,12 @@ import {
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
+import { supabase } from "@/integrations/supabase/client";
+
 import {
   CALENDAR_OPTIONS,
   DEFAULT_SELECTED_CALENDAR_IDS,
 } from "./calendarConfig";
-
-const FN_URL = import.meta.env.VITE_SUPABASE_FN_GCAL_GUESTS as string;
 
 type Hit = {
   attendee: { email: string; displayName: string };
@@ -88,8 +88,6 @@ export default function GuestEventsSearch() {
 
   const selectorInputRef = useRef<HTMLInputElement | null>(null);
 
-  const isFnConfigured = Boolean(FN_URL);
-
   const rangeInfo = useMemo(() => {
     const fromDate = new Date(rangeFrom);
     const toDate = new Date(rangeTo);
@@ -108,9 +106,6 @@ export default function GuestEventsSearch() {
   }, [rangeFrom, rangeTo]);
 
   const baseError = useMemo(() => {
-    if (!isFnConfigured) {
-      return "Configure a variável VITE_SUPABASE_FN_GCAL_GUESTS no ambiente.";
-    }
     if (calendars.length === 0) {
       return "Selecione ao menos um calendário para pesquisar.";
     }
@@ -118,7 +113,7 @@ export default function GuestEventsSearch() {
       return rangeInfo.error;
     }
     return null;
-  }, [isFnConfigured, calendars, rangeInfo]);
+  }, [calendars, rangeInfo]);
 
   useEffect(() => {
     if (!guestSelectorOpen) {
@@ -149,7 +144,6 @@ export default function GuestEventsSearch() {
       return;
     }
 
-    const controller = new AbortController();
     let cancelled = false;
 
     const loadSuggestions = async () => {
@@ -162,17 +156,13 @@ export default function GuestEventsSearch() {
           timeMax: rangeInfo.toIso,
           maxPerCalendar: 250,
         };
-        const res = await fetch(FN_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal,
-        });
-        if (!res.ok) {
-          const txt = await res.text();
-          throw new Error(txt || `HTTP ${res.status}`);
+        const { data, error } = await supabase
+          .functions
+          .invoke<Result>("calendar-attendees-search", { body: payload });
+        if (error) {
+          throw new Error(error.message || "Falha ao buscar convidados");
         }
-        const json = (await res.json()) as Result;
+        const json = data ?? { hits: [] };
         if (cancelled) return;
         const selectedValues = new Set(
           selectedGuests.map((guest) => guest.value)
@@ -204,7 +194,6 @@ export default function GuestEventsSearch() {
 
     return () => {
       cancelled = true;
-      controller.abort();
       clearTimeout(timeout);
     };
   }, [guestSearch, calendars, rangeInfo, baseError, guestSelectorOpen, selectedGuests]);
@@ -222,7 +211,6 @@ export default function GuestEventsSearch() {
       return;
     }
 
-    const controller = new AbortController();
     let cancelled = false;
 
     const loadGuests = async () => {
@@ -238,17 +226,13 @@ export default function GuestEventsSearch() {
               timeMax: rangeInfo.toIso,
               maxPerCalendar: 250,
             };
-            const res = await fetch(FN_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-              signal: controller.signal,
-            });
-            if (!res.ok) {
-              const txt = await res.text();
-              throw new Error(txt || `HTTP ${res.status}`);
+            const { data, error } = await supabase
+              .functions
+              .invoke<Result>("calendar-attendees-search", { body: payload });
+            if (error) {
+              throw new Error(error.message || "Falha ao buscar convidados");
             }
-            const json = (await res.json()) as Result;
+            const json = data ?? { hits: [] };
             const match = json.hits.find(
               (hit) => makeGuestValue(hit.attendee) === guest.value
             );
@@ -284,7 +268,6 @@ export default function GuestEventsSearch() {
 
     return () => {
       cancelled = true;
-      controller.abort();
     };
   }, [selectedGuests, calendars, rangeInfo, baseError]);
 
