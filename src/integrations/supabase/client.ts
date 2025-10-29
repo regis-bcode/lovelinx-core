@@ -58,5 +58,17 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  functions: {
+    /**
+     * Explicitly route Edge Function calls through the project base URL.
+     * Some environments have trouble resolving the `*.functions.supabase.co`
+     * subdomain used by default, which surfaces as
+     * "Failed to send a request to the Edge Function" errors. By pointing the
+     * client to `${SUPABASE_URL}/functions/v1` we leverage the already-allowed
+     * primary domain and avoid those resolution issues while keeping the same
+     * authentication behaviour.
+     */
+    url: `${SUPABASE_URL}/functions/v1`,
+  },
 });
