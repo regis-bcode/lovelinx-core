@@ -2360,7 +2360,7 @@ export function TimeManagement({ projectId }: TimeManagementProps) {
 
   const remainingBulkSelectionCount = Math.max(0, selectedLogsCount - bulkSelectedLogsPreview.length);
 
-  const timeLogTableColumnCount = canManageApprovals ? 16 : 11;
+  const timeLogTableColumnCount = canManageApprovals ? 17 : 11;
   const [isApprovalMode, setIsApprovalMode] = useState(false);
 
   const handleRowSelectionChange = useCallback((log: TimeLog, checked: boolean) => {
