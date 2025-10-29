@@ -28,7 +28,6 @@ import TeamManagement from "./pages/TeamManagement";
 import TeamAddMembers from "./pages/TeamAddMembers";
 import NotFound from "./pages/NotFound";
 import CalendarPage from "./pages/CalendarPage";
-import CalendarGuestsPage from "./pages/CalendarGuestsPage";
 
 
 
@@ -253,14 +252,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CalendarPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/calendar/guests"
-        element={
-          <ProtectedRoute>
-            <CalendarGuestsPage />
           </ProtectedRoute>
         }
       />

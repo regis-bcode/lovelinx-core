@@ -23,8 +23,9 @@ export default function CalendarPage() {
               Visão por Convidado
             </h2>
             <p className="text-sm text-muted-foreground">
-              Digite parte do nome ou e-mail para filtrar (ex.: "Regis" encontra
-              <code className="ml-1">regis@baumgratzcode.com.br</code>).
+              Pesquise por parte do nome ou e-mail para localizar convidados e
+              selecione vários ao mesmo tempo (ex.: digitar "Regis" sugere
+              <code className="ml-1">regis.baumgratzcode.com.br</code>).
             </p>
           </div>
           <GuestEventsSearch />
