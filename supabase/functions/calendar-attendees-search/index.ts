@@ -1,15 +1,20 @@
 // supabase/functions/calendar-attendees-search/index.ts
-// Edge Function para buscar eventos com convidados e filtrar por LIKE (nome/email).
-// Requer secrets: GCAL_CLIENT_ID, GCAL_CLIENT_SECRET, GCAL_REFRESH_TOKEN
-
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
 type QueryPayload = {
-  query?: string; // texto p/ LIKE em nome/email (case-insensitive)
-  calendarIds: string[]; // lista de calendar IDs
-  timeMin?: string; // ISO (inclusive), default: hoje - 90 dias
-  timeMax?: string; // ISO (exclusive), default: hoje + 180 dias
-  maxPerCalendar?: number; // limite por calendário (paginação simples)
+  // Filtro antigo (continua funcionando)
+  query?: string; // LIKE por nome/email (único termo - mantido p/ compat)
+  // NOVO: vários termos de convidados (OR). Ex.: ["regis", "aline"]
+  guestsQuery?: string[];
+
+  calendarIds: string[];
+  timeMin?: string;
+  timeMax?: string;
+  maxPerCalendar?: number;
+
+  // Filtro por título
+  titleQuery?: string;
+  titleMatchMode?: "any" | "all";
 };
 
 type GEvent = {
@@ -41,60 +46,52 @@ async function getAccessToken(): Promise<string> {
   const client_secret = Deno.env.get("GCAL_CLIENT_SECRET")!;
   const refresh_token = Deno.env.get("GCAL_REFRESH_TOKEN")!;
   const body = new URLSearchParams({
-    client_id,
-    client_secret,
-    refresh_token,
+    client_id, client_secret, refresh_token,
     grant_type: "refresh_token",
   });
-
   const res = await fetch(OAUTH_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body,
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to get access token: ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`Failed token: ${res.status} ${await res.text()}`);
   const json = await res.json();
   return json.access_token as string;
 }
 
-function normalizeStr(s?: string) {
+function norm(s?: string) {
   return (s ?? "").normalize("NFKD").toLowerCase();
 }
-
-function eventTimeToString(ev: GEvent): { start: string; end: string } {
-  const s = ev.start?.dateTime ?? ev.start?.date ?? "";
-  const e = ev.end?.dateTime ?? ev.end?.date ?? "";
-  return { start: s, end: e };
+function tokTitle(q?: string): string[] {
+  const n = norm(q); if (!n) return [];
+  const raw = n.replace(/[,;]/g, " ").split(/\s+/).map(t => t.trim().replace(/^#/, "")).filter(Boolean);
+  const seen = new Set<string>(), out: string[] = [];
+  for (const t of raw) if (!seen.has(t)) { seen.add(t); out.push(t); }
+  return out;
+}
+function times(ev: GEvent) {
+  return {
+    start: ev.start?.dateTime ?? ev.start?.date ?? "",
+    end: ev.end?.dateTime ?? ev.end?.date ?? "",
+  };
 }
 
-async function fetchEventsForCalendar(
-  accessToken: string,
-  calendarId: string,
-  timeMin: string,
-  timeMax: string,
-  maxPerCalendar = 250
+async function fetchEvents(
+  accessToken: string, calendarId: string,
+  timeMin: string, timeMax: string, maxPerCalendar = 250
 ): Promise<GEvent[]> {
   const base = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
   const params = new URLSearchParams({
     singleEvents: "true",
     orderBy: "startTime",
-    timeMin,
-    timeMax,
+    timeMin, timeMax,
     maxResults: String(Math.min(Math.max(maxPerCalendar, 1), 250)),
     showDeleted: "false",
   });
-  const url = `${base}?${params.toString()}`;
-
-  const res = await fetch(url, {
+  const res = await fetch(`${base}?${params.toString()}`, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Events fetch failed (${calendarId}): ${res.status} ${text}`);
-  }
+  if (!res.ok) throw new Error(`Events ${calendarId}: ${res.status} ${await res.text()}`);
   const json = await res.json();
   return (json.items ?? []) as GEvent[];
 }
@@ -110,116 +107,86 @@ serve(async (req) => {
         },
       });
     }
-
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Use POST" }), {
-        status: 405,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return new Response(JSON.stringify({ error: "Use POST" }), { status: 405, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     }
 
-    const payload = (await req.json()) as QueryPayload;
+    const p = (await req.json()) as QueryPayload;
     const {
-      query = "",
-      calendarIds,
-      timeMin,
-      timeMax,
-      maxPerCalendar = 250,
-    } = payload || {};
+      query = "", guestsQuery = [],
+      calendarIds, timeMin, timeMax, maxPerCalendar = 250,
+      titleQuery = "", titleMatchMode = "any",
+    } = p || {};
 
     if (!Array.isArray(calendarIds) || calendarIds.length === 0) {
-      return new Response(JSON.stringify({ error: "calendarIds required" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-      });
+      return new Response(JSON.stringify({ error: "calendarIds required" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
     }
 
     const now = new Date();
-    const defaultMin = new Date(now);
-    defaultMin.setDate(defaultMin.getDate() - 90);
-    const defaultMax = new Date(now);
-    defaultMax.setDate(defaultMax.getDate() + 180);
+    const dMin = new Date(now); dMin.setDate(dMin.getDate() - 90);
+    const dMax = new Date(now); dMax.setDate(dMax.getDate() + 180);
 
-    const q = normalizeStr(query);
-    const tMin = timeMin ?? defaultMin.toISOString();
-    const tMax = timeMax ?? defaultMax.toISOString();
+    const qSingle = norm(query);
+    const qGuests = (guestsQuery ?? []).map(norm).filter(Boolean); // múltiplos termos
+    const titleTokens = tokTitle(titleQuery);
+    const requireAll = titleMatchMode === "all";
 
-    const accessToken = await getAccessToken();
+    const tMin = timeMin ?? dMin.toISOString();
+    const tMax = timeMax ?? dMax.toISOString();
 
-    const eventsArrays = await Promise.all(
+    const access = await getAccessToken();
+
+    const all = await Promise.all(
       calendarIds.map((cid) =>
-        fetchEventsForCalendar(accessToken, cid, tMin, tMax, maxPerCalendar)
-          .then((list) => ({ cid, list }))
-          .catch((err) => {
-            console.error("Calendar fetch error", cid, err);
-            return { cid, list: [] as GEvent[] };
-          })
+        fetchEvents(access, cid, tMin, tMax, maxPerCalendar)
+          .then(list => ({ cid, list }))
+          .catch(_ => ({ cid, list: [] as GEvent[] }))
       )
     );
 
-    const byAttendee = new Map<string, AttendeeHit>();
+    const map = new Map<string, AttendeeHit>();
 
-    for (const { cid, list } of eventsArrays) {
+    for (const { cid, list } of all) {
       for (const ev of list) {
-        const { start, end } = eventTimeToString(ev);
-        const baseEvent = {
-          id: ev.id,
-          summary: ev.summary ?? "(sem título)",
-          start,
-          end,
-          htmlLink: ev.htmlLink ?? "",
-          calendarId: cid,
-        };
+        // filtro por título
+        if (titleTokens.length) {
+          const T = norm(ev.summary ?? "");
+          const matched = titleTokens.map(t => T.includes(t));
+          const pass = requireAll ? matched.every(Boolean) : matched.some(Boolean);
+          if (!pass) continue;
+        }
 
-        (ev.attendees ?? []).forEach((a) => {
+        const base = { id: ev.id, summary: ev.summary ?? "(sem título)", ...times(ev), htmlLink: ev.htmlLink ?? "", calendarId: cid };
+
+        for (const a of ev.attendees ?? []) {
           const email = (a.email ?? "").trim();
-          const displayName = (a.displayName ?? "").trim();
+          const name = (a.displayName ?? "").trim();
+          if (!email && !name) continue;
 
-          if (!email && !displayName) return;
+          const hay = norm(`${name} ${email}`);
 
-          const hay = normalizeStr(`${displayName} ${email}`);
-          if (q && !hay.includes(q)) return;
+          // LIKE por convidado: aceita "query" (single) OU qualquer item em guestsQuery (OR)
+          let passGuest = true;
+          if (qSingle) passGuest = hay.includes(qSingle);
+          if (qGuests.length) passGuest = qGuests.some(g => hay.includes(g));
+          if (qSingle && qGuests.length) passGuest = hay.includes(qSingle) || qGuests.some(g => hay.includes(g));
+          if (!passGuest) continue;
 
-          const key = (email || displayName).toLowerCase();
-
-          if (!byAttendee.has(key)) {
-            byAttendee.set(key, {
-              attendee: {
-                email: email || "",
-                displayName: displayName || "",
-              },
-              events: [],
-            });
+          const key = (email || name).toLowerCase();
+          if (!map.has(key)) {
+            map.set(key, { attendee: { email: email || "", displayName: name || "" }, events: [] });
           }
-
-          byAttendee.get(key)!.events.push({
-            ...baseEvent,
-            responseStatus: a.responseStatus,
-          });
-        });
+          map.get(key)!.events.push({ ...base, responseStatus: a.responseStatus });
+        }
       }
     }
 
-    const hits = Array.from(byAttendee.values())
-      .sort((a, b) => {
-        const an = (a.attendee.displayName || a.attendee.email).toLowerCase();
-        const bn = (b.attendee.displayName || b.attendee.email).toLowerCase();
-        return an.localeCompare(bn);
-      })
-      .map((hit) => ({
-        ...hit,
-        events: hit.events.sort((x, y) => (x.start || "").localeCompare(y.start || "")),
-      }));
+    const hits = Array.from(map.values())
+      .sort((a, b) => (a.attendee.displayName || a.attendee.email).localeCompare(b.attendee.displayName || b.attendee.email))
+      .map(h => ({ ...h, events: h.events.sort((x, y) => (x.start || "").localeCompare(y.start || "")) }));
 
-    return new Response(JSON.stringify({ hits }), {
-      status: 200,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
-  } catch (err) {
-    console.error(err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-    });
+    return new Response(JSON.stringify({ hits }), { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
   }
 });
