@@ -1,35 +1,14 @@
 // src/components/calendar/GoogleCalendarEmbed.tsx
 import React, { useEffect, useMemo, useState } from "react";
 
+import {
+  CALENDAR_ITEMS,
+  DEFAULT_SELECTED_CALENDAR_IDS,
+  DEFAULT_TIMEZONE,
+} from "./calendarConfig";
+
 /** Tipos */
 type ViewMode = "MONTH" | "WEEK" | "AGENDA";
-
-type CalendarItem = {
-  id: string; // calendarId (precisa ser público p/ aparecer no embed)
-  label: string; // nome amigável
-  color?: string; // hex com '#', ex: "#0B8043"  -> vira "%230B8043" na URL
-  defaultOn?: boolean; // inicia selecionado?
-};
-
-/** Helpers de ENV (fallbacks seguros) */
-const ENV_TZ =
-  (import.meta as any)?.env?.VITE_GOOGLE_CALENDAR_TZ ?? "America/Sao_Paulo";
-const ENV_MAIN =
-  (import.meta as any)?.env?.VITE_GOOGLE_CALENDAR_MAIN ??
-  "c71ad776a29f8953dc6891f8f1ac46d563ac98f55a67a572d3b89cbd96e8c25c@group.calendar.google.com";
-
-/** Defina aqui os seus calendários públicos */
-const ALL_CALENDARS: CalendarItem[] = [
-  {
-    id: ENV_MAIN,
-    label: "Principal",
-    color: "#0B8043",
-    defaultOn: true,
-  },
-  // Exemplos (substitua por IDs públicos reais da sua equipe, se quiser):
-  // { id: "consultorA@group.calendar.google.com", label: "Consultor A", color: "#D50000", defaultOn: false },
-  // { id: "consultorB@group.calendar.google.com", label: "Consultor B", color: "#3F51B5", defaultOn: false },
-];
 
 /** Persistência simples em localStorage */
 const LS_KEY = "calendar-advanced-prefs";
@@ -63,11 +42,10 @@ export default function GoogleCalendarEmbed() {
   // Estado inicial vindo do localStorage (ou defaults)
   const saved = loadPrefs();
   const [view, setView] = useState<ViewMode>(saved?.view ?? "MONTH");
-  const [tz, setTz] = useState<string>(saved?.tz ?? ENV_TZ);
+  const [tz, setTz] = useState<string>(saved?.tz ?? DEFAULT_TIMEZONE);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(
-    saved?.selected ??
-      ALL_CALENDARS.filter((c) => c.defaultOn).map((c) => c.id)
+    saved?.selected ?? DEFAULT_SELECTED_CALENDAR_IDS,
   );
 
   useEffect(() => {
@@ -91,7 +69,7 @@ export default function GoogleCalendarEmbed() {
     // Adiciona src (um por calendário selecionado) e cores em mesma ordem
     selectedIds.forEach((id) => params.append("src", id));
     selectedIds.forEach((id) => {
-      const color = ALL_CALENDARS.find((c) => c.id === id)?.color;
+      const color = CALENDAR_ITEMS.find((c) => c.id === id)?.color;
       if (color && /^#([0-9A-F]{6}|[0-9a-f]{6})$/.test(color)) {
         // encode do '#'
         params.append("color", color.replace("#", "%23"));
@@ -159,7 +137,7 @@ export default function GoogleCalendarEmbed() {
           <div className="flex flex-col gap-2">
             <span className="text-sm font-medium">Calendários:</span>
             <div className="flex flex-wrap gap-3">
-              {ALL_CALENDARS.map((c) => {
+              {CALENDAR_ITEMS.map((c) => {
                 const checked = selectedIds.includes(c.id);
                 return (
                   <label
