@@ -8,6 +8,7 @@ import Heatmap from '@/components/capacity-planning/Heatmap';
 import Kpis from '@/components/capacity-planning/Kpis';
 import OverUnderPanels from '@/components/capacity-planning/OverUnderPanels';
 import { AllocationEditorDialog, CapacityEditorDialog, SuggestionDialog } from '@/components/capacity-planning/Editors';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
@@ -154,61 +155,63 @@ export default function CapacityPlanningPage() {
   };
 
   return (
-    <div className="space-y-6 p-4">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Gestão de Capacidade</h1>
-          <p className="text-sm text-muted-foreground">Gestão de capacidade, planejado e esforço real.</p>
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Gestão de Capacidade</h1>
+            <p className="text-sm text-muted-foreground">Gestão de capacidade, planejado e esforço real.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ToggleGroup type="single" value={granularity} onValueChange={value => value && setGranularity(value as CapacityGranularity)}>
+              {granularityOptions.map(option => (
+                <ToggleGroupItem key={option.value} value={option.value} aria-label={option.label}>
+                  {option.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+            <Button variant="outline" onClick={() => setCapacityDialogOpen(true)}>Nova capacidade</Button>
+            <Button variant="outline" onClick={() => setAllocationDialogOpen(true)}>Nova alocação</Button>
+            <Button variant="outline" onClick={exportCsv} disabled={!displayRows.length}>
+              Exportar CSV
+            </Button>
+            <Button onClick={loadSnapshot} disabled={loading}>
+              {loading ? 'Carregando…' : 'Atualizar'}
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <ToggleGroup type="single" value={granularity} onValueChange={value => value && setGranularity(value as CapacityGranularity)}>
-            {granularityOptions.map(option => (
-              <ToggleGroupItem key={option.value} value={option.value} aria-label={option.label}>
-                {option.label}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <Button variant="outline" onClick={() => setCapacityDialogOpen(true)}>Nova capacidade</Button>
-          <Button variant="outline" onClick={() => setAllocationDialogOpen(true)}>Nova alocação</Button>
-          <Button variant="outline" onClick={exportCsv} disabled={!displayRows.length}>
-            Exportar CSV
-          </Button>
-          <Button onClick={loadSnapshot} disabled={loading}>
-            {loading ? 'Carregando…' : 'Atualizar'}
-          </Button>
-        </div>
+
+        <FiltersBar range={range} onRange={setRange} analysts={analysts} value={selectedUsers} onChange={setSelectedUsers} />
+
+        <Kpis rows={displayRows} />
+
+        <AggregatedTable rows={displayRows} analysts={analysts} granularity={granularity} />
+
+        {granularity === 'daily' ? (
+          <>
+            <Heatmap rows={rows} analysts={analysts} onSuggest={handleSuggest} />
+            <OverUnderPanels rows={rows} analysts={analysts} />
+          </>
+        ) : (
+          <Card className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
+            Ajuste a granularidade para diária para visualizar o heatmap e os painéis de exceções.
+          </Card>
+        )}
+
+        <CapacityEditorDialog
+          open={capacityDialogOpen}
+          onOpenChange={setCapacityDialogOpen}
+          analysts={analysts}
+          onSaved={loadSnapshot}
+        />
+        <AllocationEditorDialog
+          open={allocationDialogOpen}
+          onOpenChange={setAllocationDialogOpen}
+          analysts={analysts}
+          onSaved={loadSnapshot}
+        />
+        <SuggestionDialog open={suggestionDialogOpen} onOpenChange={setSuggestionDialogOpen} analyst={suggestedAnalyst} />
       </div>
-
-      <FiltersBar range={range} onRange={setRange} analysts={analysts} value={selectedUsers} onChange={setSelectedUsers} />
-
-      <Kpis rows={displayRows} />
-
-      <AggregatedTable rows={displayRows} analysts={analysts} granularity={granularity} />
-
-      {granularity === 'daily' ? (
-        <>
-          <Heatmap rows={rows} analysts={analysts} onSuggest={handleSuggest} />
-          <OverUnderPanels rows={rows} analysts={analysts} />
-        </>
-      ) : (
-        <Card className="rounded-2xl border border-dashed p-6 text-sm text-muted-foreground">
-          Ajuste a granularidade para diária para visualizar o heatmap e os painéis de exceções.
-        </Card>
-      )}
-
-      <CapacityEditorDialog
-        open={capacityDialogOpen}
-        onOpenChange={setCapacityDialogOpen}
-        analysts={analysts}
-        onSaved={loadSnapshot}
-      />
-      <AllocationEditorDialog
-        open={allocationDialogOpen}
-        onOpenChange={setAllocationDialogOpen}
-        analysts={analysts}
-        onSaved={loadSnapshot}
-      />
-      <SuggestionDialog open={suggestionDialogOpen} onOpenChange={setSuggestionDialogOpen} analyst={suggestedAnalyst} />
-    </div>
+    </DashboardLayout>
   );
 }
