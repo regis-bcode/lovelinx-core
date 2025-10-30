@@ -40,6 +40,15 @@ const mapSupabaseUser = (u: any): User => ({
   avatar: (u.user_metadata as any)?.avatar_url ?? null,
 });
 
+const DEFAULT_ADMIN_EMAIL = "admin@admin.com.br";
+const DEFAULT_ADMIN_PASSWORD = "admin";
+const DEFAULT_ADMIN_USER: User = {
+  id: "default-admin",
+  name: "Administrador",
+  email: DEFAULT_ADMIN_EMAIL,
+  avatar: null,
+};
+
 const persistMappedUser = (mapped: User | null) => {
   if (typeof window === "undefined") return;
 
@@ -74,13 +83,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Supabase authentication
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    const DEFAULT_EMAIL = "admin@admin.com.br";
-    const DEFAULT_PASSWORD = "admin";
+    const useResolvedUser = (resolvedUser: User) => {
+      setUser(resolvedUser);
+      persistMappedUser(resolvedUser);
+    };
 
     const mapAndPersistUser = (u: any) => {
       const mapped = mapSupabaseUser(u);
-      setUser(mapped);
-      persistMappedUser(mapped);
+      useResolvedUser(mapped);
     };
 
     try {
@@ -92,7 +102,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       toast({ title: "Login realizado com sucesso!" });
     } catch (err: any) {
       // Fallback: ensure default user exists, then retry
-      if (email === DEFAULT_EMAIL && password === DEFAULT_PASSWORD) {
+      if (email === DEFAULT_ADMIN_EMAIL && password === DEFAULT_ADMIN_PASSWORD) {
         try {
           await supabase.functions.invoke('bootstrap-default-user', {
             body: { email, password },
@@ -105,6 +115,26 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           toast({ title: "Login realizado com sucesso!" });
           return;
         } catch (fallbackErr) {
+          const message = String((fallbackErr as Error)?.message ?? "").toLowerCase();
+          const shouldUseOfflineDemo =
+            message.includes("failed to fetch") ||
+            message.includes("fetch failed") ||
+            message.includes("networkerror") ||
+            message.includes("timed out") ||
+            message.includes("bootstrap-default-user") ||
+            message.includes("edge function") ||
+            (typeof navigator !== "undefined" && navigator.onLine === false);
+
+          if (shouldUseOfflineDemo) {
+            useResolvedUser(DEFAULT_ADMIN_USER);
+            toast({
+              title: "Modo demonstração",
+              description: "Entramos com o usuário padrão local por falta de conexão com o servidor.",
+            });
+            console.warn("Falling back to offline demo admin user due to login failure:", fallbackErr);
+            return;
+          }
+
           toast({ title: "Erro no login", description: "Não foi possível acessar com o usuário padrão.", variant: "destructive" });
           throw fallbackErr as Error;
         }
