@@ -6,7 +6,11 @@ import {
   DEFAULT_SELECTED_CALENDAR_IDS,
   DEFAULT_TIMEZONE,
 } from "./calendarConfig";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  SUPABASE_ANON_KEY,
+  SUPABASE_FUNCTIONS_URL,
+  supabase,
+} from "@/integrations/supabase/client";
 
 /** Tipos */
 type ViewMode = "MONTH" | "WEEK" | "AGENDA";
@@ -302,6 +306,122 @@ type CalendarSplitResponse = {
   }>;
 };
 
+type CalendarSplitRequestPayload = {
+  calendarIds: string[];
+  timeMin: string;
+  timeMax: string;
+  maxPerCalendar: number;
+  groupBy: "calendar";
+};
+
+const EDGE_FUNCTION_NETWORK_ERROR =
+  "Failed to send a request to the Edge Function";
+const DEFAULT_CALENDAR_ERROR_MESSAGE =
+  "Não foi possível carregar os eventos";
+
+function resolveCalendarSplitError(error: unknown): string {
+  const rawMessage =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+      ? error.message
+      : "";
+
+  if (rawMessage?.includes(EDGE_FUNCTION_NETWORK_ERROR)) {
+    return "Não foi possível se conectar ao serviço de busca dos calendários. Verifique sua conexão e tente novamente.";
+  }
+
+  if (rawMessage) {
+    return rawMessage;
+  }
+
+  return DEFAULT_CALENDAR_ERROR_MESSAGE;
+}
+
+async function fetchCalendarSplitData(
+  payload: CalendarSplitRequestPayload,
+): Promise<CalendarSplitResponse> {
+  try {
+    const { data, error } = await supabase.functions.invoke<CalendarSplitResponse>(
+      "calendar-attendees-search",
+      {
+        body: payload,
+      },
+    );
+
+    if (error) {
+      throw new Error(error.message ?? DEFAULT_CALENDAR_ERROR_MESSAGE);
+    }
+
+    return data ?? { calendars: [] };
+  } catch (primaryError) {
+    if (
+      primaryError instanceof Error &&
+      primaryError.message.includes(EDGE_FUNCTION_NETWORK_ERROR) &&
+      typeof globalThis.fetch === "function" &&
+      SUPABASE_FUNCTIONS_URL &&
+      SUPABASE_ANON_KEY
+    ) {
+      try {
+        const response = await fetch(
+          `${SUPABASE_FUNCTIONS_URL}/calendar-attendees-search`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+
+        const text = await response.text();
+        let parsed: unknown = null;
+
+        if (text) {
+          try {
+            parsed = JSON.parse(text);
+          } catch {
+            parsed = text;
+          }
+        }
+
+        if (!response.ok) {
+          const message =
+            (parsed &&
+            typeof parsed === "object" &&
+            parsed !== null &&
+            "error" in parsed &&
+            typeof (parsed as { error?: unknown }).error === "string"
+              ? (parsed as { error: string }).error
+              : typeof parsed === "string"
+              ? parsed
+              : text) || DEFAULT_CALENDAR_ERROR_MESSAGE;
+
+          throw new Error(message);
+        }
+
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          parsed !== null &&
+          "error" in parsed &&
+          typeof (parsed as { error?: unknown }).error === "string"
+        ) {
+          throw new Error((parsed as { error: string }).error);
+        }
+
+        return (parsed as CalendarSplitResponse) ?? { calendars: [] };
+      } catch (fallbackError) {
+        throw new Error(resolveCalendarSplitError(fallbackError));
+      }
+    }
+
+    throw new Error(resolveCalendarSplitError(primaryError));
+  }
+}
+
 function formatRangeLabel(start: string, end: string, timezone: string) {
   const allDayRegex = /^\d{4}-\d{2}-\d{2}$/;
   if (allDayRegex.test(start) || allDayRegex.test(end)) {
@@ -382,33 +502,31 @@ function CalendarSplitView({ calendarIds, date, timezone }: CalendarSplitViewPro
     let cancelled = false;
 
     const load = async () => {
+      const payload: CalendarSplitRequestPayload = {
+        calendarIds,
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        maxPerCalendar: 200,
+        groupBy: "calendar",
+      };
+
       try {
         setLoading(true);
         setError(null);
-        const { data, error } = await supabase.functions.invoke<CalendarSplitResponse>(
-          "calendar-attendees-search",
-          {
-            body: {
-              calendarIds,
-              timeMin: start.toISOString(),
-              timeMax: end.toISOString(),
-              maxPerCalendar: 200,
-              groupBy: "calendar",
-            },
-          },
-        );
-        if (error) {
-          throw new Error(error.message ?? "Falha ao carregar eventos");
-        }
+
+        const data = await fetchCalendarSplitData(payload);
         if (cancelled) return;
+
         const next: Record<string, CalendarSplitEvent[]> = {};
         for (const item of data?.calendars ?? []) {
           next[item.calendarId] = item.events;
         }
         setEventsByCalendar(next);
-      } catch (err: any) {
+      } catch (err) {
         if (!cancelled) {
-          setError(err?.message ?? "Não foi possível carregar os eventos");
+          const message = resolveCalendarSplitError(err);
+          setError(message);
+          console.error("Calendar split view error:", err);
         }
       } finally {
         if (!cancelled) {

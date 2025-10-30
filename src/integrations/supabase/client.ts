@@ -2,8 +2,57 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://mmghpkoumxqbuwebkjxo.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tZ2hwa291bXhxYnV3ZWJranhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1OTMxNjAsImV4cCI6MjA3MzE2OTE2MH0.-BUg9T_PsTXCGalZEp1ozwgVaGJ0uCXrMnShbi-84c0";
+const FALLBACK_SUPABASE_URL = "https://mmghpkoumxqbuwebkjxo.supabase.co";
+const FALLBACK_SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1tZ2hwa291bXhxYnV3ZWJraGhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc1OTMxNjAsImV4cCI6MjA3MzE2OTE2MH0.-BUg9T_PsTXCGalZEp1ozwgVaGJ0uCXrMnShbi-84c0";
+
+const importMetaEnv = (() => {
+  try {
+    return ((import.meta as any)?.env ?? {}) as Record<string, string | undefined>;
+  } catch (error) {
+    console.warn("Unable to access import.meta.env for Supabase configuration:", error);
+    return {} as Record<string, string | undefined>;
+  }
+})();
+
+const processEnv = (() => {
+  try {
+    const env = (globalThis as any)?.process?.env;
+    if (env && typeof env === "object") {
+      return env as Record<string, string | undefined>;
+    }
+  } catch {
+    // Ignora ambientes sem suporte a process.env (como o navegador).
+  }
+
+  return {} as Record<string, string | undefined>;
+})();
+
+const resolvedSupabaseUrl =
+  importMetaEnv?.VITE_SUPABASE_URL?.trim() ||
+  processEnv?.VITE_SUPABASE_URL?.trim() ||
+  FALLBACK_SUPABASE_URL;
+
+const resolvedSupabaseAnonKey =
+  importMetaEnv?.VITE_SUPABASE_ANON_KEY?.trim() ||
+  processEnv?.VITE_SUPABASE_ANON_KEY?.trim() ||
+  FALLBACK_SUPABASE_ANON_KEY;
+
+if (!importMetaEnv?.VITE_SUPABASE_URL && !processEnv?.VITE_SUPABASE_URL) {
+  console.warn(
+    "[supabase] VITE_SUPABASE_URL não definido. Usando o fallback embutido; configure a variável de ambiente para evitar quebras futuras.",
+  );
+}
+
+if (!importMetaEnv?.VITE_SUPABASE_ANON_KEY && !processEnv?.VITE_SUPABASE_ANON_KEY) {
+  console.warn(
+    "[supabase] VITE_SUPABASE_ANON_KEY não definido. Usando o fallback embutido; configure a variável de ambiente para evitar quebras futuras.",
+  );
+}
+
+export const SUPABASE_URL = resolvedSupabaseUrl;
+export const SUPABASE_ANON_KEY = resolvedSupabaseAnonKey;
+export const SUPABASE_FUNCTIONS_URL = `${SUPABASE_URL}/functions/v1`;
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
@@ -53,7 +102,7 @@ const resolveBrowserStorage = (): Storage | null => {
 
 const storage: Storage = resolveBrowserStorage() ?? createMemoryStorage();
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     storage,
     persistSession: true,
