@@ -28,25 +28,67 @@ const processEnv = (() => {
   return {} as Record<string, string | undefined>;
 })();
 
+const pickFirstDefined = (...values: Array<string | undefined>) => {
+  for (const value of values) {
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+};
+
 const resolvedSupabaseUrl =
-  importMetaEnv?.VITE_SUPABASE_URL?.trim() ||
-  processEnv?.VITE_SUPABASE_URL?.trim() ||
-  FALLBACK_SUPABASE_URL;
+  pickFirstDefined(
+    importMetaEnv?.VITE_SUPABASE_URL,
+    importMetaEnv?.PUBLIC_SUPABASE_URL,
+    importMetaEnv?.NEXT_PUBLIC_SUPABASE_URL,
+    processEnv?.VITE_SUPABASE_URL,
+    processEnv?.PUBLIC_SUPABASE_URL,
+    processEnv?.NEXT_PUBLIC_SUPABASE_URL,
+    processEnv?.SUPABASE_URL,
+  ) ?? FALLBACK_SUPABASE_URL;
 
 const resolvedSupabaseAnonKey =
-  importMetaEnv?.VITE_SUPABASE_ANON_KEY?.trim() ||
-  processEnv?.VITE_SUPABASE_ANON_KEY?.trim() ||
-  FALLBACK_SUPABASE_ANON_KEY;
+  pickFirstDefined(
+    importMetaEnv?.VITE_SUPABASE_ANON_KEY,
+    importMetaEnv?.PUBLIC_SUPABASE_ANON_KEY,
+    importMetaEnv?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.VITE_SUPABASE_ANON_KEY,
+    processEnv?.PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.SUPABASE_ANON_KEY,
+  ) ?? FALLBACK_SUPABASE_ANON_KEY;
 
-if (!importMetaEnv?.VITE_SUPABASE_URL && !processEnv?.VITE_SUPABASE_URL) {
+if (
+  !pickFirstDefined(
+    importMetaEnv?.VITE_SUPABASE_URL,
+    importMetaEnv?.PUBLIC_SUPABASE_URL,
+    importMetaEnv?.NEXT_PUBLIC_SUPABASE_URL,
+    processEnv?.VITE_SUPABASE_URL,
+    processEnv?.PUBLIC_SUPABASE_URL,
+    processEnv?.NEXT_PUBLIC_SUPABASE_URL,
+    processEnv?.SUPABASE_URL,
+  )
+) {
   console.warn(
-    "[supabase] VITE_SUPABASE_URL não definido. Usando o fallback embutido; configure a variável de ambiente para evitar quebras futuras.",
+    "[supabase] Nenhuma variável de ambiente SUPABASE_URL encontrada (aceitas: VITE_SUPABASE_URL, PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_URL). Usando o fallback embutido; configure uma variável de ambiente para evitar quebras futuras.",
   );
 }
 
-if (!importMetaEnv?.VITE_SUPABASE_ANON_KEY && !processEnv?.VITE_SUPABASE_ANON_KEY) {
+if (
+  !pickFirstDefined(
+    importMetaEnv?.VITE_SUPABASE_ANON_KEY,
+    importMetaEnv?.PUBLIC_SUPABASE_ANON_KEY,
+    importMetaEnv?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.VITE_SUPABASE_ANON_KEY,
+    processEnv?.PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    processEnv?.SUPABASE_ANON_KEY,
+  )
+) {
   console.warn(
-    "[supabase] VITE_SUPABASE_ANON_KEY não definido. Usando o fallback embutido; configure a variável de ambiente para evitar quebras futuras.",
+    "[supabase] Nenhuma variável de ambiente SUPABASE_ANON_KEY encontrada (aceitas: VITE_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_ANON_KEY). Usando o fallback embutido; configure uma variável de ambiente para evitar quebras futuras.",
   );
 }
 
