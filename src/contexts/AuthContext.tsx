@@ -131,7 +131,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             message.includes("bootstrap-default-user") ||
             message.includes("edge function") ||
             message.includes("invalid api key") ||
+            message.includes("invalid login credentials") ||
             statusCode === 401 ||
+            statusCode === 400 ||
             (typeof navigator !== "undefined" && navigator.onLine === false);
 
           if (shouldUseOfflineDemo) {
