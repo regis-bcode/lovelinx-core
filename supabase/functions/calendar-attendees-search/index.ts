@@ -112,21 +112,22 @@ async function fetchEvents(
   return (json.items ?? []) as GEvent[];
 }
 
-const corsHeaders = {
+const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  // Permite os cabeçalhos padrão do client do Supabase.
   "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info",
 };
 
 serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "Use POST" }), {
         status: 405,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
       });
     }
 
@@ -146,7 +147,7 @@ serve(async (req) => {
     if (!Array.isArray(calendarIds) || calendarIds.length === 0) {
       return new Response(JSON.stringify({ error: "calendarIds required" }), {
         status: 400,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
       });
     }
 
@@ -277,7 +278,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ hits: [] as AttendeeHit[], calendars }), {
         status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+        headers: { "Content-Type": "application/json", ...CORS_HEADERS },
       });
     }
 
@@ -287,12 +288,12 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ hits }), {
       status: 200,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   } catch (e) {
     return new Response(JSON.stringify({ error: String(e) }), {
       status: 500,
-      headers: { "Content-Type": "application/json", ...corsHeaders },
+      headers: { "Content-Type": "application/json", ...CORS_HEADERS },
     });
   }
 });
