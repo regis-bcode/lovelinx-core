@@ -157,7 +157,7 @@ export default function CapacityPlanningPage() {
     <div className="space-y-6 p-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Capacity Planning</h1>
+          <h1 className="text-2xl font-bold">Gestão de Capacidade</h1>
           <p className="text-sm text-muted-foreground">Gestão de capacidade, planejado e esforço real.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

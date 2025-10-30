@@ -71,7 +71,7 @@ export const navigation: NavigationItem[] = [
     icon: FileText,
   },
   {
-    title: "Capacity Planning",
+    title: "Gestão de Capacidade",
     url: "/ferramentas/capacity-planning",
     icon: Gauge,
   },
