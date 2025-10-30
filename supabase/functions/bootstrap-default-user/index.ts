@@ -13,7 +13,7 @@ serve(async (req: Request) => {
 
   try {
     const { email, password } = await req.json().catch(() => ({
-      email: "admin@admin",
+      email: "admin@admin.com.br",
       password: "admin",
     }));
 
