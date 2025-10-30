@@ -121,7 +121,7 @@ const corsHeaders = {
 serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      return new Response(null, { status: 204, headers: corsHeaders });
     }
     if (req.method !== "POST") {
       return new Response(JSON.stringify({ error: "Use POST" }), {
