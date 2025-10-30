@@ -15,6 +15,10 @@ type QueryPayload = {
   // Filtro por título
   titleQuery?: string;
   titleMatchMode?: "any" | "all";
+
+  // Agrupamento do retorno. Mantemos "attendee" como padrão para preservar o
+  // comportamento anterior (lista organizada por convidados).
+  groupBy?: "attendee" | "calendar";
 };
 
 type GEvent = {
@@ -36,6 +40,18 @@ type AttendeeHit = {
     htmlLink: string;
     calendarId: string;
     responseStatus?: string;
+  }>;
+};
+
+type CalendarHit = {
+  calendarId: string;
+  events: Array<{
+    id: string;
+    summary: string;
+    start: string;
+    end: string;
+    htmlLink: string;
+    attendees: Array<{ email: string; displayName: string; responseStatus?: string }>;
   }>;
 };
 
@@ -113,9 +129,15 @@ serve(async (req) => {
 
     const p = (await req.json()) as QueryPayload;
     const {
-      query = "", guestsQuery = [],
-      calendarIds, timeMin, timeMax, maxPerCalendar = 250,
-      titleQuery = "", titleMatchMode = "any",
+      query = "",
+      guestsQuery = [],
+      calendarIds,
+      timeMin,
+      timeMax,
+      maxPerCalendar = 250,
+      titleQuery = "",
+      titleMatchMode = "any",
+      groupBy = "attendee",
     } = p || {};
 
     if (!Array.isArray(calendarIds) || calendarIds.length === 0) {
@@ -145,6 +167,27 @@ serve(async (req) => {
     );
 
     const map = new Map<string, AttendeeHit>();
+    const calendarMap = new Map<string, CalendarHit>();
+
+    const requiresGuestMatch = Boolean(qSingle || qGuests.length);
+
+    const eventMatchesGuests = (ev: GEvent) => {
+      if (!requiresGuestMatch) return true;
+      const attendees = ev.attendees ?? [];
+      for (const a of attendees) {
+        const hay = norm(`${(a.displayName ?? "").trim()} ${(a.email ?? "").trim()}`);
+        const single = qSingle ? hay.includes(qSingle) : false;
+        const multi = qGuests.length ? qGuests.some((g) => hay.includes(g)) : false;
+        if (qSingle && qGuests.length) {
+          if (single || multi) return true;
+        } else if (qSingle && single) {
+          return true;
+        } else if (qGuests.length && multi) {
+          return true;
+        }
+      }
+      return false;
+    };
 
     for (const { cid, list } of all) {
       for (const ev of list) {
@@ -156,7 +199,40 @@ serve(async (req) => {
           if (!pass) continue;
         }
 
-        const base = { id: ev.id, summary: ev.summary ?? "(sem título)", ...times(ev), htmlLink: ev.htmlLink ?? "", calendarId: cid };
+        if (groupBy === "calendar" && !eventMatchesGuests(ev)) {
+          continue;
+        }
+
+        const base = {
+          id: ev.id,
+          summary: ev.summary ?? "(sem título)",
+          ...times(ev),
+          htmlLink: ev.htmlLink ?? "",
+          calendarId: cid,
+        };
+
+        if (groupBy === "calendar") {
+          if (!calendarMap.has(cid)) {
+            calendarMap.set(cid, {
+              calendarId: cid,
+              events: [],
+            });
+          }
+          const target = calendarMap.get(cid)!;
+          target.events.push({
+            id: base.id,
+            summary: base.summary,
+            start: base.start,
+            end: base.end,
+            htmlLink: base.htmlLink,
+            attendees: (ev.attendees ?? []).map((a) => ({
+              email: (a.email ?? "").trim(),
+              displayName: (a.displayName ?? "").trim(),
+              responseStatus: a.responseStatus,
+            })),
+          });
+          continue;
+        }
 
         for (const a of ev.attendees ?? []) {
           const email = (a.email ?? "").trim();
@@ -167,9 +243,11 @@ serve(async (req) => {
 
           // LIKE por convidado: aceita "query" (single) OU qualquer item em guestsQuery (OR)
           let passGuest = true;
-          if (qSingle) passGuest = hay.includes(qSingle);
-          if (qGuests.length) passGuest = qGuests.some(g => hay.includes(g));
-          if (qSingle && qGuests.length) passGuest = hay.includes(qSingle) || qGuests.some(g => hay.includes(g));
+          if (requiresGuestMatch) {
+            const single = qSingle ? hay.includes(qSingle) : false;
+            const multi = qGuests.length ? qGuests.some((g) => hay.includes(g)) : false;
+            passGuest = qSingle && qGuests.length ? single || multi : qSingle ? single : multi;
+          }
           if (!passGuest) continue;
 
           const key = (email || name).toLowerCase();
@@ -179,6 +257,28 @@ serve(async (req) => {
           map.get(key)!.events.push({ ...base, responseStatus: a.responseStatus });
         }
       }
+    }
+
+    if (groupBy === "calendar") {
+      const calendars = calendarIds.map((cid) => {
+        const events = calendarMap.get(cid)?.events ?? [];
+        const sorted = events.sort((x, y) => (x.start || "").localeCompare(y.start || ""));
+        return {
+          calendarId: cid,
+          events: sorted,
+        } as CalendarHit;
+      });
+
+      return new Response(
+        JSON.stringify({ hits: [] as AttendeeHit[], calendars }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+          },
+        },
+      );
     }
 
     const hits = Array.from(map.values())
