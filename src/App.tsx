@@ -28,6 +28,7 @@ import TeamManagement from "./pages/TeamManagement";
 import TeamAddMembers from "./pages/TeamAddMembers";
 import NotFound from "./pages/NotFound";
 import CalendarPage from "./pages/CalendarPage";
+import CapacityPlanningPage from "./pages/ferramentas/CapacityPlanning";
 
 
 
@@ -260,6 +261,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <div className="p-6">Documents page - Em desenvolvimento</div>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/ferramentas/capacity-planning"
+        element={
+          <ProtectedRoute>
+            <CapacityPlanningPage />
           </ProtectedRoute>
         }
       />
