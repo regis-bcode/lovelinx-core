@@ -112,19 +112,22 @@ async function fetchEvents(
   return (json.items ?? []) as GEvent[];
 }
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type, authorization, apikey, x-client-info",
+};
+
 serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
-      return new Response(null, {
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "POST, OPTIONS",
-          "Access-Control-Allow-Headers": "content-type, authorization",
-        },
-      });
+      return new Response(null, { headers: corsHeaders });
     }
     if (req.method !== "POST") {
-      return new Response(JSON.stringify({ error: "Use POST" }), { status: 405, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      return new Response(JSON.stringify({ error: "Use POST" }), {
+        status: 405,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     const p = (await req.json()) as QueryPayload;
@@ -141,7 +144,10 @@ serve(async (req) => {
     } = p || {};
 
     if (!Array.isArray(calendarIds) || calendarIds.length === 0) {
-      return new Response(JSON.stringify({ error: "calendarIds required" }), { status: 400, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+      return new Response(JSON.stringify({ error: "calendarIds required" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     const now = new Date();
@@ -269,24 +275,24 @@ serve(async (req) => {
         } as CalendarHit;
       });
 
-      return new Response(
-        JSON.stringify({ hits: [] as AttendeeHit[], calendars }),
-        {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          },
-        },
-      );
+      return new Response(JSON.stringify({ hits: [] as AttendeeHit[], calendars }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
     const hits = Array.from(map.values())
       .sort((a, b) => (a.attendee.displayName || a.attendee.email).localeCompare(b.attendee.displayName || b.attendee.email))
       .map(h => ({ ...h, events: h.events.sort((x, y) => (x.start || "").localeCompare(y.start || "")) }));
 
-    return new Response(JSON.stringify({ hits }), { status: 200, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ hits }), {
+      status: 200,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
+    return new Response(JSON.stringify({ error: String(e) }), {
+      status: 500,
+      headers: { "Content-Type": "application/json", ...corsHeaders },
+    });
   }
 });
