@@ -116,6 +116,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           return;
         } catch (fallbackErr) {
           const message = String((fallbackErr as Error)?.message ?? "").toLowerCase();
+          const statusCode =
+            typeof (fallbackErr as { status?: number })?.status === "number"
+              ? (fallbackErr as { status?: number }).status
+              : typeof (fallbackErr as { code?: number })?.code === "number"
+                ? (fallbackErr as { code?: number }).code
+                : undefined;
+
           const shouldUseOfflineDemo =
             message.includes("failed to fetch") ||
             message.includes("fetch failed") ||
@@ -123,6 +130,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             message.includes("timed out") ||
             message.includes("bootstrap-default-user") ||
             message.includes("edge function") ||
+            message.includes("invalid api key") ||
+            statusCode === 401 ||
             (typeof navigator !== "undefined" && navigator.onLine === false);
 
           if (shouldUseOfflineDemo) {
