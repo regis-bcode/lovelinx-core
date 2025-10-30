@@ -316,6 +316,8 @@ type CalendarSplitRequestPayload = {
 
 const EDGE_FUNCTION_NETWORK_ERROR =
   "Failed to send a request to the Edge Function";
+const EDGE_FUNCTION_STATUS_ERROR =
+  "Edge Function returned a non-2xx status code";
 const DEFAULT_CALENDAR_ERROR_MESSAGE =
   "Não foi possível carregar os eventos";
 
@@ -329,6 +331,10 @@ function resolveCalendarSplitError(error: unknown): string {
 
   if (rawMessage?.includes(EDGE_FUNCTION_NETWORK_ERROR)) {
     return "Não foi possível se conectar ao serviço de busca dos calendários. Verifique sua conexão e tente novamente.";
+  }
+
+  if (rawMessage?.includes(EDGE_FUNCTION_STATUS_ERROR)) {
+    return "O serviço de busca dos calendários retornou um erro. Aguarde alguns instantes e tente novamente.";
   }
 
   if (rawMessage) {
@@ -357,7 +363,8 @@ async function fetchCalendarSplitData(
   } catch (primaryError) {
     if (
       primaryError instanceof Error &&
-      primaryError.message.includes(EDGE_FUNCTION_NETWORK_ERROR) &&
+      (primaryError.message.includes(EDGE_FUNCTION_NETWORK_ERROR) ||
+        primaryError.message.includes(EDGE_FUNCTION_STATUS_ERROR)) &&
       typeof globalThis.fetch === "function" &&
       SUPABASE_FUNCTIONS_URL &&
       SUPABASE_ANON_KEY
