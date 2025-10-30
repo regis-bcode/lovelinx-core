@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Supabase authentication
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    const DEFAULT_EMAIL = "admin@admin";
+    const DEFAULT_EMAIL = "admin@admin.com.br";
     const DEFAULT_PASSWORD = "admin";
 
     const mapAndPersistUser = (u: any) => {

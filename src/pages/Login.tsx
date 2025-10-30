@@ -237,11 +237,11 @@ export default function Login() {
                         variant="outline"
                         className="h-11 w-full rounded-full border border-primary/20 bg-white/70 text-primary hover:border-primary/40 hover:bg-white"
                         onClick={async () => {
-                          setEmail("admin@admin");
+                          setEmail("admin@admin.com.br");
                           setPassword("admin");
                           setIsLoading(true);
                           try {
-                            await login("admin@admin", "admin");
+                            await login("admin@admin.com.br", "admin");
                           } finally {
                             setIsLoading(false);
                           }
