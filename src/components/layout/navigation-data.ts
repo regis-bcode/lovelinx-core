@@ -17,7 +17,8 @@ import {
   UserCog,
   Users,
   Workflow,
-  Wrench
+  Wrench,
+  Gauge
 } from "lucide-react";
 
 type NavigationItem = {
@@ -68,6 +69,11 @@ export const navigation: NavigationItem[] = [
     title: "Documentos",
     url: "/documents",
     icon: FileText,
+  },
+  {
+    title: "Capacity Planning",
+    url: "/ferramentas/capacity-planning",
+    icon: Gauge,
   },
 ];
 
