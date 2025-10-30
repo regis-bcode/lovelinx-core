@@ -74,8 +74,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Supabase authentication
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    const DEFAULT_EMAIL = "admin@projectos.com";
-    const DEFAULT_PASSWORD = "123456";
+    const DEFAULT_EMAIL = "admin@admin";
+    const DEFAULT_PASSWORD = "admin";
 
     const mapAndPersistUser = (u: any) => {
       const mapped = mapSupabaseUser(u);
