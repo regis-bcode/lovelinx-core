@@ -32,19 +32,96 @@ export const CALENDAR_ITEMS: CalendarItem[] = [
     color: "#0B8043",
     defaultOn: true,
   },
-  // Exemplos (substitua por IDs públicos reais da sua equipe, se quiser):
-  // {
-  //   id: "consultorA@group.calendar.google.com",
-  //   label: "Consultor A",
-  //   color: "#D50000",
-  //   defaultOn: false,
-  // },
-  // {
-  //   id: "consultorB@group.calendar.google.com",
-  //   label: "Consultor B",
-  //   color: "#3F51B5",
-  //   defaultOn: false,
-  // },
+  {
+    id: "joao.luiz@baumgratzcode.com.br",
+    label: "João Luiz",
+    color: "#D81B60",
+    defaultOn: true,
+  },
+  {
+    id: "alinegomes@baumgratzcode.com.br",
+    label: "Aline Gomes",
+    color: "#039BE5",
+    defaultOn: true,
+  },
+  {
+    id: "athaufo.ereira@baumgratzcode.com.br",
+    label: "Athaufo Pereira",
+    color: "#F6BF26",
+    defaultOn: true,
+  },
+  {
+    id: "douglas.baumgratz@baumgratzcode.com.br",
+    label: "Douglas Baumgratz",
+    color: "#8E24AA",
+    defaultOn: true,
+  },
+  {
+    id: "eduardo@baumgratzcode.com.br",
+    label: "Eduardo",
+    color: "#43A047",
+    defaultOn: true,
+  },
+  {
+    id: "fernanda@baumgratzcode.com.br",
+    label: "Fernanda",
+    color: "#F4511E",
+    defaultOn: true,
+  },
+  {
+    id: "francesco@baumgratzcode.com.br",
+    label: "Francesco",
+    color: "#3949AB",
+    defaultOn: true,
+  },
+  {
+    id: "geovanabonoto@baumgratzcode.com.br",
+    label: "Geovana Bonoto",
+    color: "#00ACC1",
+    defaultOn: true,
+  },
+  {
+    id: "gustavo@baumgratzcode.com.br",
+    label: "Gustavo",
+    color: "#7CB342",
+    defaultOn: true,
+  },
+  {
+    id: "jhonnymagrini@baumgratzcode.com.br",
+    label: "Jhonny Magrini",
+    color: "#FF7043",
+    defaultOn: true,
+  },
+  {
+    id: "joaocustodio@baumgratzcode.com.br",
+    label: "João Custódio",
+    color: "#5C6BC0",
+    defaultOn: true,
+  },
+  {
+    id: "juliocesar@baumgratzcode.com.br",
+    label: "Júlio Cesar",
+    color: "#26A69A",
+    defaultOn: true,
+  },
+  {
+    id: "marcosantonio@baumgratzcode.com.br",
+    label: "Marcos Antônio",
+    color: "#EF6C00",
+    defaultOn: true,
+  },
+  {
+    id: "rafael@baumgratzcode.com.br",
+    label: "Rafael Corrêa",
+    color: "#AB47BC",
+    defaultOn: true,
+  },
+  {
+    id: "samara@baumgratzcode.com.br",
+    label: "Samara",
+    color: "#26C6DA",
+    defaultOn: true,
+  },
 ];
 
 const defaultSelected = CALENDAR_ITEMS.filter((item) => item.defaultOn).map(
