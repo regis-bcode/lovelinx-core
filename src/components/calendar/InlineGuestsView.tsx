@@ -10,10 +10,21 @@ type Hit = {
 type Result = { hits: Hit[] };
 type CalendarOpt = { id: string; label: string };
 
+const DEFAULT_CALENDAR_MAIN_ID =
+  import.meta.env.VITE_GOOGLE_CALENDAR_MAIN ??
+  "c71ad776a29f8953dc6891f8f1ac46d563ac98f55a67a572d3b89cbd96e8c25c@group.calendar.google.com";
+
+if (typeof console !== "undefined") {
+  console.log(
+    "[calendar] import.meta.env.VITE_GOOGLE_CALENDAR_MAIN:",
+    import.meta.env.VITE_GOOGLE_CALENDAR_MAIN ?? "(undefined)",
+  );
+  console.log("[calendar] resolved DEFAULT_CALENDAR_MAIN_ID:", DEFAULT_CALENDAR_MAIN_ID);
+}
+
 const DEFAULT_CALENDAR_IDS: CalendarOpt[] = [
   {
-    id: import.meta.env.VITE_GOOGLE_CALENDAR_MAIN ??
-      "c71ad776a29f8953dc6891f8f1ac46d563ac98f55a67a572d3b89cbd96e8c25c@group.calendar.google.com",
+    id: DEFAULT_CALENDAR_MAIN_ID,
     label: "Principal",
   },
 ];

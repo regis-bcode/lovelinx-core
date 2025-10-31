@@ -38,6 +38,18 @@ const pickFirstDefined = (...values: Array<string | undefined>) => {
   return undefined;
 };
 
+const maskSecret = (value: string | undefined) => {
+  if (!value) {
+    return "(undefined)";
+  }
+
+  if (value.length <= 8) {
+    return value;
+  }
+
+  return `${value.slice(0, 4)}…${value.slice(-4)} (len=${value.length})`;
+};
+
 const resolvedSupabaseUrl =
   pickFirstDefined(
     importMetaEnv?.VITE_SUPABASE_URL,
@@ -89,6 +101,22 @@ if (
 ) {
   console.warn(
     "[supabase] Nenhuma variável de ambiente SUPABASE_ANON_KEY encontrada (aceitas: VITE_SUPABASE_ANON_KEY, PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_ANON_KEY). Usando o fallback embutido; configure uma variável de ambiente para evitar quebras futuras.",
+  );
+}
+
+if (typeof console !== "undefined") {
+  console.log(
+    "[supabase] import.meta.env.VITE_SUPABASE_URL:",
+    importMetaEnv?.VITE_SUPABASE_URL ?? "(undefined)",
+  );
+  console.log(
+    "[supabase] import.meta.env.VITE_SUPABASE_ANON_KEY:",
+    maskSecret(importMetaEnv?.VITE_SUPABASE_ANON_KEY),
+  );
+  console.log("[supabase] resolved SUPABASE_URL:", resolvedSupabaseUrl);
+  console.log(
+    "[supabase] resolved SUPABASE_ANON_KEY:",
+    maskSecret(resolvedSupabaseAnonKey),
   );
 }
 
